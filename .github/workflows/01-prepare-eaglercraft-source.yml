@@ -13,7 +13,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   prepare-source-project:
@@ -176,11 +176,24 @@ jobs:
           test -d prepared-eaglercraft-26.2-u2/game/src/main/java
           test -d prepared-eaglercraft-26.2-u2/target_teavm_wasm_gc
 
-      - name: Upload source project for workflow 02
-        uses: actions/upload-artifact@v4
-        with:
-          name: Eaglercraft-26.2-u2-Source-Project-${{ github.run_id }}
-          path: prepared-eaglercraft-26.2-u2/
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 1
+      - name: Publish extracted source project to repository branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x prepared-eaglercraft-26.2-u2/gradlew
+          test -d prepared-eaglercraft-26.2-u2/game/src/main/java
+          test -d prepared-eaglercraft-26.2-u2/target_teavm_wasm_gc
+
+          # Keep generated build sources in their own branch so the main branch
+          # does not get overwritten by the large reconstructed source tree.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B generated-u2-source
+          git add -f prepared-eaglercraft-26.2-u2
+          if git diff --cached --quiet; then
+            echo "Generated source tree is unchanged; no repository commit needed."
+          else
+            git commit -m "Publish generated Eaglercraft 26.2 U2 source project"
+          fi
+          git push origin generated-u2-source --force
+          echo "Published source project at branch generated-u2-source/prepared-eaglercraft-26.2-u2"
