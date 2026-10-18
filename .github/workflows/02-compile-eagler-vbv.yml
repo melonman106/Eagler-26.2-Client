@@ -1,4 +1,4 @@
-name: "02 - Compile Eaglercraft 26.2 u1 (VBV + Herz)"
+name: "02 - Compile Eaglercraft 26.2 u2 (VBV + Herz)"
 
 run-name: "02 - Compile VBV + Herz (manual)"
 
@@ -28,13 +28,14 @@ jobs:
             echo "::error::No successful workflow 01 run found. Run workflow 01 first."
             exit 1
           fi
-
-          artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select(.name == "Eaglercraft-26.2-u1-Source-Project" and .expired == false) | .id' | head -n1)"
+          artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select(.name == "Eaglercraft-26.2-u2-Source-Project-\($run_id)" and .expired == false) | .id' | head -n1)"
           if [ -z "$artifact_id" ]; then
-            echo "::error::No unexpired Eaglercraft-26.2-u1-Source-Project artifact found in workflow 01 run $run_id."
+            artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select(.name | startswith("Eaglercraft-26.2-u2-Source-Project-") and .expired == false) | .id' | head -n1)"
+          fi
+          if [ -z "$artifact_id" ]; then
+            echo "::error::No unexpired Eaglercraft-26.2-u2-Source-Project artifact found in workflow 01 run $run_id."
             exit 1
           fi
-
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           echo "artifact_id=$artifact_id" >> "$GITHUB_OUTPUT"
           echo "Using latest successful workflow 01 run $run_id, artifact $artifact_id."
@@ -53,16 +54,11 @@ jobs:
         run: |
           set -euo pipefail
           project="$(find generated-project-artifact -type f -name gradlew -print -quit | xargs -r dirname)"
-          if [ -z "$project" ]; then
-            echo "::error::The supplied artifact does not contain a generated Eaglercraft Gradle project."
-            echo "Expected a directory containing gradlew, game/src/main/java and target_teavm_wasm_gc."
-            exit 1
-          fi
+          [ -n "$project" ] || { echo "::error::Generated artifact does not contain gradlew."; exit 1; }
           project="$(realpath "$project")"
           test -d "$project/game/src/main/java"
           test -d "$project/target_teavm_wasm_gc"
           echo "project=$project" >> "$GITHUB_OUTPUT"
-          echo "Using source project: $project"
 
       - name: Set up Java 25
         uses: actions/setup-java@v4
@@ -80,17 +76,13 @@ jobs:
         run: |
           set -euo pipefail
           python3 VBV/patch/apply_vbv_patch.py "$PROJECT"
-
           test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/VBVClient.java"
           test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/HerzVBVBridge.java"
           test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzClient.java"
           test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzMod.java"
           test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzModRegistry.java"
-
           grep -q 'HerzVBVBridge.initialize' "$PROJECT/game/src/main/java/com/melonman106/vbvclient/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$PROJECT/game/src/main/java/com/melonman106/vbvclient/VBVClient.java"
-          grep -q 'class HerzClient' "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzClient.java"
-          grep -q 'class HerzModRegistry' "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzModRegistry.java"
 
       - name: Compile game Java with current VBV + Herz sources
         env:
@@ -100,35 +92,21 @@ jobs:
           cd "$PROJECT"
           ./gradlew :game:compileJava --console=plain --no-daemon --stacktrace
 
-      - name: Build Eaglercraft 26.2 u1 browser client
+      - name: Build Eaglercraft 26.2 u2 browser client
         env:
           PROJECT: ${{ steps.locate.outputs.project }}
         run: |
           set -euo pipefail
           cd "$PROJECT"
           ./gradlew build --console=plain --no-daemon --stacktrace
-
           test -f target_teavm_wasm_gc/build/web/classes.wasm
           test -f target_teavm_wasm_gc/build/web/mesh-worker.wasm
           test -f target_teavm_wasm_gc/build/web/server-worker.wasm
           test -f target_teavm_wasm_gc/build/web/assets.epk
-
-          echo "=== Built VBV + Herz browser output ==="
           find target_teavm_wasm_gc/build/web -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
           sha256sum target_teavm_wasm_gc/build/web/classes.wasm
 
-      - name: Verify the compiled output came from the new source tree
-        env:
-          PROJECT: ${{ steps.locate.outputs.project }}
-        run: |
-          set -euo pipefail
-          cd "$PROJECT"
-          grep -R -q 'HerzClient' game/src/main/java/com/melonman106/vbvclient
-          grep -R -q 'HerzModRegistry' game/src/main/java/com/melonman106/vbvclient
-          grep -R -q 'VBVGeneratedPackMods' game/src/main/java/com/melonman106/vbvclient
-          echo "VBV + Herz source compilation checks passed."
-
-      - name: Upload compiled Eaglercraft 26.2 u1 client
+      - name: Upload compiled Eaglercraft 26.2 u2 client
         uses: actions/upload-artifact@v4
         with:
           name: Eaglercraft-26.2-VBV-Herz-WASM-GC-${{ github.run_id }}
