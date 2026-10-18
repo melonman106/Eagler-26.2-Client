@@ -41,9 +41,13 @@ if TARGET is None:
 print("Using game source root:", TARGET)
 DEST = TARGET / "com/melonman106/vbvclient"
 DEST.mkdir(parents=True, exist_ok=True)
-for src in SOURCE.glob("*.java"):
-    shutil.copy2(src, DEST / src.name)
-print("Copied", len(list(SOURCE.glob('*.java'))), "VBV files to", DEST)
+source_files = sorted(SOURCE.rglob("*.java"))
+for src in source_files:
+    relative = src.relative_to(SOURCE)
+    target = DEST / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, target)
+print("Copied", len(source_files), "VBV Java files (including subpackages) to", DEST)
 
 REPO_ROOT = CLIENT_SIDE.parent
 MODS_PACK = REPO_ROOT / "ModsPack"
