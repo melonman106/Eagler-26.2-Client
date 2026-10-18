@@ -28,10 +28,7 @@ jobs:
             echo "::error::No successful workflow 01 run found. Run workflow 01 first."
             exit 1
           fi
-          artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select(.name == "Eaglercraft-26.2-u2-Source-Project-\($run_id)" and .expired == false) | .id' | head -n1)"
-          if [ -z "$artifact_id" ]; then
-            artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select(.name | startswith("Eaglercraft-26.2-u2-Source-Project-") and .expired == false) | .id' | head -n1)"
-          fi
+          artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select((.name | startswith("Eaglercraft-26.2-u2-Source-Project-")) and .expired == false) | .id' | head -n1)"
           if [ -z "$artifact_id" ]; then
             echo "::error::No unexpired Eaglercraft-26.2-u2-Source-Project artifact found in workflow 01 run $run_id."
             exit 1
