@@ -1,0 +1,160 @@
+C	com.google.common.reflect.TypeToken
+C	com.mojang.datafixers.FunctionType
+C	com.mojang.datafixers.FunctionType$Instance
+C	com.mojang.datafixers.FunctionType$Instance$Mu
+C	com.mojang.datafixers.FunctionType$Instance$Mu$1
+C	com.mojang.datafixers.FunctionType$Instance$Mu$1
+C	com.mojang.datafixers.FunctionType$Mu
+C	com.mojang.datafixers.FunctionType$ReaderMu
+C	com.mojang.datafixers.OpticFinder
+C	com.mojang.datafixers.Typed
+C	com.mojang.datafixers.Typed$1
+C	com.mojang.datafixers.Typed$1
+C	com.mojang.datafixers.Typed$2
+C	com.mojang.datafixers.Typed$2
+C	com.mojang.datafixers.Typed$3
+C	com.mojang.datafixers.Typed$3
+C	com.mojang.datafixers.Typed$4
+C	com.mojang.datafixers.Typed$4
+C	com.mojang.datafixers.Typed$5
+C	com.mojang.datafixers.Typed$5
+C	com.mojang.datafixers.Typed$6
+C	com.mojang.datafixers.Typed$6
+C	com.mojang.datafixers.TypedOptic
+C	com.mojang.datafixers.kinds.App
+C	com.mojang.datafixers.kinds.App2
+C	com.mojang.datafixers.kinds.CartesianLike
+C	com.mojang.datafixers.kinds.CartesianLike$Mu
+C	com.mojang.datafixers.kinds.CocartesianLike
+C	com.mojang.datafixers.kinds.CocartesianLike$Mu
+C	com.mojang.datafixers.kinds.Functor
+C	com.mojang.datafixers.kinds.K1
+C	com.mojang.datafixers.kinds.K2
+C	com.mojang.datafixers.kinds.Kind2
+C	com.mojang.datafixers.kinds.Kind2$Mu
+C	com.mojang.datafixers.kinds.Traversable
+C	com.mojang.datafixers.kinds.Traversable$Mu
+C	com.mojang.datafixers.optics.Forget$Instance
+C	com.mojang.datafixers.optics.Forget$Instance$Mu
+C	com.mojang.datafixers.optics.ForgetOpt$Instance
+C	com.mojang.datafixers.optics.ForgetOpt$Instance$Mu
+C	com.mojang.datafixers.optics.Procompose
+C	com.mojang.datafixers.optics.Procompose$Mu
+C	com.mojang.datafixers.optics.ReForgetC$Instance
+C	com.mojang.datafixers.optics.ReForgetC$Instance$Mu
+C	com.mojang.datafixers.optics.Wander
+C	com.mojang.datafixers.optics.profunctors.AffineP
+C	com.mojang.datafixers.optics.profunctors.AffineP$Mu
+C	com.mojang.datafixers.optics.profunctors.AffineP$Mu$1
+C	com.mojang.datafixers.optics.profunctors.AffineP$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Cartesian
+C	com.mojang.datafixers.optics.profunctors.Cartesian$Mu
+C	com.mojang.datafixers.optics.profunctors.Cartesian$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Cartesian$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Closed
+C	com.mojang.datafixers.optics.profunctors.Closed$Mu
+C	com.mojang.datafixers.optics.profunctors.Closed$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Closed$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Cocartesian
+C	com.mojang.datafixers.optics.profunctors.Cocartesian$Mu
+C	com.mojang.datafixers.optics.profunctors.Cocartesian$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Cocartesian$Mu$1
+C	com.mojang.datafixers.optics.profunctors.FunctorProfunctor
+C	com.mojang.datafixers.optics.profunctors.FunctorProfunctor$Mu
+C	com.mojang.datafixers.optics.profunctors.Mapping
+C	com.mojang.datafixers.optics.profunctors.Mapping$Mu
+C	com.mojang.datafixers.optics.profunctors.MonoidProfunctor
+C	com.mojang.datafixers.optics.profunctors.MonoidProfunctor$Mu
+C	com.mojang.datafixers.optics.profunctors.Monoidal
+C	com.mojang.datafixers.optics.profunctors.Monoidal$Mu
+C	com.mojang.datafixers.optics.profunctors.Profunctor
+C	com.mojang.datafixers.optics.profunctors.Profunctor$Mu
+C	com.mojang.datafixers.optics.profunctors.Profunctor$Mu$1
+C	com.mojang.datafixers.optics.profunctors.Profunctor$Mu$1
+C	com.mojang.datafixers.optics.profunctors.TraversalP
+C	com.mojang.datafixers.optics.profunctors.TraversalP$Mu
+C	com.mojang.datafixers.optics.profunctors.TraversalP$Mu$1
+C	com.mojang.datafixers.optics.profunctors.TraversalP$Mu$1
+C	com.mojang.datafixers.types.Type
+C	com.mojang.datafixers.util.Either
+C	com.mojang.datafixers.util.Pair
+C	com.mojang.serialization.DataResult
+C	com.mojang.serialization.Dynamic
+C	com.mojang.serialization.DynamicOps
+C	java.lang.Class
+C	java.lang.Enum
+C	java.lang.Object
+C	java.lang.Void
+C	java.lang.reflect.Method
+C	java.util.List
+C	java.util.Optional
+C	java.util.function.Function
+C	java.util.function.Supplier
+M	com.mojang.datafixers.FunctionType	apply(Ljava/lang/Object;)Ljava/lang/Object;
+M	com.mojang.datafixers.FunctionType	create(Ljava/util/function/Function;)Lcom/mojang/datafixers/FunctionType;
+M	com.mojang.datafixers.FunctionType	unbox(Lcom/mojang/datafixers/kinds/App2;)Ljava/util/function/Function;
+M	com.mojang.datafixers.FunctionType	unbox(Lcom/mojang/datafixers/kinds/App;)Ljava/util/function/Function;
+M	com.mojang.datafixers.FunctionType$Instance	cap(Lcom/mojang/datafixers/optics/Procompose;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	dimap(Ljava/util/function/Function;Ljava/util/function/Function;)Lcom/mojang/datafixers/FunctionType;
+M	com.mojang.datafixers.FunctionType$Instance	empty()Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	first(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	left(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	mapping(Lcom/mojang/datafixers/kinds/Functor;Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	par(Lcom/mojang/datafixers/kinds/App2;Ljava/util/function/Supplier;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	plus(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	right(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	second(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	wander(Lcom/mojang/datafixers/optics/Wander;Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.FunctionType$Instance	zero(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.Typed	get(Lcom/mojang/datafixers/OpticFinder;)Ljava/lang/Object;
+M	com.mojang.datafixers.Typed	getAll(Lcom/mojang/datafixers/TypedOptic;)Ljava/util/List;
+M	com.mojang.datafixers.Typed	getAllTyped(Lcom/mojang/datafixers/OpticFinder;)Ljava/util/List;
+M	com.mojang.datafixers.Typed	getOps()Lcom/mojang/serialization/DynamicOps;
+M	com.mojang.datafixers.Typed	getOptional(Lcom/mojang/datafixers/OpticFinder;)Ljava/util/Optional;
+M	com.mojang.datafixers.Typed	getOptionalTyped(Lcom/mojang/datafixers/OpticFinder;)Ljava/util/Optional;
+M	com.mojang.datafixers.Typed	getOrCreate(Lcom/mojang/datafixers/OpticFinder;)Ljava/lang/Object;
+M	com.mojang.datafixers.Typed	getOrCreateTyped(Lcom/mojang/datafixers/OpticFinder;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	getOrDefault(Lcom/mojang/datafixers/OpticFinder;Ljava/lang/Object;)Ljava/lang/Object;
+M	com.mojang.datafixers.Typed	getType()Lcom/mojang/datafixers/types/Type;
+M	com.mojang.datafixers.Typed	getTyped(Lcom/mojang/datafixers/OpticFinder;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	getValue()Ljava/lang/Object;
+M	com.mojang.datafixers.Typed	inj1(Lcom/mojang/datafixers/types/Type;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	inj2(Lcom/mojang/datafixers/types/Type;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	out()Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	pair(Lcom/mojang/datafixers/Typed;Lcom/mojang/datafixers/Typed;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	set(Lcom/mojang/datafixers/OpticFinder;Lcom/mojang/datafixers/Typed;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	set(Lcom/mojang/datafixers/OpticFinder;Lcom/mojang/datafixers/types/Type;Ljava/lang/Object;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	set(Lcom/mojang/datafixers/OpticFinder;Ljava/lang/Object;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	setCap(Lcom/mojang/datafixers/TypedOptic;Lcom/mojang/datafixers/Typed;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	update(Lcom/mojang/datafixers/OpticFinder;Lcom/mojang/datafixers/types/Type;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	update(Lcom/mojang/datafixers/OpticFinder;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateCap(Lcom/mojang/datafixers/TypedOptic;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateRecursive(Lcom/mojang/datafixers/OpticFinder;Lcom/mojang/datafixers/types/Type;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateRecursive(Lcom/mojang/datafixers/OpticFinder;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateRecursiveTyped(Lcom/mojang/datafixers/OpticFinder;Lcom/mojang/datafixers/types/Type;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateRecursiveTyped(Lcom/mojang/datafixers/OpticFinder;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateTyped(Lcom/mojang/datafixers/OpticFinder;Lcom/mojang/datafixers/types/Type;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	updateTyped(Lcom/mojang/datafixers/OpticFinder;Ljava/util/function/Function;)Lcom/mojang/datafixers/Typed;
+M	com.mojang.datafixers.Typed	write()Lcom/mojang/serialization/DataResult;
+M	com.mojang.datafixers.optics.profunctors.Cartesian	first(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Cartesian	second(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Cartesian	toFP2()Lcom/mojang/datafixers/optics/profunctors/FunctorProfunctor;
+M	com.mojang.datafixers.optics.profunctors.Cartesian	unbox(Lcom/mojang/datafixers/kinds/App;)Lcom/mojang/datafixers/optics/profunctors/Cartesian;
+M	com.mojang.datafixers.optics.profunctors.Closed	closed(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Closed	unbox(Lcom/mojang/datafixers/kinds/App;)Lcom/mojang/datafixers/optics/profunctors/Closed;
+M	com.mojang.datafixers.optics.profunctors.Cocartesian	left(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Cocartesian	right(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Cocartesian	toFP()Lcom/mojang/datafixers/optics/profunctors/FunctorProfunctor;
+M	com.mojang.datafixers.optics.profunctors.Cocartesian	unbox(Lcom/mojang/datafixers/kinds/App;)Lcom/mojang/datafixers/optics/profunctors/Cocartesian;
+M	com.mojang.datafixers.optics.profunctors.Profunctor	dimap(Lcom/mojang/datafixers/kinds/App2;Ljava/util/function/Function;Ljava/util/function/Function;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Profunctor	dimap(Ljava/util/function/Function;Ljava/util/function/Function;)Lcom/mojang/datafixers/FunctionType;
+M	com.mojang.datafixers.optics.profunctors.Profunctor	dimap(Ljava/util/function/Supplier;Ljava/util/function/Function;Ljava/util/function/Function;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Profunctor	lmap(Lcom/mojang/datafixers/kinds/App2;Ljava/util/function/Function;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Profunctor	rmap(Lcom/mojang/datafixers/kinds/App2;Ljava/util/function/Function;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.Profunctor	unbox(Lcom/mojang/datafixers/kinds/App;)Lcom/mojang/datafixers/optics/profunctors/Profunctor;
+M	com.mojang.datafixers.optics.profunctors.TraversalP	first(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.TraversalP	left(Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.TraversalP	toFP3()Lcom/mojang/datafixers/optics/profunctors/FunctorProfunctor;
+M	com.mojang.datafixers.optics.profunctors.TraversalP	traverse(Lcom/mojang/datafixers/kinds/Traversable;Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
+M	com.mojang.datafixers.optics.profunctors.TraversalP	unbox(Lcom/mojang/datafixers/kinds/App;)Lcom/mojang/datafixers/optics/profunctors/TraversalP;
+M	com.mojang.datafixers.optics.profunctors.TraversalP	wander(Lcom/mojang/datafixers/optics/Wander;Lcom/mojang/datafixers/kinds/App2;)Lcom/mojang/datafixers/kinds/App2;
