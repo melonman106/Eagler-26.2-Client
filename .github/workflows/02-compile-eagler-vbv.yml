@@ -81,24 +81,55 @@ jobs:
         run: |
           set -euo pipefail
           cd "$PROJECT"
+
           # These upstream modules contain test sources but Gradle discovers no tests;
           # skip only those misconfigured test tasks while retaining the remaining build checks.
           ./gradlew build -x :platform:test -x :platform-teavm:test --console=plain --no-daemon --stacktrace
-          test -f target_teavm_wasm_gc/build/web/classes.wasm
-          test -f target_teavm_wasm_gc/build/web/mesh-worker.wasm
-          test -f target_teavm_wasm_gc/build/web/server-worker.wasm
-          test -f target_teavm_wasm_gc/build/web/assets.epk
-          find target_teavm_wasm_gc/build/web -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
-          sha256sum target_teavm_wasm_gc/build/web/classes.wasm
+
+          # The normal Gradle lifecycle does not depend on the TeaVM generateWasmGC
+          # tasks in this U2 source tree. Explicitly invoke all three browser WASM
+          # link tasks; otherwise `gradlew build` can succeed without producing any
+          # classes.wasm / mesh-worker.wasm / server-worker.wasm files.
+          ./gradlew \
+            :target_teavm_wasm_gc:generateWasmGC \
+            :target_teavm_wasm_gc_mesh:generateWasmGC \
+            :target_teavm_wasm_gc_server:generateWasmGC \
+            --console=plain --no-daemon --stacktrace
+
+          # Collect the actual TeaVM outputs by filename instead of assuming the
+          # Gradle task output directory. This also makes the workflow resilient to
+          # TeaVM output-directory changes between U2 patcher revisions.
+          rm -rf compiled-web
+          mkdir -p compiled-web
+
+          find . -type f -name 'classes.wasm' -print
+          find . -type f -name 'mesh-worker.wasm' -print
+          find . -type f -name 'server-worker.wasm' -print
+          find . -type f -name 'assets.epk' -print
+
+          classes_file="$(find target_teavm_wasm_gc -type f -name 'classes.wasm' -print -quit)"
+          mesh_file="$(find target_teavm_wasm_gc_mesh -type f -name 'mesh-worker.wasm' -print -quit)"
+          server_file="$(find target_teavm_wasm_gc_server -type f -name 'server-worker.wasm' -print -quit)"
+          assets_file="$(find . -type f -name 'assets.epk' -print -quit)"
+
+          [ -n "$classes_file" ] || { echo "::error::TeaVM did not produce classes.wasm"; exit 1; }
+          [ -n "$mesh_file" ] || { echo "::error::TeaVM did not produce mesh-worker.wasm"; exit 1; }
+          [ -n "$server_file" ] || { echo "::error::TeaVM did not produce server-worker.wasm"; exit 1; }
+          [ -n "$assets_file" ] || { echo "::error::No assets.epk was produced/found after the U2 build"; exit 1; }
+
+          cp "$classes_file" compiled-web/classes.wasm
+          cp "$mesh_file" compiled-web/mesh-worker.wasm
+          cp "$server_file" compiled-web/server-worker.wasm
+          cp "$assets_file" compiled-web/assets.epk
+
+          find compiled-web -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+          sha256sum compiled-web/classes.wasm
 
       - name: Upload compiled Eaglercraft 26.2 u2 client
         uses: actions/upload-artifact@v4
         with:
           name: Eaglercraft-26.2-VBV-Herz-WASM-GC-${{ github.run_id }}
-          path: |
-            ${{ steps.locate.outputs.project }}/target_teavm_wasm_gc/build/web/**
-            ${{ steps.locate.outputs.project }}/target_teavm_wasm_gc_server/build/web/**
-            ${{ steps.locate.outputs.project }}/target_teavm_wasm_gc_mesh/build/web/**
+          path: compiled-web/**
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
