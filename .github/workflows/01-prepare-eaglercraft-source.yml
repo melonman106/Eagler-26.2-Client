@@ -188,7 +188,13 @@ jobs:
           # does not get overwritten by the large reconstructed source tree.
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Move the generated tree outside the checkout before switching to
+          # the publication branch, which may already track an older tree.
+          tar -czf "$RUNNER_TEMP/eaglercraft-u2-source.tar.gz" prepared-eaglercraft-26.2-u2
           git checkout -B generated-u2-source
+          rm -rf prepared-eaglercraft-26.2-u2
+          tar -xzf "$RUNNER_TEMP/eaglercraft-u2-source.tar.gz" -C .
           git add -f prepared-eaglercraft-26.2-u2
           if git diff --cached --quiet; then
             echo "Generated source tree is unchanged; no repository commit needed."
