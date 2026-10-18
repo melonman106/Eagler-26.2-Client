@@ -1,61 +1,39 @@
 name: "02 - Compile Eaglercraft 26.2 u2 (VBV + Herz)"
 
-run-name: "02 - Compile VBV + Herz (manual)"
+run-name: "02 - Compile VBV + Herz from repository source"
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve latest successful workflow 01 source artifact
-        id: source
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          run_id="$(gh api "repos/${{ github.repository }}/actions/workflows/01-prepare-eaglercraft-source.yml/runs?status=success&per_page=20" --jq '.workflow_runs | map(select(.conclusion == "success")) | .[0].id // empty')"
-          if [ -z "$run_id" ]; then
-            echo "::error::No successful workflow 01 run found. Run workflow 01 first."
-            exit 1
-          fi
-          artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq '.artifacts[] | select((.name | startswith("Eaglercraft-26.2-u2-Source-Project-")) and .expired == false) | .id' | head -n1)"
-          if [ -z "$artifact_id" ]; then
-            echo "::error::No unexpired Eaglercraft-26.2-u2-Source-Project artifact found in workflow 01 run $run_id."
-            exit 1
-          fi
-          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "artifact_id=$artifact_id" >> "$GITHUB_OUTPUT"
-          echo "Using latest successful workflow 01 run $run_id, artifact $artifact_id."
-
-      - name: Download generated Eaglercraft 26.2 source project
-        uses: actions/download-artifact@v4
+      - name: Download generated source project from repository branch
+        uses: actions/checkout@v4
         with:
-          run-id: ${{ steps.source.outputs.run_id }}
-          artifact-ids: ${{ steps.source.outputs.artifact_id }}
-          github-token: ${{ github.token }}
-          path: generated-project-artifact
+          ref: generated-u2-source
+          fetch-depth: 1
 
-      - name: Locate source project
+      - name: Locate published source project
         id: locate
         shell: bash
         run: |
           set -euo pipefail
-          project="$(find generated-project-artifact -type f -name gradlew -print -quit | xargs -r dirname)"
-          [ -n "$project" ] || { echo "::error::Generated artifact does not contain gradlew."; exit 1; }
-          project="$(realpath "$project")"
+          project="$PWD/prepared-eaglercraft-26.2-u2"
+          if [ ! -x "$project/gradlew" ]; then
+            echo "::error::The source project is not published on generated-u2-source. Run workflow 01 first."
+            echo "Expected path: $project"
+            exit 1
+          fi
           test -d "$project/game/src/main/java"
           test -d "$project/target_teavm_wasm_gc"
           echo "project=$project" >> "$GITHUB_OUTPUT"
+          echo "Using source downloaded from repository branch generated-u2-source: $project"
 
       - name: Set up Java 25
         uses: actions/setup-java@v4
