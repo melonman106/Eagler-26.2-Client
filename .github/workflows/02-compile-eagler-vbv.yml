@@ -51,13 +51,21 @@ jobs:
         run: |
           set -euo pipefail
           python3 VBV/patch/apply_vbv_patch.py "$PROJECT"
-          test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/VBVClient.java"
-          test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/HerzVBVBridge.java"
-          test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzClient.java"
-          test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzMod.java"
-          test -f "$PROJECT/game/src/main/java/com/melonman106/vbvclient/herz/HerzModRegistry.java"
-          grep -q 'HerzVBVBridge.initialize' "$PROJECT/game/src/main/java/com/melonman106/vbvclient/VBVClient.java"
-          grep -q 'HerzVBVBridge.register' "$PROJECT/game/src/main/java/com/melonman106/vbvclient/VBVClient.java"
+          vbv_src="$PROJECT/game/src/main/java/com/melonman106/vbvclient"
+          for source in VBVClient.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java; do
+            if [ ! -f "$vbv_src/$source" ]; then
+              echo "::error::Required VBV/Herz source was not copied: $vbv_src/$source"
+              exit 1
+            fi
+          done
+          if ! grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"; then
+            echo "::error::VBVClient.init() is missing HerzVBVBridge.initialize()."
+            exit 1
+          fi
+          if ! grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"; then
+            echo "::error::VBVClient.registerMod() is missing HerzVBVBridge.register()."
+            exit 1
+          fi
 
       - name: Compile game Java with current VBV + Herz sources
         env:
