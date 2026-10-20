@@ -1,6 +1,6 @@
-name: "02 - Compile Eaglercraft 26.2 u2 (VBV + Herz)"
+name: "02 - Build Eaglercraft 26.2 u2 (VBV + Herz)"
 
-run-name: "02 - Compile VBV + Herz from repository source"
+run-name: "02 - Build VBV + Herz from known-good U2 workspace"
 
 on:
   workflow_dispatch:
@@ -8,32 +8,34 @@ on:
 permissions:
   contents: read
 
+env:
+  U2_REPO: "https://github.com/CynTheSolveroftheabsolutefabric/Eaglercraft-26.2-u2-workspace.git"
+  U2_COMMIT: "f0dafd1e3c1fb39006735ffc0bc6fd879fa98de3"
+
 jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Download generated source project from repository branch
+      - name: Checkout this mod project
         uses: actions/checkout@v4
         with:
-          ref: generated-u2-source
+          ref: main
           fetch-depth: 1
 
-      - name: Locate published source project
-        id: locate
+      - name: Checkout known-good Eaglercraft 26.2 u2 workspace
         shell: bash
         run: |
           set -euo pipefail
-          project="$PWD/prepared-eaglercraft-26.2-u2"
-          if [ ! -x "$project/gradlew" ]; then
-            echo "::error::The source project is not published on generated-u2-source. Run workflow 01 first."
-            echo "Expected path: $project"
-            exit 1
-          fi
-          test -d "$project/game/src/main/java"
-          test -d "$project/target_teavm_wasm_gc"
-          echo "project=$project" >> "$GITHUB_OUTPUT"
-          echo "Using source downloaded from repository branch generated-u2-source: $project"
+          git clone --no-tags --filter=blob:none "$U2_REPO" eaglercraft-u2
+          cd eaglercraft-u2
+          git fetch --no-tags --depth 1 origin "$U2_COMMIT"
+          git checkout --detach "$U2_COMMIT"
+          test -x gradlew
+          test -d game/src/main/java
+          test -f wasm-toolchain/build-single-html.js
+          test -f package.json
+          echo "Using U2 workspace commit: $(git rev-parse HEAD)"
 
       - name: Set up Java 25
         uses: actions/setup-java@v4
@@ -42,94 +44,72 @@ jobs:
           java-version: '25'
           cache: gradle
 
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: eaglercraft-u2/package.json
+
       - name: Make Gradle executable
-        run: chmod +x "${{ steps.locate.outputs.project }}/gradlew"
+        run: chmod +x eaglercraft-u2/gradlew
 
-      - name: Apply VBV + Herz 26.2 source patch
-        env:
-          PROJECT: ${{ steps.locate.outputs.project }}
+      - name: Inject VBV + Herz and embedded resource-pack mods
+        shell: bash
         run: |
           set -euo pipefail
-          python3 VBV/patch/apply_vbv_patch.py "$PROJECT"
-          vbv_src="$PROJECT/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java; do
-            if [ ! -f "$vbv_src/$source" ]; then
-              echo "::error::Required VBV/Herz source was not copied: $vbv_src/$source"
+          python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
+
+          vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
+          for source in VBVClient.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+            test -f "$vbv_src/$source" || {
+              echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"
               exit 1
-            fi
+            }
           done
-          if ! grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"; then
-            echo "::error::VBVClient.init() is missing HerzVBVBridge.initialize()."
-            exit 1
-          fi
-          if ! grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"; then
-            echo "::error::VBVClient.registerMod() is missing HerzVBVBridge.register()."
-            exit 1
-          fi
 
-      - name: Compile game Java with current VBV + Herz sources
+          grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
+          grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
+
+          test -d eaglercraft-u2/game/src/main/resources/vbvclient/mods
+          find eaglercraft-u2/game/src/main/resources/vbvclient/mods -maxdepth 2 -type f -print | sort
+
+      - name: Compile game Java after injection
+        working-directory: eaglercraft-u2
+        run: ./gradlew :game:compileJava --console=plain --no-daemon --stacktrace
+
+      - name: Install U2 browser packaging dependency
+        working-directory: eaglercraft-u2
+        run: npm ci --ignore-scripts
+
+      - name: Build standalone Eaglercraft 26.2 u2 HTML
+        working-directory: eaglercraft-u2
         env:
-          PROJECT: ${{ steps.locate.outputs.project }}
+          EAGLER_BUILD_CAP_MIB: "13312"
         run: |
           set -euo pipefail
-          cd "$PROJECT"
-          ./gradlew :game:compileJava --console=plain --no-daemon --stacktrace
+          npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -q 'eag-inline-assets' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
-      - name: Build Eaglercraft 26.2 u2 browser client
-        env:
-          PROJECT: ${{ steps.locate.outputs.project }}
-        run: |
-          set -euo pipefail
-          cd "$PROJECT"
-
-          # These upstream modules contain test sources but Gradle discovers no tests;
-          # skip only those misconfigured test tasks while retaining the remaining build checks.
-          ./gradlew build -x :platform:test -x :platform-teavm:test --console=plain --no-daemon --stacktrace
-
-          # The normal Gradle lifecycle does not depend on the TeaVM generateWasmGC
-          # tasks in this U2 source tree. Explicitly invoke all three browser WASM
-          # link tasks; otherwise `gradlew build` can succeed without producing any
-          # classes.wasm / mesh-worker.wasm / server-worker.wasm files.
-          ./gradlew \
-            :target_teavm_wasm_gc:generateWasmGC \
-            :target_teavm_wasm_gc_mesh:generateWasmGC \
-            :target_teavm_wasm_gc_server:generateWasmGC \
-            --console=plain --no-daemon --stacktrace
-
-          # Collect the actual TeaVM outputs by filename instead of assuming the
-          # Gradle task output directory. This also makes the workflow resilient to
-          # TeaVM output-directory changes between U2 patcher revisions.
-          rm -rf compiled-web
-          mkdir -p compiled-web
-
-          find . -type f -name 'classes.wasm' -print
-          find . -type f -name 'mesh-worker.wasm' -print
-          find . -type f -name 'server-worker.wasm' -print
-          find . -type f -name 'assets.epk' -print
-
-          classes_file="$(find target_teavm_wasm_gc -type f -name 'classes.wasm' -print -quit)"
-          mesh_file="$(find target_teavm_wasm_gc_mesh -type f -name 'mesh-worker.wasm' -print -quit)"
-          server_file="$(find target_teavm_wasm_gc_server -type f -name 'server-worker.wasm' -print -quit)"
-          assets_file="$(find . -type f -name 'assets.epk' -print -quit)"
-
-          [ -n "$classes_file" ] || { echo "::error::TeaVM did not produce classes.wasm"; exit 1; }
-          [ -n "$mesh_file" ] || { echo "::error::TeaVM did not produce mesh-worker.wasm"; exit 1; }
-          [ -n "$server_file" ] || { echo "::error::TeaVM did not produce server-worker.wasm"; exit 1; }
-          [ -n "$assets_file" ] || { echo "::error::No assets.epk was produced/found after the U2 build"; exit 1; }
-
-          cp "$classes_file" compiled-web/classes.wasm
-          cp "$mesh_file" compiled-web/mesh-worker.wasm
-          cp "$server_file" compiled-web/server-worker.wasm
-          cp "$assets_file" compiled-web/assets.epk
-
-          find compiled-web -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
-          sha256sum compiled-web/classes.wasm
-
-      - name: Upload compiled Eaglercraft 26.2 u2 client
+      - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
-          name: Eaglercraft-26.2-VBV-Herz-WASM-GC-${{ github.run_id }}
-          path: compiled-web/**
+          name: Eaglercraft-26.2-VBV-Herz-Single-HTML-${{ github.run_id }}
+          path: eaglercraft-26.2-vbv-herz.html
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload raw browser website too
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-Web-${{ github.run_id }}
+          path: eaglercraft-u2/target_teavm_wasm_gc/build/web/**
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
