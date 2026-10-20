@@ -52,12 +52,6 @@ jobs:
           cache-dependency-path: eaglercraft-u2/package.json
 
       - name: Make Gradle executable
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-
-      - name: Make Gradle executable
         run: chmod +x eaglercraft-u2/gradlew
 
       - name: Inject VBV + Herz and embedded resource-pack mods
