@@ -85,6 +85,11 @@ jobs:
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
         env:
+          # Cyn's standalone linker enforces: CAP >= HEAP + 2048 MiB.
+          # The runner reports about 14.5 GiB available, so use the maximum
+          # supported 13 GiB RSS cap with an 11 GiB Java heap.
+          EAGLER_LINK_CAP_MIB: "13312"
+          EAGLER_LINK_HEAP_MIB: "11264"
           EAGLER_BUILD_CAP_MIB: "13312"
         run: |
           set -euo pipefail
