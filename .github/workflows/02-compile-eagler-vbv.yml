@@ -52,6 +52,12 @@ jobs:
           cache-dependency-path: eaglercraft-u2/package.json
 
       - name: Make Gradle executable
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Make Gradle executable
         run: chmod +x eaglercraft-u2/gradlew
 
       - name: Inject VBV + Herz and embedded resource-pack mods
@@ -81,6 +87,46 @@ jobs:
       - name: Install U2 browser packaging dependency
         working-directory: eaglercraft-u2
         run: npm ci --ignore-scripts
+
+      - name: Restore bundled U2 sounds archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          web="eaglercraft-u2/target_teavm_wasm_gc/build/web"
+          if [ -s "$web/sounds.epk" ]; then
+            echo "sounds.epk already present"
+            exit 0
+          fi
+
+          setup_url="https://github.com/melonman106/Eagler-26.2-Client/releases/download/Cleit/Eaglercraft-26.2-u2-Setup.jar"
+          mkdir -p u2-audio-kit
+          curl -fL --retry 3 --retry-delay 2 "$setup_url" -o u2-setup.jar
+          rm -rf u2-audio-kit/*
+          java -jar u2-setup.jar --install-dir u2-audio-kit
+
+          sound_file="$(find u2-audio-kit -type f \( -iname 'sounds.epk' -o -iname '*sounds*.epk' \) -print -quit)"
+          if [ -n "$sound_file" ]; then
+            cp "$sound_file" "$web/sounds.epk"
+          else
+            audio_zip="$(find u2-audio-kit -type f \( -iname '*audio*.zip' -o -iname '*sound*.zip' \) -print -quit)"
+            if [ -n "$audio_zip" ]; then
+              rm -rf u2-audio-extracted
+              mkdir -p u2-audio-extracted
+              unzip -q "$audio_zip" -d u2-audio-extracted
+              sound_file="$(find u2-audio-extracted -type f \( -iname 'sounds.epk' -o -iname '*sounds*.epk' \) -print -quit)"
+              if [ -n "$sound_file" ]; then
+                cp "$sound_file" "$web/sounds.epk"
+              fi
+            fi
+          fi
+
+          test -s "$web/sounds.epk" || {
+            echo "::error::U2 bundled audio extraction did not provide sounds.epk"
+            echo "Files found in setup kit:"
+            find u2-audio-kit -type f -maxdepth 6 -print | sort | head -200
+            exit 1
+          }
+          echo "Restored sounds.epk: $(stat -c%s "$web/sounds.epk") bytes"
 
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
