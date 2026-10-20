@@ -1,25 +1,15 @@
-name: "03 - Package Eaglercraft 26.2 u2 (Single HTML)"
+name: "03 - Retrieve Eaglercraft 26.2 u2 (Single HTML)"
 
-run-name: "03 - Package single HTML (manual)"
+run-name: "03 - Retrieve latest VBV + Herz single HTML"
 
 on:
   workflow_dispatch:
     inputs:
       compile_run_id:
-        description: "Run ID from successful workflow 02 - Compile Eaglercraft 26.2 u2 (VBV + Herz)"
+        description: "Run ID from workflow 02. Leave blank to use the newest successful build."
         required: false
         type: string
         default: ""
-      with_music:
-        description: "Embed optional music into the single HTML"
-        required: false
-        type: boolean
-        default: false
-      fast_package:
-        description: "Use faster Brotli packaging"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -29,18 +19,13 @@ env:
   GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
-  package-single-html:
+  retrieve-single-html:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Resolve compile workflow run
+      - name: Resolve successful U2 build
         id: compile
         env:
           REQUESTED_RUN_ID: ${{ inputs.compile_run_id }}
@@ -53,60 +38,29 @@ jobs:
             run_id="$(gh api "repos/${{ github.repository }}/actions/workflows/02-compile-eagler-vbv.yml/runs?status=success&per_page=20" --jq '.workflow_runs | map(select(.conclusion == "success")) | .[0].id // empty')"
           fi
           [ -n "$run_id" ] || { echo "::error::No successful workflow 02 run found. Run workflow 02 first."; exit 1; }
-          artifact_name="Eaglercraft-26.2-VBV-Herz-WASM-GC-$run_id"
+
+          artifact_name="Eaglercraft-26.2-VBV-Herz-Single-HTML-$run_id"
           artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"$artifact_name\" and .expired == false) | .id" | head -n1)"
           [ -n "$artifact_id" ] || { echo "::error::No unexpired $artifact_name artifact found in workflow run $run_id."; exit 1; }
+
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
 
-      - name: Download compiled VBV + Herz browser output
+      - name: Download standalone HTML
         env:
           RUN_ID: ${{ steps.compile.outputs.run_id }}
           ARTIFACT_NAME: ${{ steps.compile.outputs.artifact_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir compiled-web
-          test -f compiled-web/classes.wasm
-          test -f compiled-web/mesh-worker.wasm
-          test -f compiled-web/server-worker.wasm
-          test -f compiled-web/assets.epk
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir output
+          test -s output/eaglercraft-26.2-vbv-herz.html
 
-      - name: Locate the U2 single-HTML packager
-        id: packager
-        shell: bash
-        run: |
-          set -euo pipefail
-          script="$(find U2-Patcher -type f -path '*/wasm-toolchain/build-single-html.js' -print -quit 2>/dev/null || true)"
-          if [ -z "$script" ]; then
-            script="$(find u1-1-source -type f -path '*/wasm-toolchain/build-single-html.js' -print -quit 2>/dev/null || true)"
-          fi
-          [ -n "$script" ] || { echo "::error::No build-single-html.js found in U2-Patcher or legacy u1-1-source."; exit 1; }
-          echo "script=$PWD/$script" >> "$GITHUB_OUTPUT"
-          echo "Using packager: $script"
-
-      - name: Package compiled client into one HTML
-        env:
-          PACKAGER: ${{ steps.packager.outputs.script }}
-        run: |
-          set -euo pipefail
-          args=(--skip-build --output eaglercraft-26.2-vbv-herz.html)
-          if [ "${{ inputs.fast_package }}" = "true" ]; then
-            args+=(--fast-package)
-          fi
-          node "$PACKAGER" "${args[@]}" --web-root "$PWD/compiled-web"
-          test -s eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-wasm-br' eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-mesh-wasm-br' eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-server-wasm-br' eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-assets' eaglercraft-26.2-vbv-herz.html
-          echo "Built: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
-
-      - name: Upload single HTML client
+      - name: Upload a fresh copy of the standalone HTML
         uses: actions/upload-artifact@v4
         with:
-          name: Eaglercraft-26.2-VBV-Herz-Single-HTML-${{ github.run_id }}
-          path: eaglercraft-26.2-vbv-herz.html
+          name: Eaglercraft-26.2-VBV-Herz-Single-HTML-Retrieved-${{ github.run_id }}
+          path: output/eaglercraft-26.2-vbv-herz.html
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
