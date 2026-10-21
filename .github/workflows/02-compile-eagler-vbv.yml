@@ -111,7 +111,28 @@ jobs:
           EAGLER_BUILD_CAP_MIB: "13312"
         run: |
           set -euo pipefail
-          npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+
+          # build:single uses the precise Wasm-GC deployment, but music.epk is
+          # deliberately produced by the regular TeaVM web build. Generate that
+          # shared asset set first, then reuse the precise Wasm artifacts so the
+          # standalone packaging step does not link the large WASM payloads twice.
+          npm run build:dev:web
+
+          music="target_teavm/build/web/music.epk"
+          test -s "$music" || {
+            echo "::error::Regular TeaVM build did not produce $music"
+            exit 1
+          }
+          echo "Built regular TeaVM music.epk: $(stat -c%s "$music") bytes"
+
+          # build:dev:web may regenerate the web tree, so restore sounds.epk after
+          # it completes. The standalone build deploys the precise artifacts again.
+          web="target_teavm_wasm_gc/build/web"
+          sounds_url="https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/generated-u2-source/sounds.epk"
+          curl -fL --retry 5 --retry-delay 2 "$sounds_url" -o "$web/sounds.epk"
+          test -s "$web/sounds.epk"
+
+          npm run build:single -- --reuse-client --reuse-mesh --reuse-server --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
