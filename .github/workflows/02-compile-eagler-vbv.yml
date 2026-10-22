@@ -101,6 +101,35 @@ jobs:
           echo "Restored sounds.epk: $(stat -c%s "$web/sounds.epk") bytes"
           sha256sum "$web/sounds.epk"
 
+      - name: Patch standalone packager for lean build
+        working-directory: eaglercraft-u2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''if (!fs.existsSync(musicSource)) {
+            fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
+          }
+          const music = withMusic ? fs.readFileSync(musicSource) : null;'''
+          new = '''if (withMusic && !fs.existsSync(musicSource)) {
+            fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
+          }
+          const music = withMusic ? fs.readFileSync(musicSource) : null;'''
+
+          if old not in text:
+              raise SystemExit("Expected music-source check was not found; refusing to patch an unknown U2 packager")
+
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          print("Patched build-single-html.js: music.epk is required only when --with-music is enabled.")
+          PY
+
+          grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
+
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
         env:
@@ -111,33 +140,17 @@ jobs:
           EAGLER_BUILD_CAP_MIB: "13312"
         run: |
           set -euo pipefail
-
-          # build:single uses the precise Wasm-GC deployment, but music.epk is
-          # deliberately produced by the regular TeaVM web build. Generate that
-          # shared asset set first, then reuse the precise Wasm artifacts so the
-          # standalone packaging step does not link the large WASM payloads twice.
-          npm run build:dev:web
-
-          music="target_teavm/build/web/music.epk"
-          test -s "$music" || {
-            echo "::error::Regular TeaVM build did not produce $music"
-            exit 1
-          }
-          echo "Built regular TeaVM music.epk: $(stat -c%s "$music") bytes"
-
-          # build:dev:web may regenerate the web tree, so restore sounds.epk after
-          # it completes. The standalone build deploys the precise artifacts again.
-          web="target_teavm_wasm_gc/build/web"
-          sounds_url="https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/generated-u2-source/sounds.epk"
-          curl -fL --retry 5 --retry-delay 2 "$sounds_url" -o "$web/sounds.epk"
-          test -s "$web/sounds.epk"
-
           npm run build:single -- --reuse-client --reuse-mesh --reuse-server --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-assets' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -q 'eag-inline-sounds' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
+            echo "::error::Lean build unexpectedly embedded music.epk"
+            exit 1
+          fi
           echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
       - name: Upload standalone HTML client
