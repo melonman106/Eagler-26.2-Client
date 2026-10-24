@@ -67,16 +67,6 @@ public final class VBVClient {
             false
         ));
 
-        registerMod(new VBVModInfo(
-            "panorama-selector",
-            "Panorama Selector",
-            "1.0.0-26.2",
-            "Eagler client",
-            "Select from built-in title-screen panorama sets without changing the server.",
-            BUILTIN_MOD_ICON,
-            false
-        ));
-
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
     }
