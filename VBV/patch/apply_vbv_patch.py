@@ -107,9 +107,28 @@ def write_custom_panorama_face(path, face):
     path.write_bytes(data)
 
 panorama_dir = RESOURCE_ROOT / "assets" / "minecraft" / "textures" / "gui" / "title" / "background"
-for panorama_face in range(6):
-    write_custom_panorama_face(panorama_dir / f"panorama_{panorama_face}.png", panorama_face)
-print("Generated six custom pixel-art title panorama faces in", panorama_dir)
+uploaded_panorama_dir = CLIENT_SIDE / "panorama"
+uploaded_faces = [uploaded_panorama_dir / f"panorama_{i}.png" for i in range(6)]
+
+if any(path.is_file() for path in uploaded_faces):
+    missing_faces = [path.name for path in uploaded_faces if not path.is_file()]
+    if missing_faces:
+        raise SystemExit(
+            "Custom panorama is incomplete in VBV/panorama/. Upload all six files "
+            "panorama_0.png through panorama_5.png. Missing: " + ", ".join(missing_faces)
+        )
+    for source_face in uploaded_faces:
+        with source_face.open("rb") as stream:
+            signature = stream.read(8)
+        if signature != b"\\x89PNG\\r\\n\\x1a\\n":
+            raise SystemExit(f"Custom panorama face is not a PNG file: {source_face}")
+        panorama_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_face, panorama_dir / source_face.name)
+    print("Using all six uploaded custom panorama faces from", uploaded_panorama_dir)
+else:
+    for panorama_face in range(6):
+        write_custom_panorama_face(panorama_dir / f"panorama_{panorama_face}.png", panorama_face)
+    print("No uploaded panorama found; generated six default pixel-art panorama faces in", panorama_dir)
 
 
 def java_string(value):
