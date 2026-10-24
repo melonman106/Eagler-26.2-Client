@@ -8,6 +8,7 @@ import java.util.Map;
 public final class VBVClient {
     public static final String MOD_ID = "viabackportvisuals-client";
     public static final String VERSION = "1.0.0-26.2";
+    private static final String BUILTIN_MOD_ICON = "textures/misc/unknown_pack.png";
 
     private static final Map<String, VBVModInfo> MODS = new LinkedHashMap<>();
 
@@ -16,16 +17,13 @@ public final class VBVClient {
     public static void init() {
         if (!MODS.isEmpty()) return;
 
-        // v1 boot-test marker: this source change intentionally invalidates the
-        // compiled checkpoint/WASM caches so resource-pipeline workflow fixes
-        // are rebuilt instead of reusing the previous checkpoint.
         registerMod(new VBVModInfo(
             MOD_ID,
             "ViaBackportVisuals Client",
             VERSION,
             "melonman106",
             "Native client-side mod suite for Eaglercraft 26.2 u1.",
-            "vbvclient/mods/viabackportvisuals/pack.png",
+            BUILTIN_MOD_ICON,
             false
         ));
 
@@ -35,7 +33,7 @@ public final class VBVClient {
             "Eagler port 1.0.0",
             "Uku3lig / Eagler client port",
             "Four vertical armor slots beside the hotbar showing helmet, chestplate, leggings, boots, and remaining durability.",
-            "vbvclient/mods/ukus-armor-hud/pack.png",
+            BUILTIN_MOD_ICON,
             false
         ));
 
@@ -45,7 +43,7 @@ public final class VBVClient {
             "Native Eagler port 1.0.0",
             "SoRadGaming / Eagler client port",
             "Pick-and-choose HUD with FPS, coordinates, speed, light, time, player, health, hunger, movement, effects, and equipment information.",
-            "vbvclient/mods/simple-hud-enhanced/pack.png",
+            BUILTIN_MOD_ICON,
             false
         ));
 
@@ -55,7 +53,7 @@ public final class VBVClient {
             "Native Eagler port 1.0.0",
             "YaLTeR / Eagler client port",
             "Inventory mouse improvements: wheel-based item selection and native hooks for quick-move and drag-evenly behavior.",
-            "vbvclient/mods/mouse-tweaks/pack.png",
+            BUILTIN_MOD_ICON,
             false
         ));
 
@@ -65,7 +63,7 @@ public final class VBVClient {
             "Eagler port 1.0.0",
             "Eagler client port",
             "Food, hunger, saturation, and exhaustion information in the client HUD.",
-            "vbvclient/mods/appleskin/pack.png",
+            BUILTIN_MOD_ICON,
             false
         ));
 
@@ -75,7 +73,7 @@ public final class VBVClient {
             "1.0.0-26.2",
             "Eagler client",
             "Select from built-in title-screen panorama sets without changing the server.",
-            "vbvclient/mods/panorama-selector/pack.png",
+            BUILTIN_MOD_ICON,
             false
         ));
 
