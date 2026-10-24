@@ -52,7 +52,8 @@ print("Copied", len(source_files), "VBV Java files (including subpackages) to", 
 REPO_ROOT = CLIENT_SIDE.parent
 MODS_PACK = REPO_ROOT / "ModsPack"
 GENERATED_PACK_CLASS = DEST / "VBVGeneratedPackMods.java"
-GENERATED_PACK_RESOURCE_ROOT = TARGET.parent / "resources" / "vbvclient" / "mods"
+RESOURCE_ROOT = TARGET.parent / "resources"
+GENERATED_PACK_RESOURCE_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "mods"
 
 def java_string(value):
     return json.dumps(str(value), ensure_ascii=False)
@@ -104,17 +105,21 @@ def read_pack_metadata(zf, root):
     return description
 
 def extract_resource_pack(zippath, mod_id):
-    destination = GENERATED_PACK_RESOURCE_ROOT / mod_id
-    if destination.exists():
-        shutil.rmtree(destination)
-    destination.mkdir(parents=True, exist_ok=True)
+    # The old code nested pack assets below resources/vbvclient/mods/<id>,
+    # which is not a resource namespace Minecraft scans. Merge actual assets
+    # into resources/assets/<namespace>/... and keep each pack icon in VBV's
+    # own namespace so the native mod list can display it.
+    icon_destination = GENERATED_PACK_RESOURCE_ROOT / mod_id
+    if icon_destination.exists():
+        shutil.rmtree(icon_destination)
+    icon_destination.mkdir(parents=True, exist_ok=True)
 
     with zipfile.ZipFile(zippath) as zf:
         names = [n.replace("\\", "/") for n in zf.namelist()]
         root = find_zip_root(names)
         description = read_pack_metadata(zf, root)
-
         extracted = 0
+
         for raw_name in names:
             name = raw_name.lstrip("/")
             if not name.startswith(root):
@@ -122,17 +127,15 @@ def extract_resource_pack(zippath, mod_id):
             relative = name[len(root):]
             if not relative or relative.endswith("/"):
                 continue
-            if not (
-                relative == "pack.png"
-                or relative == "pack.mcmeta"
-                or relative == "assets"
-                or relative.startswith("assets/")
-                or relative == "data"
-                or relative.startswith("data/")
-            ):
+
+            if relative == "pack.png":
+                target = icon_destination / "pack.png"
+            elif relative.startswith("assets/"):
+                target = RESOURCE_ROOT / relative
+            else:
+                # Client resource loading does not consume datapack data files.
                 continue
 
-            target = destination / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with zf.open(raw_name) as src, target.open("wb") as dst:
@@ -142,7 +145,7 @@ def extract_resource_pack(zippath, mod_id):
                 continue
 
         if extracted == 0:
-            raise SystemExit(f"{zippath.name}: ZIP contains no supported resource-pack files")
+            raise SystemExit(f"{zippath.name}: ZIP contains no supported resource-pack assets")
         return description
 
 pack_entries = []
@@ -201,7 +204,7 @@ for mod_id, name, description in pack_entries:
         '            "1.0.0-26.2",',
         '            "Resource pack",',
         f"            {java_string(description)},",
-        f"            {java_string('vbvclient/mods/' + mod_id + '/pack.png')},",
+        f"            {java_string('vbvclient:mods/' + mod_id + '/pack.png')},",
         "            true",
         "        ));",
     ])
@@ -420,32 +423,92 @@ else:
     print("Explored-chunk tracking hook already present.")
 
 title = None
-for p, s in java_files():
-    if re.search(r"class\s+TitleScreen\b", s) and "extends Screen" in s:
-        title = (p, s)
+for p, source_text in java_files():
+    if re.search(r"class\s+TitleScreen\b", source_text) and "extends Screen" in source_text:
+        title = (p, source_text)
         break
 
 if title:
-    p, s = title
-    if "VBVModsScreen" not in s:
-        m = re.search(r"protected\s+void\s+init\s*\([^)]*\)\s*\{", s)
-        if not m:
-            m = re.search(r"public\s+void\s+init\s*\([^)]*\)\s*\{", s)
-        if m:
+    p, source_text = title
+    if "VBVModsScreen" not in source_text:
+        # Put Mods immediately below Multiplayer and move the lower menu rows down.
+        normal_menu_call = re.search(
+            r"topPos\s*=\s*this\.createNormalMenuOptions\(topPos,\s*24,\s*liteMode\);",
+            source_text
+        )
+        if normal_menu_call:
+            insert_at = normal_menu_call.end()
             button = """
-        this.addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
-            net.minecraft.network.chat.Component.literal("Mods"),
-            button -> com.melonman106.vbvclient.VBVNav.open(
-                new com.melonman106.vbvclient.VBVModsScreen(this)
-            )
-        ).bounds(this.width / 2 - 100, this.height / 4 + 120, 200, 20).build());
+      this.addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
+         net.minecraft.network.chat.Component.literal("Mods"),
+         button -> com.melonman106.vbvclient.VBVNav.open(
+            new com.melonman106.vbvclient.VBVModsScreen(this)
+         )
+      ).bounds(this.width / 2 - 100, topPos + 24, 200, 20).build());
+      topPos += 24;
 """
-            s = s[:m.end()] + button + s[m.end():]
-            p.write_text(s, encoding="utf-8")
-            print("Inserted native Mods button into", p)
+            source_text = source_text[:insert_at] + button + source_text[insert_at:]
+            p.write_text(source_text, encoding="utf-8")
+            print("Inserted Mods below Multiplayer and shifted lower title buttons:", p)
         else:
-            print("TitleScreen found, but init hook was not identified.")
+            print("TitleScreen found, but createNormalMenuOptions hook was not identified.")
     else:
-        print("Native Mods button already present.")
+        print("Native Mods button already present; keeping existing title-screen hook.")
 else:
-    print("TitleScreen was not identified; the mod browser remains available as a native screen.")
+    print("TitleScreen was not identified.")
+
+# Add a real Mods row to the in-game Escape menu before Disconnect.
+pause = None
+for p, source_text in java_files():
+    if re.search(r"class\s+PauseScreen\b", source_text) and "extends Screen" in source_text:
+        pause = (p, source_text)
+        break
+
+if pause:
+    p, source_text = pause
+    marker = "this.disconnectButton = helper.addChild("
+    if "VBVModsScreen" not in source_text and marker in source_text:
+        button = """helper.addChild(
+         Button.builder(net.minecraft.network.chat.Component.literal("Mods"),
+            button -> this.minecraft.gui.setScreen(new com.melonman106.vbvclient.VBVModsScreen(this)))
+            .width(204).build(),
+         2
+      );
+      """
+        source_text = source_text.replace(marker, button + marker, 1)
+        p.write_text(source_text, encoding="utf-8")
+        print("Inserted Mods row into in-game PauseScreen:", p)
+    else:
+        print("PauseScreen Mods row already present or insertion marker missing.")
+
+# Hook the real keyboard dispatch. V opens Mods; M opens the explored-chunk map.
+keyboard = None
+for p, source_text in java_files():
+    if p.name == "KeyboardHandler.java" and re.search(r"class\s+KeyboardHandler\b", source_text):
+        keyboard = (p, source_text)
+        break
+
+if keyboard:
+    p, source_text = keyboard
+    hook = """if (action == 1 && !event.hasControlDownWithQuirk()
+            && (screen == null || !(screen.getFocused() instanceof EditBox))) {
+            if (event.key() == 86) {
+               com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.VBVModsScreen(screen));
+               return;
+            }
+            if (event.key() == 77) {
+               com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.VBVWorldMapScreen(screen));
+               return;
+            }
+         }
+
+         """
+    if "VBVWorldMapScreen(screen)" not in source_text:
+        anchor = "Screen screen = this.minecraft.gui.screen();"
+        if anchor not in source_text:
+            raise SystemExit("KeyboardHandler screen dispatch anchor was not identified")
+        source_text = source_text.replace(anchor, anchor + "\n         " + hook, 1)
+        p.write_text(source_text, encoding="utf-8")
+        print("Registered V/M keybinds in KeyboardHandler:", p)
+else:
+    print("KeyboardHandler was not identified; global VBV keybinds were not installed.")
