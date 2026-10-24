@@ -22,10 +22,9 @@ public final class VBVAppleSkin {
         var food = player.getFoodData();
         int foodLevel = food.getFoodLevel();
         float saturation = food.getSaturationLevel();
-        float exhaustion = food.getExhaustionLevel();
         String line = String.format(java.util.Locale.ROOT,
-            "Food: %d/20  Saturation: %.1f  Exhaustion: %.1f/4",
-            foodLevel, saturation, exhaustion);
+            "Food: %d/20  Saturation: %.1f",
+            foodLevel, saturation);
         int y = minecraft.getWindow().getGuiScaledHeight() - 46;
         graphics.text(minecraft.font, line, 4, y, 0xFFFFFFFF, true);
     }
