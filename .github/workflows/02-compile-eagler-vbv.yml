@@ -71,8 +71,8 @@ jobs:
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
 
-          test -d eaglercraft-u2/game/src/main/resources/vbvclient/mods
-          find eaglercraft-u2/game/src/main/resources/vbvclient/mods -maxdepth 2 -type f -print | sort
+          test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
+          find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort
 
       - name: Compile game Java after injection
         working-directory: eaglercraft-u2
