@@ -17,14 +17,12 @@ The upstream Herz-Core project currently targets Eaglercraft 1.8.8/u53, so its r
 
 ## Included
 
-- Native mod viewer and mod details screens.
-- Uku's Armor HUD.
-- Simple HUD Enhanced.
-- Mouse Tweaks.
-- AppleSkin.
-- Panorama Selector.
-- Dark UI.
-- Connected Glass.
+- Native mod viewer and mod details screens, available from the main menu and the in-game Escape menu.
+- `V` opens the Mods screen; `M` opens the explored-chunk world map. These are handled at the keyboard dispatch layer rather than only by a screen.
+- Uku's Armor HUD and Simple HUD Enhanced.
+- AppleSkin-style live food and saturation information in the HUD.
+- Embedded resource-pack assets are copied into Minecraft's actual `assets/<namespace>/...` resource tree; pack icons are read from each ZIP's `pack.png` when present.
+- A generated custom pixel-art panorama replaces the default title-screen panorama during the build.
 - Client-only explored-chunk world map and waypoints.
 - GitHub Actions build/patch pipeline.
 
