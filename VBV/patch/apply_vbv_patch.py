@@ -10,6 +10,8 @@ import json
 import pathlib
 import re
 import shutil
+import struct
+import zlib
 import zipfile
 
 ROOT = pathlib.Path(sys.argv[1]).resolve()
@@ -54,6 +56,61 @@ MODS_PACK = REPO_ROOT / "ModsPack"
 GENERATED_PACK_CLASS = DEST / "VBVGeneratedPackMods.java"
 RESOURCE_ROOT = TARGET.parent / "resources"
 GENERATED_PACK_RESOURCE_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "mods"
+
+ 
+def png_chunk(kind, payload):
+    return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
+
+def write_custom_panorama_face(path, face):
+    # Small dependency-free pixel-art skybox. All six faces share the same
+    # horizon palette so the game's default title panorama is visibly custom
+    # without requiring an external image or renderer library in Actions.
+    width = height = 256
+    rows = []
+    for y in range(height):
+        row = bytearray([0])
+        for x in range(width):
+            sky = y < 154
+            if sky:
+                t = y / 153.0
+                base = (int(45 + 75 * t), int(112 + 95 * t), int(190 + 50 * t))
+                # Broad pixelated clouds, shifted subtly across cube faces.
+                cloud_x = (x + face * 19) % 256
+                cloud = ((y < 66 and ((cloud_x // 24 + y // 11) % 5 in (0, 1)))
+                         or (y < 95 and ((cloud_x // 31 + y // 13 + face) % 7 == 2)))
+                if cloud:
+                    base = (min(255, base[0] + 55), min(255, base[1] + 49), min(255, base[2] + 36))
+                color = base
+            else:
+                # Blocky distant hills, green valley and darker foreground.
+                xx = (x + face * 7) % 256
+                ridge = 150 + ((xx // 16 * 7 + (xx // 37) * 11 + (xx // 9) % 13) % 29)
+                if y < ridge:
+                    color = (65, 103, 105)
+                elif y < 190:
+                    color = (51, 111, 66)
+                elif y < 224:
+                    color = (39, 91, 49)
+                else:
+                    color = (31, 69, 42)
+                # Pixelated lighter grass patches on the valley floor.
+                if 180 <= y < 220 and ((xx // 12 + y // 8 + face) % 9 == 0):
+                    color = (72, 129, 63)
+            row.extend(color)
+        rows.append(bytes(row))
+    raw = b"".join(rows)
+    data = b"\x89PNG\r\n\x1a\n"
+    data += png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+    data += png_chunk(b"IDAT", zlib.compress(raw, 9))
+    data += png_chunk(b"IEND", b"")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+
+panorama_dir = RESOURCE_ROOT / "assets" / "minecraft" / "textures" / "gui" / "title" / "background"
+for panorama_face in range(6):
+    write_custom_panorama_face(panorama_dir / f"panorama_{panorama_face}.png", panorama_face)
+print("Generated six custom pixel-art title panorama faces in", panorama_dir)
+
 
 def java_string(value):
     return json.dumps(str(value), ensure_ascii=False)
