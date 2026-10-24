@@ -360,6 +360,25 @@ else:
     print("Inserted Armor HUD hook into", hud_path)
 
 
+# AppleSkin-style live food/saturation/exhaustion information overlay.
+APPLE_CALL = "com.melonman106.vbvclient.VBVAppleSkin.render(graphics);"
+hud_src = hud_path.read_text(encoding="utf-8")
+if APPLE_CALL not in hud_src:
+    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
+    if not _m:
+        raise SystemExit("Hud.extractItemHotbar method was not identified for AppleSkin hook")
+    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
+    if not _param:
+        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for AppleSkin hook")
+    APPLE_CALL = APPLE_CALL.replace("graphics", _param.group(1))
+    _end = find_method_end(hud_src, _m.start())
+    if _end is None:
+        raise SystemExit("Could not find end of Hud.extractItemHotbar for AppleSkin hook")
+    hud_src = hud_src[:_end] + "\n        " + APPLE_CALL + "\n    " + hud_src[_end:]
+    hud_path.write_text(hud_src, encoding="utf-8")
+    print("Inserted AppleSkin-style food information hook into", hud_path)
+
+
 nav = DEST / "VBVNav.java"
 nav_src = nav.read_text(encoding="utf-8")
 nav.write_text(nav_src.replace(".setScreen(screen)", f".{open_name}(screen)"), encoding="utf-8")
