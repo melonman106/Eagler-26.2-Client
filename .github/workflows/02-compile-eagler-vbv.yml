@@ -89,8 +89,6 @@ jobs:
           web="eaglercraft-u2/target_teavm_wasm_gc/build/web"
           mkdir -p "$web"
 
-          # The known-good U2 workspace expects sounds.epk in the browser web output.
-          # This is the exact archive already stored in this project on generated-u2-source.
           sounds_url="https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/generated-u2-source/sounds.epk"
           curl -fL --retry 5 --retry-delay 2 "$sounds_url" -o "$web/sounds.epk"
 
@@ -101,7 +99,7 @@ jobs:
           echo "Restored sounds.epk: $(stat -c%s "$web/sounds.epk") bytes"
           sha256sum "$web/sounds.epk"
 
-      - name: Patch standalone packager for lean build
+      - name: Patch standalone packager for lean no-music build
         working-directory: eaglercraft-u2
         shell: bash
         run: |
@@ -112,23 +110,62 @@ jobs:
           path = Path("wasm-toolchain/build-single-html.js")
           text = path.read_text(encoding="utf-8")
 
-          old = '''if (!fs.existsSync(musicSource)) {
+          old_source = '''if (!fs.existsSync(musicSource)) {
             fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
           }
           const music = withMusic ? fs.readFileSync(musicSource) : null;'''
-          new = '''if (withMusic && !fs.existsSync(musicSource)) {
+          new_source = '''if (withMusic && !fs.existsSync(musicSource)) {
             fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
           }
           const music = withMusic ? fs.readFileSync(musicSource) : null;'''
 
-          if old not in text:
+          if old_source in text:
+              text = text.replace(old_source, new_source, 1)
+              print("Patched music-source check.")
+          elif 'if (withMusic && !fs.existsSync(musicSource))' in text:
+              print("Music-source check already patched.")
+          else:
               raise SystemExit("Expected music-source check was not found; refusing to patch an unknown U2 packager")
 
-          path.write_text(text.replace(old, new, 1), encoding="utf-8")
-          print("Patched build-single-html.js: music.epk is required only when --with-music is enabled.")
+          old_export = '''if (withoutMusic && !liteBuild) {
+            const musicPack = spawnSync(process.execPath, [
+              path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
+              musicSource,
+              musicPackOutput
+            ], { cwd: repo, stdio: "inherit" });
+            if (musicPack.error) fail(musicPack.error.message);
+            if (musicPack.status !== 0) fail(`optional music pack export exited with code ${musicPack.status}`);
+          } else if (liteBuild) {
+            console.log("[single-html] Lite mode: optional music pack export skipped");
+          }'''
+          new_export = '''if (withoutMusic && !liteBuild && fs.existsSync(musicSource)) {
+            const musicPack = spawnSync(process.execPath, [
+              path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
+              musicSource,
+              musicPackOutput
+            ], { cwd: repo, stdio: "inherit" });
+            if (musicPack.error) fail(musicPack.error.message);
+            if (musicPack.status !== 0) fail(`optional music pack export exited with code ${musicPack.status}`);
+          } else if (withoutMusic && !liteBuild) {
+            console.log("[single-html] No music.epk present; optional music pack export skipped");
+          } else if (liteBuild) {
+            console.log("[single-html] Lite mode: optional music pack export skipped");
+          }'''
+
+          if old_export in text:
+              text = text.replace(old_export, new_export, 1)
+              print("Patched optional music export to skip when music.epk is absent.")
+          elif 'fs.existsSync(musicSource)' in text and 'optional music pack export skipped' in text:
+              print("Optional music export already patched.")
+          else:
+              raise SystemExit("Expected optional music export block was not found; refusing to patch an unknown U2 packager")
+
+          path.write_text(text, encoding="utf-8")
           PY
 
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
+          grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
+          grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
 
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
@@ -140,10 +177,6 @@ jobs:
           EAGLER_BUILD_CAP_MIB: "13312"
         run: |
           set -euo pipefail
-
-          # Do NOT use --reuse-client/--reuse-mesh/--reuse-server here.
-          # This workflow starts from a fresh checkout, so those flags make the
-          # standalone packager fail before it gets a chance to link the WASM.
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
 
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
