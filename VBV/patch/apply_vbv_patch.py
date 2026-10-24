@@ -120,7 +120,7 @@ if any(path.is_file() for path in uploaded_faces):
     for source_face in uploaded_faces:
         with source_face.open("rb") as stream:
             signature = stream.read(8)
-        if signature != b"\\x89PNG\\r\\n\\x1a\\n":
+        if signature != b"\x89PNG\r\n\x1a\n":
             raise SystemExit(f"Custom panorama face is not a PNG file: {source_face}")
         panorama_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_face, panorama_dir / source_face.name)
