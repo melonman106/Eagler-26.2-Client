@@ -6,7 +6,7 @@ import net.minecraft.client.player.LocalPlayer;
 
 /**
  * Lightweight native AppleSkin-style information overlay for the browser client.
- * It exposes the live food, saturation and exhaustion values without relying on
+ * It exposes the live food and saturation values without relying on
  * Fabric events or a Java mod loader.
  */
 public final class VBVAppleSkin {
