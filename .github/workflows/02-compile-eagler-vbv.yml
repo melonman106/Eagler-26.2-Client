@@ -61,7 +61,7 @@ jobs:
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+          for source in VBVClient.java VBVAppleSkin.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || {
               echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"
               exit 1
@@ -73,6 +73,8 @@ jobs:
 
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
           find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort
+          test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_0.png
+          test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_5.png
 
       - name: Compile game Java after injection
         working-directory: eaglercraft-u2
