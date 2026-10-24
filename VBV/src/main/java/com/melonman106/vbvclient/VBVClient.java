@@ -8,7 +8,7 @@ import java.util.Map;
 public final class VBVClient {
     public static final String MOD_ID = "viabackportvisuals-client";
     public static final String VERSION = "1.0.0-26.2";
-    private static final String BUILTIN_MOD_ICON = "textures/misc/unknown_pack.png";
+    private static final String BUILTIN_MOD_ICON = "minecraft:textures/misc/unknown_pack.png";
 
     private static final Map<String, VBVModInfo> MODS = new LinkedHashMap<>();
 
@@ -75,26 +75,6 @@ public final class VBVClient {
             "Select from built-in title-screen panorama sets without changing the server.",
             BUILTIN_MOD_ICON,
             false
-        ));
-
-        registerMod(new VBVModInfo(
-            "dark-ui",
-            "Dark UI",
-            "1.0.0-26.2",
-            "Eagler client",
-            "Optional darker interface textures for menus and client GUI elements.",
-            "vbvclient/mods/dark-ui/pack.png",
-            true
-        ));
-
-        registerMod(new VBVModInfo(
-            "connected-glass",
-            "Connected Glass",
-            "1.0.0-26.2",
-            "Eagler client",
-            "Optional glass texture pack for a cleaner connected-glass appearance.",
-            "vbvclient/mods/connected-glass/pack.png",
-            true
         ));
 
         VBVGeneratedPackMods.register();
