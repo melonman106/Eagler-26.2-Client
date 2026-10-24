@@ -9,6 +9,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -437,6 +439,21 @@ public final class VBVModsScreen extends Screen {
     }
 
     private void drawIcon(GuiGraphicsExtractor graphics, VBVModInfo info, int x, int y, int size) {
+        // Resource-pack icons are embedded under assets/vbvclient/mods/<id>/pack.png.
+        // Native mods use Minecraft's built-in unknown-pack icon until they ship a
+        // dedicated icon; do not replace valid pack logos with generated initials.
+        try {
+            String path = String.valueOf(info.iconPath());
+            Identifier icon = path.contains(":")
+                ? Identifier.parse(path)
+                : Identifier.withDefaultNamespace(path);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0.0F, 0.0F,
+                size, size, size, size);
+            return;
+        } catch (RuntimeException ignored) {
+            // Keep the list usable if an optional icon is missing or malformed.
+        }
+
         int h = String.valueOf(info.id()).hashCode();
         int r = 70 + (h & 0x7F);
         int g = 70 + ((h >> 7) & 0x7F);
