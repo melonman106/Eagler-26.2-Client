@@ -15,8 +15,8 @@ import java.util.Map;
 public final class FabricCompatClient {
     private static boolean initialized;
     private static boolean started;
-    private static final Map<String, List<ModInitializer>> INITIALIZERS = new LinkedHashMap<>();
-    private static final List<ModInitializer> INVOKED_INITIALIZERS = new ArrayList<>();
+    private static final Map<String, List<net.fabricmc.api.ModInitializer>> INITIALIZERS = new LinkedHashMap<>();
+    private static final List<net.fabricmc.api.ModInitializer> INVOKED_INITIALIZERS = new ArrayList<>();
 
     private FabricCompatClient() {}
 
@@ -31,11 +31,11 @@ public final class FabricCompatClient {
                 info.description(), info.authors()));
         }
 
-        List<ModInitializer> pendingInitializers = new ArrayList<>();
-        for (List<ModInitializer> entrypoints : INITIALIZERS.values()) {
+        List<net.fabricmc.api.ModInitializer> pendingInitializers = new ArrayList<>();
+        for (List<net.fabricmc.api.ModInitializer> entrypoints : INITIALIZERS.values()) {
             pendingInitializers.addAll(entrypoints);
         }
-        for (ModInitializer entrypoint : pendingInitializers) {
+        for (net.fabricmc.api.ModInitializer entrypoint : pendingInitializers) {
             invokeInitializer(entrypoint);
         }
     }
@@ -64,14 +64,14 @@ public final class FabricCompatClient {
      * Register a manually ported mod's initializer. Register before initialize()
      * for startup ordering; late registrations are invoked immediately.
      */
-    public static synchronized void registerInitializer(String modId, ModInitializer initializer) {
+    public static synchronized void registerInitializer(String modId, net.fabricmc.api.ModInitializer initializer) {
         if (modId == null || modId.isBlank()) throw new IllegalArgumentException("Mod id must not be blank");
         if (initializer == null) throw new IllegalArgumentException("Initializer must not be null");
         INITIALIZERS.computeIfAbsent(modId, ignored -> new ArrayList<>()).add(initializer);
         if (initialized) invokeInitializer(initializer);
     }
 
-    private static void invokeInitializer(ModInitializer initializer) {
+    private static void invokeInitializer(net.fabricmc.api.ModInitializer initializer) {
         if (INVOKED_INITIALIZERS.contains(initializer)) return;
         INVOKED_INITIALIZERS.add(initializer);
         initializer.onInitialize();
