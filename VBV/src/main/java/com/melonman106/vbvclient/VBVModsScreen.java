@@ -451,7 +451,7 @@ public final class VBVModsScreen extends Screen {
                 ? Identifier.parse(path)
                 : Identifier.withDefaultNamespace(path);
             graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0.0F, 0.0F,
-                size, size, size, size);
+                size, size, 64, 64);
             return;
         } catch (RuntimeException ignored) {
             // Keep the list usable if an optional icon is missing or malformed.
