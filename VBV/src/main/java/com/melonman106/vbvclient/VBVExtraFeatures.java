@@ -102,7 +102,7 @@ public final class VBVExtraFeatures {
         Runtime runtime = Runtime.getRuntime();
         long usedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024L * 1024L);
         long maxMb = runtime.maxMemory() / (1024L * 1024L);
-        long time = mc.level.getDayTime();
+        long time = mc.level.getOverworldClockTime();
         int renderedEntities = 0;
         for (Object ignored : mc.level.entitiesForRendering()) renderedEntities++;
 
