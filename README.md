@@ -1,33 +1,29 @@
 # Eaglercraft 26.2 VBV Client
 
-This repository contains the native Eaglercraft 26.2 u2 client-side ViaBackportVisuals project.
+Native Eaglercraft 26.2 u2 client-side ViaBackportVisuals project, built in GitHub Actions.
 
-## Build pipeline (run in order)
+## Build pipeline
 
-1. **01 - Prepare Eaglercraft 26.2 u2 Source Project** — extracts `eaglercraft-26.2-patcher-main.tar.gz` into `U2-Patcher/`, then uses the U2 Setup JAR from `U2-Patcher/` (or the authenticated U2 release asset as a fallback) to obtain the verified portable build inputs. It uploads `Eaglercraft-26.2-u2-Source-Project-<run-id>`. The Minecraft 26.2 client JAR is not stored in this repository; the workflow downloads and verifies the pinned Mojang client unless an override is supplied.
-2. **02 - Compile Eaglercraft 26.2 u2 (VBV + Herz)** — takes the latest successful source artifact from step 01, applies the client mod patch, compiles the Java sources, and builds the browser WASM output.
-3. **03 - Package Eaglercraft 26.2 u2 (Single HTML)** — takes the successful run from step 02 and uses the U2 Patcher's single-HTML packager when available, falling back to the legacy packager only if the U2 source does not contain it.
+1. **02 - Build Eaglercraft 26.2 u2 (VBV + Herz, no Litematica)** checks out the pinned u2 workspace, injects native client mods and the Eagler Fabric compatibility shim, compiles Java, and creates the browser build output.
+2. **03 - Package Eaglercraft 26.2 u2 (Single HTML)** packages a successful build from workflow 02 into the standalone HTML output.
 
-All three workflows are manually triggered; pushes do not start builds automatically.
+The build workflows are manually triggered from the GitHub Actions tab.
 
-## Patcher layout
+## Eagler Fabric compatibility layer
 
-- `eaglercraft-26.2-patcher-main.tar.gz` — U2 Patcher source archive
-- `U2-Patcher/` — extracted U2 Patcher workspace created by workflow 01
-- `VBV/` — client mod sources, patch scripts, and web-side mod helpers
-- `ModsPack/` — optional resource-pack client mods imported during the VBV patch
-- `.github/workflows/01-prepare-eaglercraft-source.yml` — U2 source-project preparation
-- `.github/workflows/02-compile-eagler-vbv.yml` — U2 VBV + Herz source compilation
-- `.github/workflows/03-single-html-eagler-vbv.yml` — U2 single-HTML packaging
-- `.github/workflows/herz-compatibility.yml` — upstream Herz compatibility investigation
+`VBV/src/main/java/com/melonman106/vbvclient/fabriccompat/` contains a small, browser-safe API for future manual mod ports:
 
-Server-side Fabric/Paper VBV code and old experimental build/probe files have been removed from this client repository.
+- `FabricLoader`, `ModContainer`, and `ModMetadata` for basic mod lookup and metadata.
+- `ModInitializer` and `FabricCompatClient.registerInitializer(...)` for manually registered mod entrypoints.
+- `ClientTickEvents` and `ClientLifecycleEvents` for client callbacks.
+- `KeyBinding` and `KeyBindingHelper` for logical key registration and keyboard dispatch primitives.
 
+This is not upstream Fabric Loader/API and does not load arbitrary Fabric JARs, parse `fabric.mod.json`, resolve dependencies, apply Mixins, or transform bytecode. Each future port still needs its unsupported Minecraft/Fabric calls adapted to Eaglercraft.
 
-## Native Litematica-compatible port (initial)
+## Repository layout
 
-- Press **L** in-game to open **Litematica (Eagler port)**.
-- Choose **Import .litematic** to select a compressed Litematica schematic from the browser.
-- The native TeaVM-compatible reader displays regions, dimensions, palette sizes, and total block count. No Fabric Loader, Fabric API, or Mixin runtime is required.
-- This is an initial compatible subset, not full Litematica parity yet: ghost rendering, placement, region selection/editing, and the full configuration UI are not implemented.
-- Workflow 02 compiles the native port into the standalone browser client and checks that the screen and L hotkey were injected.
+- `VBV/` — native client mod sources, Fabric compatibility shim, patch scripts, and web-side mod helpers.
+- `ModsPack/` — optional resource-pack client mods imported during the VBV patch.
+- `.github/workflows/02-compile-eagler-vbv.yml` — compile and compatibility-source checks.
+- `.github/workflows/03-single-html-eagler-vbv.yml` — standalone HTML packaging.
+- `.github/workflows/04-import-build-litematica-malilib.yml` — separate experimental source import/build workflow; it does not add Litematica to the browser client.
