@@ -82,6 +82,9 @@ jobs:
           grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/ModInitializer.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/EnvType.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/FabricLoader.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/ModContainer.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/metadata/ModMetadata.java
           grep -R -q 'FabricCompatClient.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client
           grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
