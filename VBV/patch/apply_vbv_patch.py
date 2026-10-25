@@ -572,13 +572,13 @@ if mouse_hook not in container_src:
     if return_false < 0:
         raise SystemExit("Could not find fallback return in AbstractContainerScreen.mouseScrolled")
     wheel_code = """if (com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()
-            && this.hoveredSlot != null && this.hoveredSlot.hasItem()
+            && this.hoveredSlot != null
             && scrollY != 0.0D && this.menu.getCarried().isEmpty()) {
          int steps = Math.min(8, Math.max(1, (int)Math.ceil(Math.abs(scrollY))));
          for (int wheelStep = 0; wheelStep < steps; wheelStep++) {
             net.minecraft.world.item.ItemStack hoveredStack = this.hoveredSlot.getItem();
-            if (hoveredStack.isEmpty()) break;
             if (scrollY < 0.0D) {
+               if (hoveredStack.isEmpty()) break;
                // Wheel down: move one item out of the hovered stack into the
                // first compatible inventory slot, then return any remainder.
                this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
