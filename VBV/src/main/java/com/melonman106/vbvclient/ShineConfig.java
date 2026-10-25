@@ -88,6 +88,11 @@ public final class ShineConfig {
         return next > max + 0.001f ? min : next;
     }
 
+    /** Relative effect scale for the selected performance/quality preset. */
+    public static float qualityFactor() {
+        return quality == 0 ? 0.65f : quality == 1 ? 0.82f : 1.0f;
+    }
+
     public static String qualityName() {
         return quality == 0 ? "Low" : quality == 1 ? "Medium" : "High";
     }
