@@ -32,7 +32,7 @@ public final class VBVWorldMap {
 
     private static final int TERRAIN_SIDE = 12;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
-    private static final int MINIMAP_CACHE_RADIUS = 8;
+    private static final int MINIMAP_CACHE_RADIUS = 9;
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
