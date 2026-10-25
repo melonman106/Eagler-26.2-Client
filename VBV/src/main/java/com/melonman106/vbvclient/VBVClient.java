@@ -109,6 +109,16 @@ public final class VBVClient {
 
         registerMod(new VBVModInfo("jade", "Jade (lightweight native port)", "Eagler port 1.0.0",
             "Snownee / native Eagler port", "Targeted block/entity tooltip with enable toggle and movable position.", "vbvclient:textures/mods/jade.png", false));
+
+        registerMod(new VBVModInfo(
+            "litematica",
+            "Litematica (Eagler port)",
+            "Native Eagler port 0.1.0",
+            "masa / native Eagler port",
+            "Import and inspect .litematic schematic regions in the browser. Placement and ghost rendering are not implemented in this first compatible port.",
+            "vbvclient:textures/mods/viabackportvisuals-client.png",
+            false
+        ));
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
     }
