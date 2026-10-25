@@ -28,6 +28,16 @@ public final class VBVClient {
         ));
 
         registerMod(new VBVModInfo(
+            "shine",
+            "Shine",
+            "Native Eagler port 1.0.0",
+            "tapeQ / Eagler client port",
+            "Shine-style visual effects for Eaglercraft: selective bloom, colored lighting, rim lighting, and optional disabled shading. Native WebGL implementation with an in-game configuration screen.",
+            "vbvclient:textures/mods/shine.png",
+            false
+        ));
+
+        registerMod(new VBVModInfo(
             "ukus-armor-hud",
             "Uku's Armor HUD",
             "Eagler port 1.0.0",
