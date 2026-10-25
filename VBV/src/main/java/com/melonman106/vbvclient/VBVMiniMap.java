@@ -28,7 +28,7 @@ public final class VBVMiniMap {
         // No explored-set lookup: show cached terrain from any nearby chunk that
         // was already loaded by Minecraft, even if the player has never entered it.
         int pixelsPerChunk = 6;
-        int radius = SIZE / pixelsPerChunk + 1;
+        int radius = SIZE / (2 * pixelsPerChunk) + 1;
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 int[] colors = VBVWorldMap.terrain(world, VBVWorldMap.pack(centerX + dx, centerZ + dz));
