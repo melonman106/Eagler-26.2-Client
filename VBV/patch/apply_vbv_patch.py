@@ -573,16 +573,49 @@ if mouse_hook not in container_src:
         raise SystemExit("Could not find fallback return in AbstractContainerScreen.mouseScrolled")
     wheel_code = """if (com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()
             && this.hoveredSlot != null && this.hoveredSlot.hasItem()
-            && (this.minecraft.mouseHandler.isLeftPressed() || this.minecraft.mouseHandler.isRightPressed())
-            && (scrollY != 0.0D)) {
-         int direction = scrollY > 0.0D ? 1 : -1;
+            && scrollY != 0.0D && this.menu.getCarried().isEmpty()) {
          int steps = Math.min(8, Math.max(1, (int)Math.ceil(Math.abs(scrollY))));
-         int button = this.minecraft.mouseHandler.isRightPressed() ? 1 : 0;
          for (int wheelStep = 0; wheelStep < steps; wheelStep++) {
-            if (this.menu.getCarried().isEmpty()) {
+            net.minecraft.world.item.ItemStack hoveredStack = this.hoveredSlot.getItem();
+            if (hoveredStack.isEmpty()) break;
+            if (scrollY < 0.0D) {
+               // Wheel down: move one item out of the hovered stack into the
+               // first compatible inventory slot, then return any remainder.
                this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+               net.minecraft.world.item.ItemStack moving = this.menu.getCarried();
+               if (moving.isEmpty()) continue;
+               for (net.minecraft.world.inventory.Slot target : this.menu.slots) {
+                  if (target == this.hoveredSlot || !target.isActive() || !target.mayPlace(moving)) continue;
+                  net.minecraft.world.item.ItemStack inTarget = target.getItem();
+                  if (!inTarget.isEmpty() && inTarget.getItem() != moving.getItem()) continue;
+                  if (!inTarget.isEmpty() && inTarget.getCount() >= target.getMaxStackSize(moving)) continue;
+                  this.slotClicked(target, target.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+                  break;
+               }
+               if (!this.menu.getCarried().isEmpty()) {
+                  this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, net.minecraft.world.inventory.ContainerInput.PICKUP);
+               }
             } else {
-               this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, button == 1 ? 1 : 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+               // Wheel up: pull one item from another compatible slot into the
+               // hovered slot, preserving the rest of the source stack.
+               boolean found = false;
+               for (net.minecraft.world.inventory.Slot source : this.menu.slots) {
+                  if (source == this.hoveredSlot || !source.isActive() || !source.hasItem()) continue;
+                  net.minecraft.world.item.ItemStack sourceStack = source.getItem();
+                  if (!this.hoveredSlot.mayPlace(sourceStack)) continue;
+                  if (!hoveredStack.isEmpty() && hoveredStack.getItem() != sourceStack.getItem()) continue;
+                  if (!hoveredStack.isEmpty() && hoveredStack.getCount() >= this.hoveredSlot.getMaxStackSize(sourceStack)) continue;
+                  this.slotClicked(source, source.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+                  if (!this.menu.getCarried().isEmpty()) {
+                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+                     if (!this.menu.getCarried().isEmpty()) {
+                        this.slotClicked(source, source.index, 0, net.minecraft.world.inventory.ContainerInput.PICKUP);
+                     }
+                  }
+                  found = true;
+                  break;
+               }
+               if (!found) break;
             }
          }
          return true;
