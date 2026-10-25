@@ -15,8 +15,8 @@ public final class VBVArmorHudConfig {
     public static final String[] ORIENTATIONS = { "Horizontal", "Vertical" };
     public static final int ORIENT_HORIZONTAL = 0, ORIENT_VERTICAL = 1;
 
-    public static final String[] STYLES = { "Box", "None" };
-    public static final int STYLE_BOX = 0, STYLE_NONE = 1;
+    public static final String[] STYLES = { "Hotbar", "Rounded corners", "Rounded", "None" };
+    public static final int STYLE_HOTBAR = 0, STYLE_ROUNDED_CORNERS = 1, STYLE_ROUNDED = 2, STYLE_NONE = 3;
 
     public static final String[] WIDGET_SHOWN = { "Always", "If any present", "Not empty", "Damaged pieces" };
     public static final int SHOWN_ALWAYS = 0, SHOWN_IF_ANY = 1, SHOWN_NOT_EMPTY = 2, SHOWN_DAMAGED = 3;
@@ -40,6 +40,7 @@ public final class VBVArmorHudConfig {
     public static boolean offHandDurability;
     public static boolean mainHandDurability;
     public static boolean reversed;
+    public static boolean iconsShown;
     public static boolean warningShown;
     public static int minDurabilityValue;
     public static int minDurabilityPercent;
@@ -59,7 +60,7 @@ public final class VBVArmorHudConfig {
         side = SIDE_LEFT;
         offsetX = 0;
         offsetY = 0;
-        style = STYLE_BOX;
+        style = STYLE_HOTBAR;
         orientation = ORIENT_HORIZONTAL;
         widgetShown = SHOWN_NOT_EMPTY;
         offhandBehavior = OFFHAND_ADHERE;
@@ -67,6 +68,7 @@ public final class VBVArmorHudConfig {
         offHandDurability = true;
         mainHandDurability = false;
         reversed = false;
+        iconsShown = true;
         warningShown = true;
         minDurabilityValue = 20;
         minDurabilityPercent = 10;
