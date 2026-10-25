@@ -31,7 +31,6 @@ public final class LitematicNbtReader {
             readUtf(in); // root name
             Object root = readPayload(in, type, 0);
             if (!(root instanceof Map<?, ?> rootMap)) throw new IOException("Invalid NBT root compound");
-            Object regionsValue = child(child(rootMap, "Regions"), ""); // never used; validates compound handling
             Object rawRegions = rootMap.get("Regions");
             if (!(rawRegions instanceof Map<?, ?> regions)) throw new IOException("Missing Regions compound");
             List<Region> result = new ArrayList<>();
@@ -57,9 +56,6 @@ public final class LitematicNbtReader {
         }
     }
 
-    private static Object child(Object value, String key) {
-        return value instanceof Map<?, ?> map ? map.get(key) : null;
-    }
 
     private static Object readPayload(DataInputStream in, int type, int depth) throws IOException {
         if (depth > MAX_DEPTH) throw new IOException("NBT nesting is too deep");
