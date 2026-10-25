@@ -103,6 +103,7 @@ NATIVE_PACK_ICONS = {
     "betterf3": "BetterF3.png",
     "vbv-minimap": "Minimap.png",
     "jade": "Jade.png",
+    "shulkerboxtooltip": "ModMenu.png",
 }
 
 def install_native_pack_icons():
