@@ -67,6 +67,36 @@ public final class VBVClient {
             false
         ));
 
+        registerMod(new VBVModInfo(
+            "gamma-utils",
+            "Gamma Utils (native port)",
+            "Eagler port 1.0.0",
+            "Sjouwer / native Eagler port",
+            "Press G to toggle maximum vanilla brightness. Vanilla gamma is capped, so this is not full shader-level fullbright.",
+            BUILTIN_MOD_ICON,
+            false
+        ));
+
+        registerMod(new VBVModInfo(
+            "zoomify",
+            "Zoomify (native port)",
+            "Eagler port 1.0.0",
+            "Xander / native Eagler port",
+            "Hold C to zoom in using the field-of-view setting. This initial port uses a fixed zoom level without Zoomify's full configuration or animation system.",
+            BUILTIN_MOD_ICON,
+            false
+        ));
+
+        registerMod(new VBVModInfo(
+            "betterf3",
+            "BetterF3 (native port)",
+            "Eagler port 1.0.0",
+            "TreyRuffy / native Eagler port",
+            "Press B to toggle a compact debug panel showing coordinates, yaw, pitch, and FPS. This is a lightweight native implementation, not the full configurable BetterF3 layout.",
+            BUILTIN_MOD_ICON,
+            false
+        ));
+
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
     }
