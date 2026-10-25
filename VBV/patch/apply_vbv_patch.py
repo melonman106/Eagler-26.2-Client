@@ -71,6 +71,15 @@ for src in source_files:
     shutil.copy2(src, target)
 print("Copied", len(source_files), "VBV Java files (including subpackages) to", DEST)
 
+# Copy minimal upstream-package compatibility contracts used by manual Fabric ports.
+FABRIC_API_SOURCE = CLIENT_SIDE / "src/main/java/net/fabricmc"
+if FABRIC_API_SOURCE.is_dir():
+    fabric_api_dest = TARGET / "net/fabricmc"
+    shutil.copytree(FABRIC_API_SOURCE, fabric_api_dest, dirs_exist_ok=True)
+    print("Copied Eagler Fabric namespace shims to", fabric_api_dest)
+else:
+    raise SystemExit("Fabric namespace shim sources are missing: " + str(FABRIC_API_SOURCE))
+
 REPO_ROOT = CLIENT_SIDE.parent
 MODS_PACK = REPO_ROOT / "ModsPack"
 GENERATED_PACK_CLASS = DEST / "VBVGeneratedPackMods.java"
