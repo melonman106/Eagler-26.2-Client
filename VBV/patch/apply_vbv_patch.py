@@ -686,6 +686,11 @@ if keyboard:
                com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.VBVWorldMapScreen(screen));
                return;
             }
+            if (event.key() == 76) {
+               com.melonman106.vbvclient.VBVClient.init();
+               com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.LitematicaPortScreen(screen));
+               return;
+            }
          }
 
          """
@@ -702,5 +707,5 @@ if keyboard:
     if "VBVWorldMapScreen(screen)" not in source_text:
         source_text = source_text.replace(anchor, anchor + "\n         " + hook, 1)
     p.write_text(source_text, encoding="utf-8")
-    print("Registered V/M, gamma, zoom, and enhanced-debug keybind hooks in KeyboardHandler:", p)
+    print("Registered V/M/L, gamma, zoom, and enhanced-debug keybind hooks in KeyboardHandler:", p)
 else: print("KeyboardHandler was not identified; global VBV keybinds were not installed.")
