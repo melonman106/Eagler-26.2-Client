@@ -101,8 +101,8 @@ public final class VBVHudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (!dragging) return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+        if (!dragging) return super.mouseDragged(event, dragX, dragY);
         if (selected == 0) {
             VBVSimpleHudConfig.hudXOffset += (int) Math.round(dragX);
             VBVSimpleHudConfig.hudYOffset += (int) Math.round(dragY);
