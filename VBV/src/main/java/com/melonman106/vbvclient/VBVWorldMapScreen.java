@@ -50,7 +50,12 @@ public final class VBVWorldMapScreen extends Screen {
         BlockState state = minecraft.level.getBlockState(pos);
         int color = state.getMapColor(minecraft.level, pos).col;
         if (color == 0) color = 0x303030;
-        int shade = Math.max(0x55, Math.min(0xFF, 190 + (surfaceY - 64) / 2));
+        int north = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ - 1) - 1;
+        int south = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ + 1) - 1;
+        int west = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX - 1, blockZ) - 1;
+        int east = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX + 1, blockZ) - 1;
+        int slope = (west - east) * 2 + (north - south) * 2;
+        int shade = Math.max(0x55, Math.min(0xFF, 190 + (surfaceY - 64) / 2 + slope));
         int r = ((color >> 16) & 255) * shade / 255;
         int g = ((color >> 8) & 255) * shade / 255;
         int b = (color & 255) * shade / 255;
@@ -114,13 +119,14 @@ public final class VBVWorldMapScreen extends Screen {
         int mapTop = 30, mapBottom = height - 38, mapLeft = 4, mapRight = width - 4;
         // Sample actual surface block map colours instead of one flat colour per chunk.
         if (minecraft.level != null) {
-            for (int py = mapTop; py < mapBottom; py += 2) {
+            int sampleStep = zoom >= 8.0D ? 1 : 2;
+            for (int py = mapTop; py < mapBottom; py += sampleStep) {
                 int blockZ = (int) Math.floor(centerZ + (py - height / 2.0D) * blocksPerPixel);
-                for (int px = mapLeft; px < mapRight; px += 2) {
+                for (int px = mapLeft; px < mapRight; px += sampleStep) {
                     int blockX = (int) Math.floor(centerX + (px - width / 2.0D) * blocksPerPixel);
                     long chunk = VBVWorldMap.pack(Math.floorDiv(blockX, 16), Math.floorDiv(blockZ, 16));
                     if (!explored.contains(chunk)) continue;
-                    graphics.fill(px, py, Math.min(px + 2, mapRight), Math.min(py + 2, mapBottom), terrainColor(minecraft, blockX, blockZ));
+                    graphics.fill(px, py, Math.min(px + sampleStep, mapRight), Math.min(py + sampleStep, mapBottom), terrainColor(minecraft, blockX, blockZ));
                 }
             }
         }
