@@ -1,7 +1,9 @@
 package net.fabricmc.loader.api;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import net.fabricmc.loader.api.metadata.ModMetadata;
+import net.fabricmc.loader.api.metadata.Person;
 
 /** Public Fabric-shaped view of a registered Eagler client mod. */
 public final class ModContainer {
@@ -14,10 +16,15 @@ public final class ModContainer {
             @Override public String getName() { return data.getName(); }
             @Override public String getDescription() { return data.getDescription(); }
             @Override public Version getVersion() { return new SimpleVersion(data.getVersion()); }
-            @Override public Iterable<String> getAuthors() {
+            @Override public java.util.Collection<Person> getAuthors() {
                 String authors = data.getAuthors();
-                return authors == null || authors.isBlank()
-                    ? Collections.emptyList() : Collections.singletonList(authors);
+                if (authors == null || authors.isBlank()) return Collections.emptyList();
+                ArrayList<Person> people = new ArrayList<>();
+                for (String author : authors.split(",")) {
+                    String name = author.trim();
+                    if (!name.isEmpty()) people.add(() -> name);
+                }
+                return Collections.unmodifiableList(people);
             }
         };
     }
