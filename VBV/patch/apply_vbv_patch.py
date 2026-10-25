@@ -712,15 +712,21 @@ if shine_tint_marker not in source_text:
     if block_tint_line not in source_text:
         raise SystemExit("Could not locate block-light tint assignment for Shine lighting")
     shine_code = block_tint_line + """
-            if (com.melonman106.vbvclient.ShineConfig.coloredLighting()) {
-               float shineTint = Math.min(0.25F, com.melonman106.vbvclient.ShineConfig.lightRadius() / 96.0F);
-               renderState.blockLightTint = new Vector3f(renderState.blockLightTint)
-                  .mul(1.0F, 1.0F - shineTint * 0.6F, 1.0F - shineTint);
-            }
-            if (com.melonman106.vbvclient.ShineConfig.bloom()) {
-               float shineLift = Math.min(0.20F, com.melonman106.vbvclient.ShineConfig.bloomStrength() * 0.08F);
-               renderState.blockFactor += shineLift;
-               renderState.skyFactor += shineLift * 0.35F;
+            if (com.melonman106.vbvclient.ShineConfig.enabled()) {
+               float shineQuality = com.melonman106.vbvclient.ShineConfig.qualityFactor();
+               if (com.melonman106.vbvclient.ShineConfig.coloredLighting()) {
+                  float shineTint = Math.min(0.25F, com.melonman106.vbvclient.ShineConfig.lightRadius() / 96.0F) * shineQuality;
+                  renderState.blockLightTint = new Vector3f(renderState.blockLightTint)
+                     .mul(1.0F, 1.0F - shineTint * 0.6F, 1.0F - shineTint);
+               }
+               if (com.melonman106.vbvclient.ShineConfig.bloom()) {
+                  // Eagler's current render-state API exposes lightmap factors here,
+                  // not a screen-space framebuffer. This is the supported light lift;
+                  // do not describe it as a real multi-pass bloom blur.
+                  float shineLift = Math.min(0.20F, com.melonman106.vbvclient.ShineConfig.bloomStrength() * 0.08F) * shineQuality;
+                  renderState.blockFactor = Math.min(2.0F, renderState.blockFactor + shineLift);
+                  renderState.skyFactor = Math.min(1.5F, renderState.skyFactor + shineLift * 0.35F);
+               }
             }
 """
     source_text = source_text.replace(block_tint_line, shine_code, 1)
@@ -729,8 +735,10 @@ if shine_tint_marker not in source_text:
         if ambient_line not in source_text:
             raise SystemExit("Could not locate ambient-light assignment for Shine rim-light approximation")
         rim_code = ambient_line + """
-            if (com.melonman106.vbvclient.ShineConfig.rimLighting()) {
-               float shineRim = Math.min(0.18F, com.melonman106.vbvclient.ShineConfig.rimStrength() * 0.12F);
+            if (com.melonman106.vbvclient.ShineConfig.enabled()
+                  && com.melonman106.vbvclient.ShineConfig.rimLighting()) {
+               float shineRim = Math.min(0.18F, com.melonman106.vbvclient.ShineConfig.rimStrength() * 0.12F)
+                  * com.melonman106.vbvclient.ShineConfig.qualityFactor();
                renderState.ambientColor = new Vector3f(renderState.ambientColor)
                   .add(shineRim, shineRim, shineRim);
             }
