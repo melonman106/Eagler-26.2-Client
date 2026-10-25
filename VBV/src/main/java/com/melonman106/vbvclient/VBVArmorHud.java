@@ -189,27 +189,50 @@ public final class VBVArmorHud {
             extrasRight = VBVArmorHudConfig.side == VBVArmorHudConfig.SIDE_LEFT;
         }
 
+        int textureWidth = SIZE + ((items.size() - 1) * STEP);
+        switch (VBVArmorHudConfig.style) {
+            case VBVArmorHudConfig.STYLE_HOTBAR -> {
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, 0, 0, textureWidth - 3, SIZE, 0xFFFFFFFF);
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
+            }
+            case VBVArmorHudConfig.STYLE_ROUNDED_CORNERS -> {
+                if (items.size() > 1) {
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, 3, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 3, 0, 3, 0, textureWidth - 6, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, SIZE - 3, 1, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
+                } else {
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE, SIZE, 0xFFFFFFFF);
+                }
+            }
+            case VBVArmorHudConfig.STYLE_ROUNDED -> {
+                if (items.size() > 1) {
+                    int border = (SIZE - STEP) / 2;
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE - border, SIZE, 0xFFFFFFFF);
+                    for (int j = 1; j < items.size() - 1; j++) {
+                        g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, border, 1, border + j * STEP, 0, STEP, SIZE, 0xFFFFFFFF);
+                    }
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 1, 1, textureWidth - STEP - border, 0, SIZE - border, SIZE, 0xFFFFFFFF);
+                } else {
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE, SIZE, 0xFFFFFFFF);
+                }
+            }
+            case VBVArmorHudConfig.STYLE_NONE -> { }
+            default -> { }
+        }
+
         for (int i = 0; i < items.size(); i++) {
             ItemStack stack = items.get(i);
             int x = rect[0] + (horizontal ? STEP * i : 0);
             int y = rect[1] + (horizontal ? 0 : STEP * i);
 
-            if (VBVArmorHudConfig.style != VBVArmorHudConfig.STYLE_NONE) {
-                // container/slot is an atlas sprite, not a standalone texture.
-                // Draw a browser-safe beveled slot to avoid purple missing-texture tiles.
-                // Procedural, texture-free slot frame: avoids missing purple/black
-                // atlas tiles in the standalone browser build.
-                g.fill(x, y, x + SIZE, y + SIZE, 0xFF080B10);
-                g.fill(x + 1, y + 1, x + SIZE - 1, y + SIZE - 1, 0xFF53616E);
-                g.fill(x + 2, y + 2, x + SIZE - 2, y + SIZE - 2, 0xFF18212A);
-                g.fill(x + 2, y + 2, x + SIZE - 2, y + 3, 0xFF71818F);
-                g.fill(x + 2, y + 2, x + 3, y + SIZE - 2, 0xFF71818F);
-                g.fill(x + SIZE - 3, y + 3, x + SIZE - 2, y + SIZE - 2, 0xFF080B10);
-                g.fill(x + 3, y + SIZE - 3, x + SIZE - 2, y + SIZE - 2, 0xFF080B10);
-                g.fill(x + 3, y + 4, x + SIZE - 3, y + 5, 0xFF263440);
-                g.fill(x + 3, y + SIZE - 5, x + SIZE - 3, y + SIZE - 4, 0xFF10171E);
+            if (stack.isEmpty()) {
+                if (VBVArmorHudConfig.iconsShown && (VBVArmorHudConfig.widgetShown == VBVArmorHudConfig.SHOWN_ALWAYS
+                        || VBVArmorHudConfig.widgetShown == VBVArmorHudConfig.SHOWN_IF_ANY)) {
+                    int slotIndex = VBVArmorHudConfig.reversed ? 3 - i : i;
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, EMPTY_SLOT_SPRITES[slotIndex], x + 3, y + 3, 16, 16);
+                }
+                continue;
             }
-            if (stack.isEmpty()) continue;
             g.item(stack, x + 3, y + 3);
 
             boolean damageable = stack.isDamageableItem();
