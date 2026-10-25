@@ -51,6 +51,10 @@ public final class VBVWorldMap {
             lastWorld = world;
             // Only the chunk the player actually enters is marked explored.
             exploredSet(world, true).add(key);
+        }
+        // Retry the player's current chunk until its terrain data is actually
+        // available. A one-time failed capture must not leave the map blank forever.
+        if (!hasTerrain(world, key)) {
             captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
         }
 
