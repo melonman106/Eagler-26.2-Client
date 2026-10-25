@@ -120,6 +120,16 @@ public final class VBVClient {
         registerMod(new VBVModInfo("jade", "Jade (lightweight native port)", "Eagler port 1.0.0",
             "Snownee / native Eagler port", "Targeted block/entity tooltip with enable toggle and movable position.", "vbvclient:textures/mods/jade.png", false));
 
+        registerMod(new VBVModInfo(
+            "shulkerboxtooltip",
+            "ShulkerBoxTooltip",
+            "Native Eagler port 1.0.0",
+            "MisterPeModder / native Eagler port",
+            "Hold Shift while hovering a shulker box in an inventory to preview its 27 contents slots.",
+            "vbvclient:textures/mods/shulkerboxtooltip.png",
+            false
+        ));
+
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
     }
