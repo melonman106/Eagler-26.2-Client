@@ -255,6 +255,82 @@ jobs:
           fi
           echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
+      - name: Add WebMC JSMod runtime and converted Fabric enhancements
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/webmc-jsmods"
+          mkdir -p "$work"
+
+          # Runtime and converted packages are fetched from the reference implementation.
+          # Large JEI/Litematica/Meteor packages remain lazy-loaded by jsmod-loader.js so the
+          # normal standalone HTML does not gain tens of megabytes or a large startup parse job.
+          curl -fL --retry 5 --retry-delay 2 \
+            "https://raw.githubusercontent.com/AmphibianDev/webmc-jsmod/main/runtime/dist/webmc.js" \
+            -o "$work/webmc.js"
+
+          for mod in appleskin gammautils jade zoomify shulkerboxtooltip; do
+            curl -fL --retry 5 --retry-delay 2 \
+              "https://raw.githubusercontent.com/AmphibianDev/webmc-jsmod/main/mods/converted/$mod.js" \
+              -o "$work/$mod.js"
+            test -s "$work/$mod.js"
+          done
+          test -s "$work/webmc.js"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import html
+
+          html_path = Path("eaglercraft-26.2-vbv-herz.html")
+          text = html_path.read_text(encoding="utf-8")
+          marker = "<!-- VBV-WEBMC-JSMOD-INTEGRATION -->"
+          if marker in text:
+              raise SystemExit("JSMod integration is already present in the generated HTML")
+
+          root = Path(__import__('os').environ["RUNNER_TEMP"]) / "webmc-jsmods"
+          loader = Path("VBV/webmods/vbv-mod-loader.js").read_text(encoding="utf-8")
+          jsmod_loader = Path("VBV/webmods/jsmod-loader.js").read_text(encoding="utf-8")
+          menu = Path("VBV/webmods/vbv-mod-menu-bridge.js").read_text(encoding="utf-8")
+          runtime = (root / "webmc.js").read_text(encoding="utf-8")
+
+          def safe_script(source):
+              # HTML parsers terminate a classic script on literal </script>, even inside JS strings.
+              return source.replace("</script>", "<\\/script>")
+
+          blocks = [
+              marker,
+              '<script id="vbv-webmc-runtime">' + safe_script(runtime) + '</script>',
+              '<script>' + safe_script(loader) + '</script>',
+              '<script>' + safe_script(jsmod_loader) + '</script>',
+          ]
+
+          # Inline the smaller converted packages. The loader evaluates these on demand after the
+          # client starts, keeping parser work out of the initial game bootstrap.
+          for mod in ("appleskin", "gammautils", "jade", "zoomify", "shulkerboxtooltip"):
+              source = (root / f"{mod}.js").read_text(encoding="utf-8")
+              blocks.append(f'<script data-vbv-jsmod="{html.escape(mod, quote=True)}">' + safe_script(source) + '</script>')
+
+          blocks.append('<script>' + safe_script(menu) + '</script>')
+          injection = "\n".join(blocks) + "\n"
+
+          if "</body>" in text:
+              text = text.replace("</body>", injection + "</body>", 1)
+          else:
+              text += injection
+          html_path.write_text(text, encoding="utf-8")
+          print("Embedded WebMC runtime and 5 converted Fabric mod packages.")
+          print("Lazy-loadable large packages: JEI, Litematica, Meteor Client.")
+          PY
+
+          grep -q 'VBV-WEBMC-JSMOD-INTEGRATION' eaglercraft-26.2-vbv-herz.html
+          grep -q 'WebMC JS mod runtime' eaglercraft-26.2-vbv-herz.html
+          grep -q 'data-vbv-jsmod="appleskin"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'data-vbv-jsmod="gammautils"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'data-vbv-jsmod="jade"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'data-vbv-jsmod="zoomify"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'data-vbv-jsmod="shulkerboxtooltip"' eaglercraft-26.2-vbv-herz.html
+          echo "Final HTML with JSMod integration: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
+
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
