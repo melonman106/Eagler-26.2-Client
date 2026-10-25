@@ -78,7 +78,6 @@ RESOURCE_ROOT = TARGET.parent / "resources"
 GENERATED_PACK_RESOURCE_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "mods"
 GENERATED_PACK_ICON_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "textures" / "mods"
 
- 
 def png_chunk(kind, payload):
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
 
@@ -108,52 +107,29 @@ def write_custom_panorama_face(path, face):
                 ridge = 150 + ((xx // 16 * 7 + (xx // 37) * 11 + (xx // 9) % 13) % 29)
                 if y < ridge:
                     color = (65, 103, 105)
-                elif y < 190:
-                    color = (51, 111, 66)
-                elif y < 224:
-                    color = (39, 91, 49)
+                elif y < 205:
+                    color = (48, 91, 54)
                 else:
-                    color = (31, 69, 42)
-                # Pixelated lighter grass patches on the valley floor.
-                if 180 <= y < 220 and ((xx // 12 + y // 8 + face) % 9 == 0):
-                    color = (72, 129, 63)
+                    color = (35, 62, 42)
             row.extend(color)
         rows.append(bytes(row))
     raw = b"".join(rows)
-    data = b"\x89PNG\r\n\x1a\n"
-    data += png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-    data += png_chunk(b"IDAT", zlib.compress(raw, 9))
-    data += png_chunk(b"IEND", b"")
+    compressed = zlib.compress(raw, 9)
+    png = bytearray(b"\x89PNG\r\n\x1a\n")
+    png.extend(png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)))
+    png.extend(png_chunk(b"IDAT", compressed))
+    png.extend(png_chunk(b"IEND", b""))
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+    path.write_bytes(png)
 
-panorama_dir = RESOURCE_ROOT / "assets" / "minecraft" / "textures" / "gui" / "title" / "background"
-uploaded_panorama_dir = CLIENT_SIDE / "panorama"
-uploaded_faces = [uploaded_panorama_dir / f"panorama_{i}.png" for i in range(6)]
-
-if any(path.is_file() for path in uploaded_faces):
-    missing_faces = [path.name for path in uploaded_faces if not path.is_file()]
-    if missing_faces:
-        raise SystemExit(
-            "Custom panorama is incomplete in VBV/panorama/. Upload all six files "
-            "panorama_0.png through panorama_5.png. Missing: " + ", ".join(missing_faces)
-        )
-    for source_face in uploaded_faces:
-        with source_face.open("rb") as stream:
-            signature = stream.read(8)
-        if signature != b"\x89PNG\r\n\x1a\n":
-            raise SystemExit(f"Custom panorama face is not a PNG file: {source_face}")
-        panorama_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_face, panorama_dir / source_face.name)
-    print("Using all six uploaded custom panorama faces from", uploaded_panorama_dir)
+BACKGROUND = TARGET.parent / "resources/assets/minecraft/textures/gui/title/background"
+existing_panorama = sorted(BACKGROUND.glob("panorama_*.png")) if BACKGROUND.is_dir() else []
+if not existing_panorama:
+    for face in range(6):
+        write_custom_panorama_face(BACKGROUND / f"panorama_{face}.png", face)
+    print("No uploaded panorama found; generated six default pixel-art panorama faces in", BACKGROUND)
 else:
-    for panorama_face in range(6):
-        write_custom_panorama_face(panorama_dir / f"panorama_{panorama_face}.png", panorama_face)
-    print("No uploaded panorama found; generated six default pixel-art panorama faces in", panorama_dir)
-
-
-def java_string(value):
-    return json.dumps(str(value), ensure_ascii=False)
+    print("Existing panorama found; leaving uploaded panorama unchanged.")
 
 def text_from_component(value):
     if isinstance(value, str):
@@ -161,22 +137,17 @@ def text_from_component(value):
     if isinstance(value, list):
         return "".join(text_from_component(v) for v in value)
     if isinstance(value, dict):
-        if "text" in value:
-            return text_from_component(value["text"])
-        if "translate" in value:
-            return str(value["translate"])
-        if "extra" in value:
-            return text_from_component(value["extra"])
+        if isinstance(value.get("text"), str):
+            return value["text"] + text_from_component(value.get("extra", []))
+        return text_from_component(value.get("extra", []))
     return str(value)
 
-def safe_mod_id(stem):
-    value = re.sub(r"[^a-zA-Z0-9._-]+", "-", stem.strip().lower())
-    value = re.sub(r"-+", "-", value).strip("-._")
-    return value or "resource-pack-mod"
+def safe_mod_id(name):
+    value = re.sub(r"[^a-z0-9._-]+", "-", name.lower()).strip("-._")
+    return value or "resource-pack"
 
-def display_name(stem):
-    value = re.sub(r"[_-]+", " ", stem).strip()
-    return value or "Resource Pack Mod"
+def display_name(name):
+    return re.sub(r"[_-]+", " ", name).strip().title()
 
 def find_zip_root(names):
     normalized = [n.replace("\\", "/").lstrip("/") for n in names]
@@ -282,6 +253,7 @@ if MODS_PACK.is_dir():
         if not icon.is_file():
             fallback = CLIENT_SIDE / "pack.png"
             if fallback.is_file():
+                icon.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(fallback, icon)
         if icon.is_file():
             try:
@@ -292,6 +264,7 @@ if MODS_PACK.is_dir():
                 raise SystemExit(f"Could not normalize resource-pack icon {icon}: {exc}")
 
         mod_json = GENERATED_PACK_RESOURCE_ROOT / mod_id / "mod.json"
+        mod_json.parent.mkdir(parents=True, exist_ok=True)
         mod_json.write_text(
             json.dumps({
                 "id": mod_id,
@@ -333,528 +306,6 @@ for mod_id, name, description in pack_entries:
 generated_lines.extend([
     "    }",
     "}",
-    "",
 ])
-GENERATED_PACK_CLASS.write_text("\n".join(generated_lines), encoding="utf-8")
-print("Generated pack-mod registry:", GENERATED_PACK_CLASS)
-print("Imported pack mods:", len(pack_entries))
-
-def java_files():
-    for p in TARGET.rglob("*.java"):
-        try:
-            yield p, p.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-
-def find_method_end(text, method_start):
-    """Return the index of the closing brace for the method containing method_start."""
-    brace = text.find("{", method_start)
-    if brace < 0:
-        return None
-
-    depth = 0
-    in_string = False
-    in_char = False
-    in_line_comment = False
-    in_block_comment = False
-    escaped = False
-    i = brace
-
-    while i < len(text):
-        c = text[i]
-        n = text[i + 1] if i + 1 < len(text) else ""
-
-        if in_line_comment:
-            if c == "\n":
-                in_line_comment = False
-        elif in_block_comment:
-            if c == "*" and n == "/":
-                in_block_comment = False
-                i += 1
-        elif in_string:
-            if escaped:
-                escaped = False
-            elif c == "\\":
-                escaped = True
-            elif c == '"':
-                in_string = False
-        elif in_char:
-            if escaped:
-                escaped = False
-            elif c == "\\":
-                escaped = True
-            elif c == "'":
-                in_char = False
-        else:
-            if c == "/" and n == "/":
-                in_line_comment = True
-                i += 1
-            elif c == "/" and n == "*":
-                in_block_comment = True
-                i += 1
-            elif c == '"':
-                in_string = True
-            elif c == "'":
-                in_char = True
-            elif c == "{":
-                depth += 1
-            elif c == "}":
-                depth -= 1
-                if depth == 0:
-                    return i
-
-        i += 1
-
-    return None
-
-minecraft = None
-for p, s in java_files():
-    if re.search(r"class\s+Minecraft\b", s) and "static Minecraft" in s:
-        minecraft = (p, s)
-        break
-if not minecraft:
-    raise SystemExit("Minecraft class was not identified; VBV would never initialize")
-
-mc_path, mc_src = minecraft
-SCREEN_METHOD_RE = re.compile(
-    r"(?:public|protected|private)?\s*(?:final\s+)?void\s+(\w+)\(\s*(?:@Nullable\s+)?(?:final\s+)?Screen\s+\w+\s*\)"
-)
-screen_methods = [m.group(1) for m in SCREEN_METHOD_RE.finditer(mc_src)]
-open_name = None
-for preferred in ("setScreen", "setScreenAndShow", "openScreen", "showScreen"):
-    if preferred in screen_methods:
-        open_name = preferred
-        break
-if open_name is None and screen_methods:
-    open_name = screen_methods[0]
-if open_name is None:
-    raise SystemExit("Could not find a method on Minecraft that takes a single Screen")
-print("Screen-opening method on Minecraft:", open_name, "(candidates:", screen_methods, ")")
-
-hud_path = None
-hud_src = None
-for p, s in java_files():
-    if p.name == "Hud.java" and re.search(r"class\s+Hud\b", s):
-        hud_path = p
-        hud_src = s
-        break
-if hud_path is None:
-    raise SystemExit("Hud.java was not identified; VBV HUD hooks cannot be installed")
-
-HUD_CALL = "com.melonman106.vbvclient.VBVSimpleHud.render(graphics);"
-if HUD_CALL not in hud_src:
-    hud_match = re.search(
-        r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{",
-        hud_src
-    )
-    if not hud_match:
-        raise SystemExit("Hud.extractItemHotbar method was not identified")
-    param = re.search(r"GuiGraphicsExtractor\s+(\w+)", hud_match.group(0))
-    if not param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter")
-    HUD_CALL = HUD_CALL.replace("graphics", param.group(1))
-    end = find_method_end(hud_src, hud_match.start())
-    if end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar")
-    hud_src = hud_src[:end] + "\n        " + HUD_CALL + "\n    " + hud_src[end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted existing VBV Simple HUD hook into", hud_path)
-else:
-    print("Existing VBV Simple HUD hook already present.")
-
-ARMOR_CALL = "com.melonman106.vbvclient.VBVArmorHud.render(graphics);"
-hud_src = hud_path.read_text(encoding="utf-8")
-if ARMOR_CALL in hud_src:
-    print("VBV Armor HUD own hook already present.")
-else:
-    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
-    if not _m:
-        raise SystemExit("Hud.extractItemHotbar method was not identified")
-    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
-    if not _param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter")
-    ARMOR_CALL = ARMOR_CALL.replace("graphics", _param.group(1))
-    _end = find_method_end(hud_src, _m.start())
-    if _end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar")
-    hud_src = hud_src[:_end] + "\n        " + ARMOR_CALL + "\n    " + hud_src[_end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted Armor HUD hook into", hud_path)
-
-
-# BetterF3-inspired compact debug overlay (toggle with B).
-DEBUG_CALL = "com.melonman106.vbvclient.VBVExtraFeatures.renderDebug(graphics);"
-hud_src = hud_path.read_text(encoding="utf-8")
-if DEBUG_CALL not in hud_src:
-    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
-    if not _m:
-        raise SystemExit("Hud.extractItemHotbar method was not identified for enhanced debug HUD")
-    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
-    if not _param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for enhanced debug HUD")
-    DEBUG_CALL = DEBUG_CALL.replace("graphics", _param.group(1))
-    _end = find_method_end(hud_src, _m.start())
-    if _end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar for enhanced debug HUD")
-    hud_src = hud_src[:_end] + "\n        " + DEBUG_CALL + "\n    " + hud_src[_end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted BetterF3-inspired debug overlay hook into", hud_path)
-
-# Brief Gamma ON/OFF confirmation after pressing G.
-GAMMA_STATUS_CALL = "com.melonman106.vbvclient.VBVExtraFeatures.renderGammaStatus(graphics);"
-hud_src = hud_path.read_text(encoding="utf-8")
-if GAMMA_STATUS_CALL not in hud_src:
-    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
-    if not _m:
-        raise SystemExit("Hud.extractItemHotbar method was not identified for Gamma status hook")
-    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
-    if not _param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for Gamma status hook")
-    GAMMA_STATUS_CALL = GAMMA_STATUS_CALL.replace("graphics", _param.group(1))
-    _end = find_method_end(hud_src, _m.start())
-    if _end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar for Gamma status hook")
-    hud_src = hud_src[:_end] + "\n        " + GAMMA_STATUS_CALL + "\n    " + hud_src[_end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted Gamma ON/OFF status hook into", hud_path)
-
-# AppleSkin-style live food/saturation/exhaustion information overlay.
-APPLE_CALL = "com.melonman106.vbvclient.VBVAppleSkin.render(graphics);"
-hud_src = hud_path.read_text(encoding="utf-8")
-if APPLE_CALL not in hud_src:
-    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
-    if not _m:
-        raise SystemExit("Hud.extractItemHotbar method was not identified for AppleSkin hook")
-    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
-    if not _param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for AppleSkin hook")
-    APPLE_CALL = APPLE_CALL.replace("graphics", _param.group(1))
-    _end = find_method_end(hud_src, _m.start())
-    if _end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar for AppleSkin hook")
-    hud_src = hud_src[:_end] + "\n        " + APPLE_CALL + "\n    " + hud_src[_end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted AppleSkin-style food information hook into", hud_path)
-
-# Detailed minimap overlay, drawn after the main hunger/armor HUD hooks.
-MINIMAP_CALL = "com.melonman106.vbvclient.VBVMiniMap.render(graphics);"
-hud_src = hud_path.read_text(encoding="utf-8")
-if MINIMAP_CALL not in hud_src:
-    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
-    if not _m:
-        raise SystemExit("Hud.extractItemHotbar method was not identified for minimap hook")
-    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
-    if not _param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for minimap hook")
-    MINIMAP_CALL = MINIMAP_CALL.replace("graphics", _param.group(1))
-    _end = find_method_end(hud_src, _m.start())
-    if _end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar for minimap hook")
-    hud_src = hud_src[:_end] + "\n        " + MINIMAP_CALL + "\n    " + hud_src[_end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted minimap HUD hook into", hud_path)
-
-# Jade-style target tooltip hook.
-JADE_CALL = "com.melonman106.vbvclient.VBVJadeHud.render(graphics);"
-hud_src = hud_path.read_text(encoding="utf-8")
-if JADE_CALL not in hud_src:
-    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
-    if not _m:
-        raise SystemExit("Hud.extractItemHotbar method was not identified for Jade hook")
-    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
-    if not _param:
-        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for Jade hook")
-    JADE_CALL = JADE_CALL.replace("graphics", _param.group(1))
-    _end = find_method_end(hud_src, _m.start())
-    if _end is None:
-        raise SystemExit("Could not find end of Hud.extractItemHotbar for Jade hook")
-    hud_src = hud_src[:_end] + "\n        " + JADE_CALL + "\n    " + hud_src[_end:]
-    hud_path.write_text(hud_src, encoding="utf-8")
-    print("Inserted Jade-style target overlay hook into", hud_path)
-
-# Wire Mouse Tweaks' wheel behavior into the real container-screen input path.
-container_path = None
-container_src = None
-for p, s in java_files():
-    if p.name == "AbstractContainerScreen.java" and "class AbstractContainerScreen" in s:
-        container_path = p
-        container_src = s
-        break
-if container_path is None:
-    raise SystemExit("AbstractContainerScreen.java was not found; Mouse Tweaks cannot be wired")
-mouse_hook = "com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()"
-if mouse_hook not in container_src:
-    scroll_match = re.search(
-        r"public boolean mouseScrolled\s*\([^)]*\)\s*\{",
-        container_src
-    )
-    if not scroll_match:
-        raise SystemExit("AbstractContainerScreen.mouseScrolled was not identified")
-    scroll_end = find_method_end(container_src, scroll_match.start())
-    if scroll_end is None:
-        raise SystemExit("Could not find end of AbstractContainerScreen.mouseScrolled")
-    method = container_src[scroll_match.start():scroll_end]
-    return_false = method.rfind("return false;")
-    if return_false < 0:
-        raise SystemExit("Could not find fallback return in AbstractContainerScreen.mouseScrolled")
-    wheel_code = """if (com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()
-            && this.hoveredSlot != null
-            && scrollY != 0.0D && this.menu.getCarried().isEmpty()) {
-         int steps = Math.min(8, Math.max(1, (int)Math.ceil(Math.abs(scrollY))));
-         for (int wheelStep = 0; wheelStep < steps; wheelStep++) {
-            net.minecraft.world.item.ItemStack hoveredStack = this.hoveredSlot.getItem();
-            if (scrollY < 0.0D) {
-               if (hoveredStack.isEmpty()) break;
-               // Wheel down: move one item out of the hovered stack into the
-               // first compatible inventory slot, then return any remainder.
-               this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
-               net.minecraft.world.item.ItemStack moving = this.menu.getCarried();
-               if (moving.isEmpty()) continue;
-               for (net.minecraft.world.inventory.Slot target : this.menu.slots) {
-                  if (target == this.hoveredSlot || !target.isActive() || !target.mayPlace(moving)) continue;
-                  net.minecraft.world.item.ItemStack inTarget = target.getItem();
-                  if (!inTarget.isEmpty() && inTarget.getItem() != moving.getItem()) continue;
-                  if (!inTarget.isEmpty() && inTarget.getCount() >= target.getMaxStackSize(moving)) continue;
-                  this.slotClicked(target, target.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
-                  break;
-               }
-               if (!this.menu.getCarried().isEmpty()) {
-                  this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, net.minecraft.world.inventory.ContainerInput.PICKUP);
-               }
-            } else {
-               // Wheel up: pull one item from another compatible slot into the
-               // hovered slot, preserving the rest of the source stack.
-               boolean found = false;
-               for (net.minecraft.world.inventory.Slot source : this.menu.slots) {
-                  if (source == this.hoveredSlot || !source.isActive() || !source.hasItem()) continue;
-                  net.minecraft.world.item.ItemStack sourceStack = source.getItem();
-                  if (!this.hoveredSlot.mayPlace(sourceStack)) continue;
-                  if (!hoveredStack.isEmpty() && hoveredStack.getItem() != sourceStack.getItem()) continue;
-                  if (!hoveredStack.isEmpty() && hoveredStack.getCount() >= this.hoveredSlot.getMaxStackSize(sourceStack)) continue;
-                  this.slotClicked(source, source.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
-                  if (!this.menu.getCarried().isEmpty()) {
-                     this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
-                     if (!this.menu.getCarried().isEmpty()) {
-                        this.slotClicked(source, source.index, 0, net.minecraft.world.inventory.ContainerInput.PICKUP);
-                     }
-                  }
-                  found = true;
-                  break;
-               }
-               if (!found) break;
-            }
-         }
-         return true;
-      }
-
-      """
-    method = method[:return_false] + wheel_code + method[return_false:]
-    container_src = container_src[:scroll_match.start()] + method + container_src[scroll_end:]
-    container_path.write_text(container_src, encoding="utf-8")
-    print("Inserted Mouse Tweaks wheel handling into", container_path)
-else:
-    print("Mouse Tweaks wheel hook already present.")
-
-
-
-# Make the Mouse Tweaks toggles affect the actual container input path.
-container_src = container_path.read_text(encoding="utf-8")
-quick_move_old = "boolean quickKey = slotId != -999 && event.hasShiftDown();"
-quick_move_new = "boolean quickKey = slotId != -999 && event.hasShiftDown() && com.melonman106.vbvclient.VBVMouseTweaks.isQuickMoveEnabled();"
-if quick_move_old in container_src:
-    container_src = container_src.replace(quick_move_old, quick_move_new, 1)
-    print("Connected Mouse Tweaks quick-move toggle.")
-drag_old = "this.quickCraftingType = 0;"
-drag_new = "this.quickCraftingType = com.melonman106.vbvclient.VBVMouseTweaks.isDragEvenlyEnabled() ? 0 : 1;"
-if drag_old in container_src:
-    container_src = container_src.replace(drag_old, drag_new, 1)
-    print("Connected Mouse Tweaks drag-evenly toggle.")
-container_path.write_text(container_src, encoding="utf-8")
-
-
-nav = DEST / "VBVNav.java"
-nav_src = nav.read_text(encoding="utf-8")
-nav.write_text(nav_src.replace(".setScreen(screen)", f".{open_name}(screen)"), encoding="utf-8")
-
-INIT_CALL = "com.melonman106.vbvclient.VBVClient.init();"
-
-def end_of_ctor_call(text, start):
-    i = text.index("(", start)
-    depth = 0
-    while i < len(text):
-        c = text[i]
-        if c == "(":
-            depth += 1
-        elif c == ")":
-            depth -= 1
-            if depth == 0:
-                break
-        i += 1
-    j = text.index(";", i)
-    return j + 1
-
-if INIT_CALL in mc_src:
-    print("VBV initialization hook already present.")
-else:
-    ctor_re = re.compile(r"(?:public|private|protected)\s+Minecraft\s*\([^)]*\)\s*(?:throws\s+[\w.,\s]+)?\{")
-    inserted = False
-    for m in ctor_re.finditer(mc_src):
-        rest = mc_src[m.end():]
-        call = re.match(r"\s*(super|this)\s*\(", rest)
-        if call and call.group(1) == "this":
-            continue
-        if call:
-            pos = m.end() + end_of_ctor_call(rest, call.start(1))
-        else:
-            pos = m.end()
-        mc_src = mc_src[:pos] + "\n        " + INIT_CALL + "\n" + mc_src[pos:]
-        mc_path.write_text(mc_src, encoding="utf-8")
-        print("Inserted VBV initialization into", mc_path)
-        inserted = True
-        break
-    if not inserted:
-        raise SystemExit("Minecraft found, but its constructor hook was not identified")
-
-# Hook the local player's current chunk into the explored-chunk tracker.
-MAP_TICK_CALL = "com.melonman106.vbvclient.VBVWorldMap.tick();"
-if MAP_TICK_CALL not in mc_src:
-    tick_candidates = list(re.finditer(
-        r"(?:public|protected|private)\s+void\s+tick\s*\(\s*\)\s*\{",
-        mc_src
-    ))
-    if not tick_candidates:
-        raise SystemExit("Minecraft.tick() was not identified; explored chunks cannot be tracked")
-    tick_match = tick_candidates[0]
-    tick_end = find_method_end(mc_src, tick_match.start())
-    if tick_end is None:
-        raise SystemExit("Could not find end of Minecraft.tick()")
-    mc_src = mc_src[:tick_end] + "\n        " + MAP_TICK_CALL + "\n    " + mc_src[tick_end:]
-    mc_path.write_text(mc_src, encoding="utf-8")
-    print("Inserted explored-chunk tracking hook into", mc_path)
-else:
-    print("Explored-chunk tracking hook already present.")
-
-# Gamma Utils fullbright override: vanilla's UnitDouble gamma setting rejects values > 1.
-GAMMA_OVERRIDE = "com.melonman106.vbvclient.VBVExtraFeatures.gammaOverride(this.minecraft.options.gamma().get().floatValue())"
-lightmap = None
-for p, source_text in java_files():
-    if p.name == "LightmapRenderStateExtractor.java":
-        lightmap = (p, source_text)
-        break
-if lightmap:
-    p, source_text = lightmap
-    if GAMMA_OVERRIDE not in source_text:
-        pattern = r"float\s+brightnessOption\s*=\s*this\.minecraft\.options\.gamma\(\)\.get\(\)\.floatValue\(\)\s*;"
-        source_text, count = re.subn(pattern, "float brightnessOption = " + GAMMA_OVERRIDE + ";", source_text, count=1)
-        if count != 1:
-            raise SystemExit("Could not locate gamma brightness input in LightmapRenderStateExtractor.java")
-        p.write_text(source_text, encoding="utf-8")
-        print("Installed Gamma Utils lightmap override in", p)
-    else:
-        print("Gamma Utils lightmap override already present.")
-else:
-    raise SystemExit("LightmapRenderStateExtractor.java was not found; Gamma Utils override cannot work.")
-
-title = None
-for p, source_text in java_files():
-    if re.search(r"class\s+TitleScreen\b", source_text) and "extends Screen" in source_text:
-        title = (p, source_text)
-        break
-
-if title:
-    p, source_text = title
-    if "VBVModsScreen" not in source_text:
-        # Put Mods immediately below Multiplayer and move the lower menu rows down.
-        normal_menu_call = re.search(
-            r"topPos\s*=\s*this\.createNormalMenuOptions\(topPos,\s*24,\s*liteMode\);",
-            source_text
-        )
-        if normal_menu_call:
-            insert_at = normal_menu_call.end()
-            button = """
-      this.addRenderableWidget(net.minecraft.client.gui.components.Button.builder(
-         net.minecraft.network.chat.Component.literal("Mods"),
-         button -> com.melonman106.vbvclient.VBVNav.open(
-            new com.melonman106.vbvclient.VBVModsScreen(this)
-         )
-      ).bounds(this.width / 2 - 100, topPos + 24, 200, 20).build());
-      topPos += 24;
-"""
-            source_text = source_text[:insert_at] + button + source_text[insert_at:]
-            p.write_text(source_text, encoding="utf-8")
-            print("Inserted Mods below Multiplayer and shifted lower title buttons:", p)
-        else:
-            print("TitleScreen found, but createNormalMenuOptions hook was not identified.")
-    else:
-        print("Native Mods button already present; keeping existing title-screen hook.")
-else:
-    print("TitleScreen was not identified.")
-
-# Add a real Mods row to the in-game Escape menu before Disconnect.
-pause = None
-for p, source_text in java_files():
-    if re.search(r"class\s+PauseScreen\b", source_text) and "extends Screen" in source_text:
-        pause = (p, source_text)
-        break
-
-if pause:
-    p, source_text = pause
-    marker = "this.disconnectButton = helper.addChild("
-    if "VBVModsScreen" not in source_text and marker in source_text:
-        button = """helper.addChild(
-         Button.builder(net.minecraft.network.chat.Component.literal("Mods"),
-            button -> this.minecraft.gui.setScreen(new com.melonman106.vbvclient.VBVModsScreen(this)))
-            .width(204).build(),
-         2
-      );
-      """
-        source_text = source_text.replace(marker, button + marker, 1)
-        p.write_text(source_text, encoding="utf-8")
-        print("Inserted Mods row into in-game PauseScreen:", p)
-    else:
-        print("PauseScreen Mods row already present or insertion marker missing.")
-
-# Hook the real keyboard dispatch. V opens Mods; M opens the explored-chunk map.
-# G toggles maximum vanilla brightness, C zooms while held, and B toggles the
-# compact BetterF3-inspired debug overlay.
-keyboard = None
-for p, source_text in java_files():
-    if p.name == "KeyboardHandler.java" and re.search(r"class\s+KeyboardHandler\b", source_text):
-        keyboard = (p, source_text)
-        break
-
-if keyboard:
-    p, source_text = keyboard
-    hook = """if (action == 1 && !event.hasControlDownWithQuirk()
-            && (screen == null || !(screen.getFocused() instanceof EditBox))) {
-            if (event.key() == 86) {
-               com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.VBVModsScreen(screen));
-               return;
-            }
-            if (event.key() == 77) {
-               com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.VBVWorldMapScreen(screen));
-               return;
-            }
-         }
-
-         """
-    anchor = "Screen screen = this.minecraft.gui.screen();"
-    if anchor not in source_text:
-        raise SystemExit("KeyboardHandler screen dispatch anchor was not identified")
-
-    if "VBVExtraFeatures.handleKey(event.key(), action)" not in source_text:
-        feature_hook = """if (!event.hasControlDownWithQuirk()
-            && (screen == null || !(screen.getFocused() instanceof EditBox))) {
-            com.melonman106.vbvclient.VBVExtraFeatures.handleKey(event.key(), action);
-         }
-
-         """
-        source_text = source_text.replace(anchor, anchor + "\n         " + feature_hook, 1)
-
-    if "VBVWorldMapScreen(screen)" not in source_text:
-        source_text = source_text.replace(anchor, anchor + "\n         " + hook, 1)
-
-    p.write_text(source_text, encoding="utf-8")
-    print("Registered V/M, gamma, zoom, and enhanced-debug keybind hooks in KeyboardHandler:", p)
-else:
-    print("KeyboardHandler was not identified; global VBV keybinds were not installed.")
+GENERATED_PACK_CLASS.write_text("\n".join(generated_lines) + "\n", encoding="utf-8")
+print("Generated resource-pack mod registry:", GENERATED_PACK_CLASS)
