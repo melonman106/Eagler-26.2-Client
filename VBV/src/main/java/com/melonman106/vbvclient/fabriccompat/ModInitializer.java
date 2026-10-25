@@ -1,7 +1,8 @@
 package com.melonman106.vbvclient.fabriccompat;
 
-/** Fabric-shaped entrypoint contract for manually ported client mods. */
+/** Backwards-compatible alias for the Fabric-shaped initializer contract. */
 @FunctionalInterface
-public interface ModInitializer {
+public interface ModInitializer extends net.fabricmc.api.ModInitializer {
+    @Override
     void onInitialize();
 }
