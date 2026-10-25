@@ -506,6 +506,24 @@ for p, s in java_files():
     if p.name == "AbstractContainerScreen.java" and "class AbstractContainerScreen" in s:
         container_path, container_src = p, s; break
 if container_path is None: raise SystemExit("AbstractContainerScreen.java was not found; Mouse Tweaks cannot be wired")
+# Add the native ShulkerBoxTooltip preview after the normal inventory tooltip.
+shulker_hook = "com.melonman106.vbvclient.VBVShulkerViewer.render(graphics, this.hoveredSlot, mouseX, mouseY, net.minecraft.client.gui.screens.Screen.hasShiftDown());"
+if shulker_hook not in container_src:
+    render_match = re.search(
+        r"public void extractRenderState\\s*\\(\\s*final GuiGraphicsExtractor graphics,\\s*final int mouseX,\\s*final int mouseY,\\s*final float \\w+\\s*\\)\\s*\\{",
+        container_src
+    )
+    if not render_match:
+        raise SystemExit("AbstractContainerScreen.extractRenderState was not identified for ShulkerBoxTooltip")
+    render_end = find_method_end(container_src, render_match.start())
+    if render_end is None:
+        raise SystemExit("Could not find end of AbstractContainerScreen.extractRenderState")
+    container_src = container_src[:render_end] + "\\n      " + shulker_hook + "\\n   " + container_src[render_end:]
+    container_path.write_text(container_src, encoding="utf-8")
+    print("Installed Shift-hover shulker contents preview into", container_path)
+else:
+    print("ShulkerBoxTooltip render hook already present.")
+
 mouse_hook = "com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()"
 if mouse_hook not in container_src:
     scroll_match = re.search(r"public boolean mouseScrolled\s*\([^)]*\)\s*\{", container_src)
