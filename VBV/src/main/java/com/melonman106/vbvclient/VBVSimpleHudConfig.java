@@ -17,6 +17,8 @@ public final class VBVSimpleHudConfig {
     public static int armorWarningPercent = 20;
     public static int armorXOffset = 0;
     public static int armorYOffset = 0;
+    public static int hudXOffset = 0;
+    public static int hudYOffset = 0;
 
     private VBVSimpleHudConfig() {}
 
@@ -37,5 +39,7 @@ public final class VBVSimpleHudConfig {
         armorWarningPercent = 20;
         armorXOffset = 0;
         armorYOffset = 0;
+        hudXOffset = 0;
+        hudYOffset = 0;
     }
 }
