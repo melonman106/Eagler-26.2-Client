@@ -41,6 +41,26 @@ if TARGET is None:
     raise SystemExit("Could not find net/minecraft/client/Minecraft.java in the generated project")
 
 print("Using game source root:", TARGET)
+
+# Preserve upstream attribution while adding the custom client modder credit
+# beside the existing "Made by o_xer" main-menu line.
+version_files = list(ROOT.rglob("EaglercraftVersion.java"))
+version_file = next(
+    (p for p in version_files if "platform" in p.parts and "src" in p.parts),
+    None
+)
+if version_file is None:
+    raise SystemExit("EaglercraftVersion.java was not found; cannot add main-menu modder credit")
+version_src = version_file.read_text(encoding="utf-8")
+old_credit = 'public static final String mainMenuStringF = "Made by " + projectForkVendor;'
+new_credit = 'public static final String mainMenuStringF = "Made by " + projectForkVendor + " | Modded by Melonman106";'
+if new_credit in version_src:
+    print("Main-menu modder credit already present.")
+elif old_credit in version_src:
+    version_file.write_text(version_src.replace(old_credit, new_credit, 1), encoding="utf-8")
+    print("Added 'Modded by Melonman106' beside the existing upstream main-menu credit.")
+else:
+    raise SystemExit("Expected mainMenuStringF attribution was not found; refusing to patch an unknown version file")
 DEST = TARGET / "com/melonman106/vbvclient"
 DEST.mkdir(parents=True, exist_ok=True)
 source_files = sorted(SOURCE.rglob("*.java"))
