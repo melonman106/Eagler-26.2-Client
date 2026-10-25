@@ -1,14 +1,13 @@
 /*
  * VBV browser bridge for the immutable Eagler HTML client.
  *
- * This does two things:
- *  1. exposes the two VBV client mods through one browser-side Mods panel;
- *  2. uses the real EaglerForge ModAPI metadata hook when that API exists.
- *
- * It never changes the embedded WASM/EPK payloads.
+ * Native VBV ports remain the fallback. When the WebMC JSMod compatibility
+ * layer is present, converted Fabric mods can be loaded beside those native
+ * ports. This mirrors the useful part of AmphibianDev/webmc-jsmod without
+ * requiring Fabric Loader or arbitrary JAR execution in the browser.
  */
 (function () {
-  const mods = [
+  const nativeMods = [
     {
       id: "vbv-resource-packs",
       name: "Resource Packs",
@@ -24,14 +23,14 @@
   ];
 
   window.VBVModMenu = window.VBVModMenu || {};
-  window.VBVModMenu.mods = mods;
+  window.VBVModMenu.mods = nativeMods;
 
   function registerMetadata() {
     try {
       const api = window.ModAPI || window.PluginAPI;
       if (!api || !api.meta) return;
       api.meta.title("VBV Client Mods");
-      api.meta.description("Resource Packs and uku's Armor HUD");
+      api.meta.description("Native VBV ports plus converted Fabric JS mods");
     } catch (_) {}
   }
 
@@ -42,7 +41,7 @@
     panel.id = "vbv-mod-menu";
     Object.assign(panel.style, {
       position: "fixed", left: "50%", top: "50%",
-      transform: "translate(-50%,-50%)", width: "420px",
+      transform: "translate(-50%,-50%)", width: "460px",
       maxWidth: "calc(100vw - 32px)", maxHeight: "calc(100vh - 32px)",
       overflow: "auto", padding: "14px", boxSizing: "border-box",
       background: "rgba(15,15,15,.96)", color: "white",
@@ -55,7 +54,12 @@
     Object.assign(title.style, {fontSize:"20px",fontWeight:"bold",marginBottom:"12px"});
     panel.appendChild(title);
 
-    for (const mod of mods) {
+    const note = document.createElement("div");
+    note.textContent = "Native ports stay active; converted Fabric mods are optional enhancements.";
+    Object.assign(note.style, {fontSize:"11px",opacity:".65",marginBottom:"8px"});
+    panel.appendChild(note);
+
+    function addRow(mod, converted) {
       const row = document.createElement("button");
       row.type = "button";
       Object.assign(row.style, {
@@ -67,12 +71,46 @@
       name.textContent = mod.name;
       name.style.fontWeight = "bold";
       const desc = document.createElement("div");
-      desc.textContent = mod.description;
+      desc.textContent = mod.description || (converted ? "Converted Fabric mod." : "Native VBV mod.");
       desc.style.fontSize = "12px";
       desc.style.opacity = ".75";
-      row.append(name, desc);
-      row.addEventListener("click", () => mod.open());
+      const status = document.createElement("div");
+      status.style.fontSize = "11px";
+      status.style.opacity = ".55";
+      row.append(name, desc, status);
+
+      if (converted) {
+        const refreshStatus = () => {
+          const s = window.VBVJSMods?.status?.(mod.id) || "available";
+          status.textContent = s === "loaded" ? "Converted: loaded" : s === "failed" ? "Converted: failed; native fallback remains" : "Converted: click to load";
+        };
+        refreshStatus();
+        row.addEventListener("click", async () => {
+          status.textContent = "Loading converted mod…";
+          const ok = await window.VBVJSMods?.load?.(mod.id);
+          status.textContent = ok ? "Converted: loaded" : "Converted: failed; native fallback remains";
+        });
+      } else {
+        row.addEventListener("click", () => mod.open());
+      }
       panel.appendChild(row);
+    }
+
+    for (const mod of nativeMods) addRow(mod, false);
+
+    const converted = window.VBVJSMods;
+    if (converted?.mods) {
+      const heading = document.createElement("div");
+      heading.textContent = "Converted Fabric mods";
+      Object.assign(heading.style, {fontSize:"13px",fontWeight:"bold",margin:"14px 0 6px"});
+      panel.appendChild(heading);
+      for (const mod of converted.mods.values()) {
+        const size = mod.size ? ` ${(mod.size / 1048576).toFixed(1)} MB` : "";
+        addRow({
+          ...mod,
+          description: (mod.large ? "Large optional package." : "Converted Fabric package.") + size + "."
+        }, true);
+      }
     }
 
     const close = document.createElement("button");
