@@ -78,6 +78,43 @@ RESOURCE_ROOT = TARGET.parent / "resources"
 GENERATED_PACK_RESOURCE_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "mods"
 GENERATED_PACK_ICON_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "textures" / "mods"
 
+# Copy the native VBV feature icons into the game's actual resource tree.
+# Keep source filenames as authored in VBV/PackIcons, but normalize the copied
+# textures to 64x64 RGBA because the Mod Menu renderer blits a 64x64 texture.
+PACK_ICON_DIR = CLIENT_SIDE / "PackIcons"
+NATIVE_PACK_ICONS = {
+    "viabackportvisuals-client": "ModMenu.png",
+    "ukus-armor-hud": "AmourHud.png",
+    "simple-hud-enhanced": "ModMenu.png",
+    "mouse-tweaks": "ModMenu.png",
+    "appleskin": "AppleSkin.png",
+    "gamma-utils": "gamma.png",
+    "zoomify": "Zoomify.png",
+    "betterf3": "BetterF3.png",
+    "vbv-minimap": "Minimap.png",
+    "jade": "Jade.png",
+}
+
+def install_native_pack_icons():
+    from PIL import Image
+    copied = 0
+    for mod_id, filename in NATIVE_PACK_ICONS.items():
+        source = PACK_ICON_DIR / filename
+        if not source.is_file():
+            raise SystemExit(f"Required VBV mod icon is missing: {source}")
+        destination = RESOURCE_ROOT / "assets" / "vbvclient" / "textures" / "mods" / f"{mod_id}.png"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with Image.open(source) as image:
+                image.convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS).save(destination, format="PNG")
+        except Exception as exc:
+            raise SystemExit(f"Could not process VBV mod icon {source}: {exc}")
+        copied += 1
+        print(f"Installed native mod icon: {mod_id} <- {filename}")
+    print(f"Installed {copied} native VBV mod icons.")
+
+install_native_pack_icons()
+
  
 def png_chunk(kind, payload):
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
