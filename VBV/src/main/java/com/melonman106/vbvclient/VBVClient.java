@@ -33,7 +33,7 @@ public final class VBVClient {
             "Native Eagler port 1.0.0",
             "tapeQ / Eagler client port",
             "Shine-style visual effects for Eaglercraft: selective bloom, colored lighting, rim lighting, and optional disabled shading. Native WebGL implementation with an in-game configuration screen.",
-            "vbvclient:textures/mods/shine.png",
+            "vbvclient:textures/mods/viabackportvisuals-client.png",
             false
         ));
 
