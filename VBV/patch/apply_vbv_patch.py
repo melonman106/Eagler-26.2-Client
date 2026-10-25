@@ -440,17 +440,17 @@ else:
 DEBUG_CALL = "com.melonman106.vbvclient.VBVExtraFeatures.renderDebug(graphics);"
 hud_src = hud_path.read_text(encoding="utf-8")
 if DEBUG_CALL not in hud_src:
-    _m = re.search(r"(?:public|private|protected)\\s+void\\s+extractItemHotbar\\s*\\([^)]*\\)\\s*\\{", hud_src)
+    _m = re.search(r"(?:public|private|protected)\s+void\s+extractItemHotbar\s*\([^)]*\)\s*\{", hud_src)
     if not _m:
         raise SystemExit("Hud.extractItemHotbar method was not identified for enhanced debug HUD")
-    _param = re.search(r"GuiGraphicsExtractor\\s+(\\w+)", _m.group(0))
+    _param = re.search(r"GuiGraphicsExtractor\s+(\w+)", _m.group(0))
     if not _param:
         raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for enhanced debug HUD")
     DEBUG_CALL = DEBUG_CALL.replace("graphics", _param.group(1))
     _end = find_method_end(hud_src, _m.start())
     if _end is None:
         raise SystemExit("Could not find end of Hud.extractItemHotbar for enhanced debug HUD")
-    hud_src = hud_src[:_end] + "\\n        " + DEBUG_CALL + "\\n    " + hud_src[_end:]
+    hud_src = hud_src[:_end] + "\n        " + DEBUG_CALL + "\n    " + hud_src[_end:]
     hud_path.write_text(hud_src, encoding="utf-8")
     print("Inserted BetterF3-inspired debug overlay hook into", hud_path)
 
