@@ -126,6 +126,15 @@ def install_native_pack_icons():
 
 install_native_pack_icons()
 
+# Install the clean-room Shine post-processing assets into the generated game.
+SHINE_RESOURCE_SOURCE = CLIENT_SIDE / "patch" / "resources"
+if not (SHINE_RESOURCE_SOURCE / "assets" / "vbvclient" / "post_effect" / "shine_bloom.json").is_file():
+    raise SystemExit("Shine bloom post-chain JSON is missing from VBV/patch/resources")
+if not (SHINE_RESOURCE_SOURCE / "assets" / "vbvclient" / "shaders" / "post" / "shine_bloom.fsh").is_file():
+    raise SystemExit("Shine bloom fragment shader is missing from VBV/patch/resources")
+shutil.copytree(SHINE_RESOURCE_SOURCE, RESOURCE_ROOT, dirs_exist_ok=True)
+print("Installed Shine screen-space bloom post-chain and shader assets.")
+
  
 def png_chunk(kind, payload):
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff)
@@ -753,6 +762,48 @@ if shine_tint_marker not in source_text:
     print("Connected Shine lighting settings to Eagler's lightmap (ambient approximation, not full shader effects).")
 else:
     print("Shine lightmap settings already connected.")
+
+# Run a real screen-space highlight/bloom pass after the world and optional
+# Eagler grading pass, but before the player's hand and GUI are rendered.
+game_renderer = None
+for renderer_path, renderer_src in java_files():
+    if renderer_path.name == "GameRenderer.java" and re.search(r"class\\s+GameRenderer\\b", renderer_src):
+        game_renderer = (renderer_path, renderer_src)
+        break
+if game_renderer is None:
+    raise SystemExit("GameRenderer.java was not found; Shine screen-space bloom cannot be wired")
+renderer_path, renderer_src = game_renderer
+failure_flag = "private boolean vbvShineBloomFailed;"
+if failure_flag not in renderer_src:
+    renderer_marker = "private boolean eaglerOptimizedShaderRequestedLastFrame;"
+    if renderer_marker not in renderer_src:
+        raise SystemExit("GameRenderer shader state marker was not found for Shine failure guard")
+    renderer_src = renderer_src.replace(renderer_marker, renderer_marker + "\\n   " + failure_flag, 1)
+shine_hook = "com.melonman106.vbvclient.ShineConfig.bloom() && !this.vbvShineBloomFailed"
+if shine_hook not in renderer_src:
+    render_marker = "boolean isSleeping = cameraState.entityRenderState.isSleeping;"
+    if render_marker not in renderer_src:
+        raise SystemExit("GameRenderer.renderLevel hook point was not found for Shine bloom")
+    shine_block = """if (com.melonman106.vbvclient.ShineConfig.bloom() && !this.vbvShineBloomFailed) {
+         try {
+            PostChain shineBloom = this.minecraft.getShaderManager().getOptionalPostChain(
+               Identifier.fromNamespaceAndPath("vbvclient", "shine_bloom"),
+               LevelTargetBundle.MAIN_TARGETS
+            );
+            if (shineBloom != null) {
+               shineBloom.process(this.mainRenderTarget, this.resourcePool);
+            }
+         } catch (RuntimeException exception) {
+            this.vbvShineBloomFailed = true;
+            LOGGER.error("Disabling Shine screen-space bloom after post-chain failure", exception);
+         }
+      }
+      """
+    renderer_src = renderer_src.replace(render_marker, shine_block + render_marker, 1)
+    renderer_path.write_text(renderer_src, encoding="utf-8")
+    print("Connected Shine's screen-space bloom post-chain in GameRenderer.")
+else:
+    print("Shine screen-space bloom hook already present.")
 
 title = None
 for p, source_text in java_files():
