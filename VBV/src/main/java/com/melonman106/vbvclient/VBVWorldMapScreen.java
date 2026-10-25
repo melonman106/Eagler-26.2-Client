@@ -71,7 +71,7 @@ public final class VBVWorldMapScreen extends Screen {
         int mapTop = 30, mapBottom = height - 38, mapLeft = 4, mapRight = width - 4;
 
         // Never query live terrain while rendering the map. It uses one-time
-        // 8x8 cached surface samples and still displays only visited chunks.
+        // 16x16 cached surface samples and still displays only visited chunks.
         int minChunkX = (int)Math.floor((centerX / 16.0D) + (mapLeft - width / 2.0D) / (double)pixels) - 1;
         int maxChunkX = (int)Math.floor((centerX / 16.0D) + (mapRight - width / 2.0D) / (double)pixels) + 1;
         int minChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapTop - height / 2.0D) / (double)pixels) - 1;
@@ -117,7 +117,7 @@ public final class VBVWorldMapScreen extends Screen {
 
         graphics.text(minecraft.font, "Explored chunks: " + explored.size(), 8, height - 48, 0xFFFFFFFF, true);
         graphics.text(minecraft.font, "Zoom: " + String.format(java.util.Locale.ROOT, "%.1fx", zoom), 8, height - 60, 0xFFCCCCCC, true);
-        graphics.text(minecraft.font, "12×12 terrain detail · visited chunks only", 8, 32, 0xFFCCCCCC, true);
+        graphics.text(minecraft.font, "16×16 terrain detail · explored chunks only", 8, 32, 0xFFCCCCCC, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }
