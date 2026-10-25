@@ -1,10 +1,15 @@
 package com.melonman106.vbvclient;
 
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.entity.player.Player;
 
 public final class VBVWorldMapScreen extends Screen {
@@ -12,6 +17,7 @@ public final class VBVWorldMapScreen extends Screen {
     private double centerX;
     private double centerZ;
     private double zoom = 12.0D;
+    private final Map<Long, Integer> terrainColorCache = new HashMap<>();
 
     public VBVWorldMapScreen(Screen parent) {
         this(parent, Double.NaN, Double.NaN);
@@ -33,6 +39,25 @@ public final class VBVWorldMapScreen extends Screen {
 
     private int chunkPixels() {
         return Math.max(3, (int) Math.round(zoom));
+    }
+    private int terrainColor(Minecraft minecraft, int blockX, int blockZ) {
+        long key = ((long) blockX << 32) ^ (blockZ & 0xFFFFFFFFL);
+        Integer cached = terrainColorCache.get(key);
+        if (cached != null) return cached;
+        int surfaceY = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ) - 1;
+        if (surfaceY < minecraft.level.getMinY()) return 0xFF202020;
+        BlockPos pos = new BlockPos(blockX, surfaceY, blockZ);
+        BlockState state = minecraft.level.getBlockState(pos);
+        int color = state.getMapColor(minecraft.level, pos).col;
+        if (color == 0) color = 0x303030;
+        int shade = Math.max(0x55, Math.min(0xFF, 190 + (surfaceY - 64) / 2));
+        int r = ((color >> 16) & 255) * shade / 255;
+        int g = ((color >> 8) & 255) * shade / 255;
+        int b = (color & 255) * shade / 255;
+        int result = 0xFF000000 | (r << 16) | (g << 8) | b;
+        if (terrainColorCache.size() > 120000) terrainColorCache.clear();
+        terrainColorCache.put(key, result);
+        return result;
     }
 
     /** Pan distance in blocks: roughly 60 screen pixels regardless of zoom. */
@@ -84,14 +109,20 @@ public final class VBVWorldMapScreen extends Screen {
         int centerChunkX = (int) Math.floor(centerX / 16.0D);
         int centerChunkZ = (int) Math.floor(centerZ / 16.0D);
         int chunkPixels = chunkPixels();
-
-        for (long packed : VBVWorldMap.explored(world)) {
-            int cx = VBVWorldMap.chunkX(packed);
-            int cz = VBVWorldMap.chunkZ(packed);
-            int x = width / 2 + (cx - centerChunkX) * chunkPixels;
-            int z = height / 2 + (cz - centerChunkZ) * chunkPixels;
-            if (x + chunkPixels < 0 || x > width || z + chunkPixels < 28 || z > height - 36) continue;
-            graphics.fill(x, z, x + chunkPixels - 1, z + chunkPixels - 1, 0xFF4B6B45);
+        double blocksPerPixel = 16.0D / chunkPixels;
+        java.util.Set<Long> explored = VBVWorldMap.explored(world);
+        int mapTop = 30, mapBottom = height - 38, mapLeft = 4, mapRight = width - 4;
+        // Sample actual surface block map colours instead of one flat colour per chunk.
+        if (minecraft.level != null) {
+            for (int py = mapTop; py < mapBottom; py += 2) {
+                int blockZ = (int) Math.floor(centerZ + (py - height / 2.0D) * blocksPerPixel);
+                for (int px = mapLeft; px < mapRight; px += 2) {
+                    int blockX = (int) Math.floor(centerX + (px - width / 2.0D) * blocksPerPixel);
+                    long chunk = VBVWorldMap.pack(Math.floorDiv(blockX, 16), Math.floorDiv(blockZ, 16));
+                    if (!explored.contains(chunk)) continue;
+                    graphics.fill(px, py, Math.min(px + 2, mapRight), Math.min(py + 2, mapBottom), terrainColor(minecraft, blockX, blockZ));
+                }
+            }
         }
 
         for (VBVWaypoint waypoint : VBVWorldMap.waypoints(world).values()) {

@@ -214,8 +214,26 @@ def extract_resource_pack(zippath, mod_id):
 
             target.parent.mkdir(parents=True, exist_ok=True)
             try:
-                with zf.open(raw_name) as src, target.open("wb") as dst:
-                    shutil.copyfileobj(src, dst)
+                # Partial language files must not replace Minecraft's full locale.
+                # Otherwise vanilla buttons show keys such as menu.singleplayer.
+                if (relative.startswith("assets/") and "/lang/" in relative
+                        and relative.lower().endswith(".json") and target.is_file()):
+                    try:
+                        existing = json.loads(target.read_text(encoding="utf-8"))
+                        with zf.open(raw_name) as src:
+                            incoming = json.loads(src.read().decode("utf-8"))
+                        if isinstance(existing, dict) and isinstance(incoming, dict):
+                            existing.update(incoming)
+                            target.write_text(json.dumps(existing, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                        else:
+                            with zf.open(raw_name) as src, target.open("wb") as dst:
+                                shutil.copyfileobj(src, dst)
+                    except (UnicodeDecodeError, json.JSONDecodeError):
+                        with zf.open(raw_name) as src, target.open("wb") as dst:
+                            shutil.copyfileobj(src, dst)
+                else:
+                    with zf.open(raw_name) as src, target.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
                 extracted += 1
             except KeyError:
                 continue
@@ -534,6 +552,27 @@ if MAP_TICK_CALL not in mc_src:
     print("Inserted explored-chunk tracking hook into", mc_path)
 else:
     print("Explored-chunk tracking hook already present.")
+
+# Gamma Utils fullbright override: vanilla's UnitDouble gamma setting rejects values > 1.
+GAMMA_OVERRIDE = "com.melonman106.vbvclient.VBVExtraFeatures.gammaOverride(this.minecraft.options.gamma().get().floatValue())"
+lightmap = None
+for p, source_text in java_files():
+    if p.name == "LightmapRenderStateExtractor.java":
+        lightmap = (p, source_text)
+        break
+if lightmap:
+    p, source_text = lightmap
+    if GAMMA_OVERRIDE not in source_text:
+        pattern = r"float\s+brightnessOption\s*=\s*this\.minecraft\.options\.gamma\(\)\.get\(\)\.floatValue\(\)\s*;"
+        source_text, count = re.subn(pattern, "float brightnessOption = " + GAMMA_OVERRIDE + ";", source_text, count=1)
+        if count != 1:
+            raise SystemExit("Could not locate gamma brightness input in LightmapRenderStateExtractor.java")
+        p.write_text(source_text, encoding="utf-8")
+        print("Installed Gamma Utils lightmap override in", p)
+    else:
+        print("Gamma Utils lightmap override already present.")
+else:
+    raise SystemExit("LightmapRenderStateExtractor.java was not found; Gamma Utils override cannot work.")
 
 title = None
 for p, source_text in java_files():

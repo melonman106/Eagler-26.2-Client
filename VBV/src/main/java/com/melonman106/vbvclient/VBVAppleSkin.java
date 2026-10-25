@@ -10,9 +10,13 @@ import net.minecraft.client.player.LocalPlayer;
  * Fabric events or a Java mod loader.
  */
 public final class VBVAppleSkin {
+    private static boolean enabled = true;
     private VBVAppleSkin() {}
+    public static boolean isEnabled() { return enabled; }
+    public static void toggleEnabled() { enabled = !enabled; }
 
     public static void render(GuiGraphicsExtractor graphics) {
+        if (!enabled) return;
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) {
