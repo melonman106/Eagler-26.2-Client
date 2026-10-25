@@ -16,9 +16,10 @@ import net.minecraft.world.level.levelgen.Heightmap;
 /**
  * Lightweight client-side explored-chunk map.
  *
- * A chunk is recorded only when the local player actually enters it. Its four
- * terrain samples are captured once while that chunk is already loaded. The 16x16 grid captures each surface block in a chunk for a much more detailed overview. HUD
- * rendering then uses only this cache and never asks the world for terrain.
+ * A chunk is recorded only when the local player actually enters it. Its 16x16
+ * surface samples are cached only after all samples are available. If a chunk is
+ * still loading, capture is retried on later ticks instead of caching blank cells.
+ * Rendering uses the cache and never queries live terrain.
  */
 public final class VBVWorldMap {
     private static final Map<String, Set<Long>> EXPLORED = new HashMap<>();
