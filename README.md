@@ -25,5 +25,6 @@ This is not upstream Fabric Loader/API and does not load arbitrary Fabric JARs, 
 - `VBV/` — native client mod sources, Fabric compatibility shim, patch scripts, and web-side mod helpers.
 - `ModsPack/` — optional resource-pack client mods imported during the VBV patch.
 - `.github/workflows/02-compile-eagler-vbv.yml` — compile and compatibility-source checks.
+- `.github/workflows/fabric-compat-smoke.yml` — lightweight Java API compile and patch-script syntax test.
 - `.github/workflows/03-single-html-eagler-vbv.yml` — standalone HTML packaging.
 - `.github/workflows/04-import-build-litematica-malilib.yml` — separate experimental source import/build workflow; it does not add Litematica to the browser client.
