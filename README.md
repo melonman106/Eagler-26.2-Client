@@ -22,3 +22,12 @@ All three workflows are manually triggered; pushes do not start builds automatic
 - `.github/workflows/herz-compatibility.yml` — upstream Herz compatibility investigation
 
 Server-side Fabric/Paper VBV code and old experimental build/probe files have been removed from this client repository.
+
+
+## Native Litematica-compatible port (initial)
+
+- Press **L** in-game to open **Litematica (Eagler port)**.
+- Choose **Import .litematic** to select a compressed Litematica schematic from the browser.
+- The native TeaVM-compatible reader displays regions, dimensions, palette sizes, and total block count. No Fabric Loader, Fabric API, or Mixin runtime is required.
+- This is an initial compatible subset, not full Litematica parity yet: ghost rendering, placement, region selection/editing, and the full configuration UI are not implemented.
+- Workflow 02 compiles the native port into the standalone browser client and checks that the screen and L hotkey were injected.
