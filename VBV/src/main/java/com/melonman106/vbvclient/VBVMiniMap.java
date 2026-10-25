@@ -36,16 +36,19 @@ public final class VBVMiniMap {
                 int baseX = x + SIZE / 2 + dx * pixelsPerChunk - pixelsPerChunk / 2;
                 int baseY = y + SIZE / 2 + dz * pixelsPerChunk - pixelsPerChunk / 2;
                 int samples = VBVWorldMap.terrainSide();
-                for (int sz = 0; sz < samples; sz++) for (int sx = 0; sx < samples; sx++) {
-                    int px = baseX + sx * pixelsPerChunk / samples;
-                    int py = baseY + sz * pixelsPerChunk / samples;
-                    int x2 = baseX + (sx + 1) * pixelsPerChunk / samples;
-                    int y2 = baseY + (sz + 1) * pixelsPerChunk / samples;
-                    if (x2 <= px) x2 = px + 1;
-                    if (y2 <= py) y2 = py + 1;
-                    int left = Math.max(x, px), top = Math.max(y, py);
-                    int right = Math.min(x + SIZE, x2), bottom = Math.min(y + SIZE, y2);
-                    if (left < right && top < bottom) graphics.fill(left, top, right, bottom, colors[sz * samples + sx]);
+                // Downsample the detailed cache to the minimap's six-pixel chunk cells.
+                for (int py = 0; py < pixelsPerChunk; py++) {
+                    for (int px = 0; px < pixelsPerChunk; px++) {
+                        int sampleX = px * samples / pixelsPerChunk;
+                        int sampleZ = py * samples / pixelsPerChunk;
+                        int left = Math.max(x, baseX + px), top = Math.max(y, baseY + py);
+                        int right = Math.min(x + SIZE, baseX + px + 1);
+                        int bottom = Math.min(y + SIZE, baseY + py + 1);
+                        if (left < right && top < bottom) {
+                            graphics.fill(left, top, right, bottom,
+                                colors[sampleZ * samples + sampleX]);
+                        }
+                    }
                 }
             }
         }
