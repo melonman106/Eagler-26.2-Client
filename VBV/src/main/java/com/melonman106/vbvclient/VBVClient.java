@@ -97,6 +97,16 @@ public final class VBVClient {
             false
         ));
 
+        registerMod(new VBVModInfo(
+            "vbv-minimap",
+            "VBV Minimap",
+            "Native Eagler port 1.0.0",
+            "melonman106",
+            "Detailed explored-terrain minimap with terrain shading and a player marker.",
+            BUILTIN_MOD_ICON,
+            false
+        ));
+
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
     }
