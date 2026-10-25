@@ -80,6 +80,8 @@ jobs:
           done
           grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
           grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
+          grep -R -q 'FabricCompatClient.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client
+          grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
