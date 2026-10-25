@@ -21,7 +21,7 @@ public final class VBVHudEditorScreen extends Screen {
     protected void init() {
         super.init();
         addRenderableWidget(Button.builder(Component.literal("Widget: Simple HUD"), b -> {
-            selected = (selected + 1) % 4;
+            selected = (selected + 1) % 5;
             updateWidgetButton(b);
         }).bounds(width / 2 - 150, height - 30, 150, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Reset selected"), b -> resetSelected())
@@ -31,7 +31,7 @@ public final class VBVHudEditorScreen extends Screen {
     }
 
     private void updateWidgetButton(Button button) {
-        String[] names = {"Simple HUD", "Armor HUD", "BetterF3", "AppleSkin text"};
+        String[] names = {"Simple HUD", "Armor HUD", "BetterF3", "AppleSkin text", "Minimap"};
         button.setMessage(Component.literal("Widget: " + names[selected]));
     }
 
@@ -45,9 +45,12 @@ public final class VBVHudEditorScreen extends Screen {
         } else if (selected == 2) {
             VBVExtraFeatures.debugHudX = 6;
             VBVExtraFeatures.debugHudY = 6;
-        } else {
+        } else if (selected == 3) {
             VBVAppleSkin.x = 4;
             VBVAppleSkin.y = 4;
+        } else {
+            VBVMiniMap.offsetX = 0;
+            VBVMiniMap.offsetY = 0;
         }
     }
 
@@ -56,6 +59,7 @@ public final class VBVHudEditorScreen extends Screen {
             case 1 -> "Armor HUD";
             case 2 -> "BetterF3";
             case 3 -> "AppleSkin text";
+            case 4 -> "Minimap";
             default -> "Simple HUD";
         };
     }
@@ -86,10 +90,14 @@ public final class VBVHudEditorScreen extends Screen {
             x = VBVExtraFeatures.debugHudX;
             y = VBVExtraFeatures.debugHudY;
             w = 230; h = 70;
-        } else {
+        } else if (selected == 3) {
             x = VBVAppleSkin.x;
             y = VBVAppleSkin.y;
             w = 210; h = 18;
+        } else {
+            x = width - 104 + VBVMiniMap.offsetX;
+            y = 8 + VBVMiniMap.offsetY;
+            w = 96; h = 96;
         }
         return mx >= x && mx <= x + w && my >= y && my <= y + h;
     }
@@ -116,9 +124,12 @@ public final class VBVHudEditorScreen extends Screen {
         } else if (selected == 2) {
             VBVExtraFeatures.debugHudX = Math.max(0, VBVExtraFeatures.debugHudX + (int) Math.round(dragX));
             VBVExtraFeatures.debugHudY = Math.max(0, VBVExtraFeatures.debugHudY + (int) Math.round(dragY));
-        } else {
+        } else if (selected == 3) {
             VBVAppleSkin.x = Math.max(0, VBVAppleSkin.x + (int) Math.round(dragX));
             VBVAppleSkin.y = Math.max(0, VBVAppleSkin.y + (int) Math.round(dragY));
+        } else {
+            VBVMiniMap.offsetX += (int) Math.round(dragX);
+            VBVMiniMap.offsetY += (int) Math.round(dragY);
         }
         return true;
     }
@@ -159,6 +170,14 @@ public final class VBVHudEditorScreen extends Screen {
         graphics.fill(cx - 2, cy - 2, cx + 205, cy + 15, selected == 3 ? 0xAA3B6795 : 0x66333333);
         graphics.text(font, "Food: 20/20  Saturation: 12.0", cx + 2, cy + 2, 0xFFFFFFFF, true);
 
+        int mx = width - 104 + VBVMiniMap.offsetX, my = 8 + VBVMiniMap.offsetY;
+        graphics.fill(mx - 3, my - 3, mx + 99, my + 99, selected == 4 ? 0xAA3B6795 : 0x66333333);
+        for (int row = 0; row < 12; row++) for (int col = 0; col < 12; col++) {
+            int tone = ((row * 7 + col * 11) % 4 == 0) ? 0xFF527C45 : ((row + col) % 3 == 0 ? 0xFF777777 : 0xFF4C7441);
+            graphics.fill(mx + col * 8, my + row * 8, mx + col * 8 + 8, my + row * 8 + 8, tone);
+        }
+        graphics.fill(mx + 44, my + 44, mx + 52, my + 52, 0xFFFFFFFF);
+        graphics.text(font, "N", mx + 46, my + 3, 0xFFFFFFFF, true);
         graphics.text(font, "The saturation tint itself stays attached to the hunger bar, like AppleSkin.", 8, height - 48, 0xFFAAAAAA, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
