@@ -15,6 +15,8 @@ public final class VBVExtraFeatures {
     private static int zoomFov = 30;
     private static int previousFov = 70;
     private static boolean debugHudEnabled;
+    static int debugHudX = 6;
+    static int debugHudY = 6;
     private static boolean betterF3Enabled = true;
     private static boolean fKeyHeld;
     private VBVExtraFeatures() {}
@@ -88,7 +90,7 @@ public final class VBVExtraFeatures {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) return;
-        int x = 6, y = 6, lineHeight = minecraft.font.lineHeight + 2;
+        int x = debugHudX, y = debugHudY, lineHeight = minecraft.font.lineHeight + 2;
         graphics.fill(2, 2, 220, 2 + lineHeight * 4 + 4, 0x90000000);
         graphics.text(minecraft.font, "BetterF3", x, y, 0xFFFFFFFF, true);
         graphics.text(minecraft.font, String.format(java.util.Locale.ROOT, "XYZ: %.2f / %.2f / %.2f", player.getX(), player.getY(), player.getZ()), x, y + lineHeight, 0xFF55FFFF, true);
