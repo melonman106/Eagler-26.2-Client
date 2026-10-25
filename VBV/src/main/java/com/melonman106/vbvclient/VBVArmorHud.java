@@ -185,8 +185,16 @@ public final class VBVArmorHud {
             int y = rect[1] + (horizontal ? 0 : STEP * i);
 
             if (VBVArmorHudConfig.style != VBVArmorHudConfig.STYLE_NONE) {
-                g.fill(x, y, x + SIZE, y + SIZE, 0x66000000);
-                g.outline(x, y, SIZE, SIZE, 0x99FFFFFF);
+                // Minecraft inventory-slot styling: dark outer bevel, light rim,
+                // mid-grey inset and a deep inner well behind the item icon.
+                g.fill(x, y, x + SIZE, y + SIZE, 0xFF171717);
+                g.fill(x + 1, y + 1, x + SIZE - 1, y + SIZE - 1, 0xFFB0B0B0);
+                g.fill(x + 2, y + 2, x + SIZE - 2, y + SIZE - 2, 0xFF555555);
+                g.fill(x + 3, y + 3, x + SIZE - 3, y + SIZE - 3, 0xFF242424);
+                g.fill(x + 1, y + 1, x + SIZE - 1, y + 2, 0xFFE0E0E0);
+                g.fill(x + 1, y + 1, x + 2, y + SIZE - 1, 0xFFE0E0E0);
+                g.fill(x + 1, y + SIZE - 2, x + SIZE - 1, y + SIZE - 1, 0xFF303030);
+                g.fill(x + SIZE - 2, y + 1, x + SIZE - 1, y + SIZE - 1, 0xFF303030);
             }
             if (stack.isEmpty()) continue;
             g.item(stack, x + 3, y + 3);
