@@ -18,7 +18,7 @@ MyPack.zip
     └── ...
 ```
 
-The build copies that icon into `assets/vbvclient/mods/<pack-id>/pack.png` and the Mods screen reads it from there. If you have a loose image file, add it to the ZIP root before running the compile workflow. Native VBV mod icons are separate; the optional shared fallback icon belongs at `VBV/pack.png`.
+The build copies that icon into `assets/vbvclient/mods/<pack-id>/pack.png` and the Mods screen reads it from there. If you have a loose image file, add it to the ZIP root before running the compile workflow. If a resource-pack ZIP has no icon, an optional shared fallback icon can be placed at `VBV/pack.png`. Built-in native VBV mods currently use Minecraft's `unknown_pack.png` icon; their individual icon paths are configured in `VBV/src/main/java/com/melonman106/vbvclient/VBVClient.java`.
 
 ## Planned native-mod package format
 
