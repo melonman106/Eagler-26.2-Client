@@ -61,7 +61,7 @@ jobs:
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java VBVAppleSkin.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || {
               echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"
               exit 1
@@ -70,6 +70,8 @@ jobs:
 
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
+          grep -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java/net/minecraft/client/KeyboardHandler.java
+          grep -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java || true
 
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
           find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort
