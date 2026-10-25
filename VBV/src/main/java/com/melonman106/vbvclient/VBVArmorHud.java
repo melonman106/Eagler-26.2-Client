@@ -40,7 +40,7 @@ public final class VBVArmorHud {
         Identifier.withDefaultNamespace("container/slot/leggings"),
         Identifier.withDefaultNamespace("container/slot/boots")
     };
-    private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:mods/warn.png");
+    private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:textures/mods/warn.png");
 
     private static final Random RANDOM = new Random();
 
