@@ -14,18 +14,24 @@ public final class VBVExtraFeatures {
     private static boolean zooming;
     private static int previousFov = 70;
     private static boolean debugHudEnabled;
+    private static boolean fKeyHeld;
 
     private VBVExtraFeatures() {}
 
     /**
      * KeyboardHandler passes GLFW-style key codes and actions (1=press, 0=release).
-     * G toggles the vanilla brightness setting, C zooms while held, B toggles the
-     * compact debug panel. Vanilla gamma is capped at 1.0, so this is not true
+     * G toggles the vanilla brightness setting, C zooms while held, and BetterF3
+     * toggles with F3 or F+3 for Chromebook keyboards without a dedicated F3 key.
+     * Vanilla gamma is capped at 1.0, so this is not true
      * shader-level fullbright.
      */
     public static void handleKey(int key, int action) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null) return;
+
+        if (key == 70) { // F: track for the Chromebook-friendly F+3 shortcut
+            fKeyHeld = action == 1;
+        }
 
         if (key == 71 && action == 1) { // G: Gamma Utils-style brightness toggle
             if (!gammaEnabled) {
@@ -45,7 +51,8 @@ public final class VBVExtraFeatures {
                 minecraft.options.fov().set(previousFov);
                 zooming = false;
             }
-        } else if (key == 66 && action == 1) { // B: BetterF3-inspired compact HUD
+        } else if (action == 1 && (key == 292 || (key == 51 && fKeyHeld))) {
+            // GLFW_KEY_F3 = 292; GLFW_KEY_3 = 51. F+3 is the Chromebook alternative.
             debugHudEnabled = !debugHudEnabled;
         }
     }
@@ -60,7 +67,7 @@ public final class VBVExtraFeatures {
         int y = 6;
         int lineHeight = minecraft.font.lineHeight + 2;
         graphics.fill(2, 2, 188, 2 + lineHeight * 4 + 4, 0x90000000);
-        graphics.text(minecraft.font, "VBV Debug", x, y, 0xFFFFFFFF, true);
+        graphics.text(minecraft.font, "BetterF3", x, y, 0xFFFFFFFF, true);
         graphics.text(minecraft.font,
             String.format(java.util.Locale.ROOT, "XYZ: %.2f / %.2f / %.2f",
                 player.getX(), player.getY(), player.getZ()),
