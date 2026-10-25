@@ -102,11 +102,9 @@ public final class VBVWorldMap {
                 // One sample per block gives the world map much finer terrain detail.
                 int x = chunkX * 16 + sx;
                 int z = chunkZ * 16 + sz;
-                if (!minecraft.level.hasChunkAt(new BlockPos(x, minY, z))) {
-                    colors[index] = 0xFF202020;
-                    heights[index] = minY;
-                    continue;
-                }
+                // Do not cache partial chunks: otherwise unloaded samples become
+                // permanent dark holes because the terrain map is captured once.
+                if (!minecraft.level.hasChunkAt(new BlockPos(x, minY, z))) return;
                 int y = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
                 heights[index] = y;
                 if (y < minY) {
