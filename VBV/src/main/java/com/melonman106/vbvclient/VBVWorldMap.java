@@ -32,7 +32,7 @@ public final class VBVWorldMap {
 
     private static final int TERRAIN_SIDE = 16;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
-    private static final int MINIMAP_CACHE_RADIUS = 10;
+    private static final int MINIMAP_CACHE_RADIUS = 4;
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
@@ -57,7 +57,7 @@ public final class VBVWorldMap {
         // Refresh the nearby terrain cache periodically so newly loaded chunks
         // appear on the minimap even when the player stands still. This never
         // adds nearby chunks to EXPLORED, so the world map keeps its fog of war.
-        if (enteredNewChunk || ++nearbyScanTicks >= 20) {
+        if (VBVMiniMap.enabled && (enteredNewChunk || ++nearbyScanTicks >= 100)) {
             nearbyScanTicks = 0;
             for (int dz = -MINIMAP_CACHE_RADIUS; dz <= MINIMAP_CACHE_RADIUS; dz++) {
                 for (int dx = -MINIMAP_CACHE_RADIUS; dx <= MINIMAP_CACHE_RADIUS; dx++) {
