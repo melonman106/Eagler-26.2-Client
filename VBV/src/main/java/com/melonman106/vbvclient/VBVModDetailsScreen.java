@@ -51,7 +51,7 @@ public final class VBVModDetailsScreen extends Screen {
             labelY += 28;
         }
 
-        if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin").contains(info.id())) {
+        if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap").contains(info.id())) {
             addRenderableWidget(Button.builder(Component.literal("Config"),
                 button -> VBVNav.open(new VBVFeatureConfigScreen(this, info.id(), info.name())))
                 .bounds(width / 2 - 50, labelY + 4, 100, 20).build());
