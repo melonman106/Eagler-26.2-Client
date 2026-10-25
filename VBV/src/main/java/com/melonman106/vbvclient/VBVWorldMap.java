@@ -29,15 +29,9 @@ public final class VBVWorldMap {
         int chunkX = Math.floorDiv(BlockPos.containing(player.getX(), player.getY(), player.getZ()).getX(), 16);
         int chunkZ = Math.floorDiv(BlockPos.containing(player.getX(), player.getY(), player.getZ()).getZ(), 16);
         Set<Long> visited = exploredSet(worldKey(minecraft), true);
-        // Record the nearby loaded-area footprint around the player, not just the
-        // single chunk under their feet, so the map/minimap can show real terrain.
-        // The map renderer still hides every chunk outside this explored footprint.
-        int radius = 6;
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dz = -radius; dz <= radius; dz++) {
-                visited.add(pack(chunkX + dx, chunkZ + dz));
-            }
-        }
+        // Track only the chunk the player is standing in. Do not mark the render distance as visited.
+        if (!minecraft.level.hasChunkAt(player.blockPosition())) return;
+        visited.add(pack(chunkX, chunkZ));
     }
 
     public static long pack(int chunkX, int chunkZ) {

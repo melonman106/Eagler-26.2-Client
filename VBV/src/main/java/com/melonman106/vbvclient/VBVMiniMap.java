@@ -36,14 +36,14 @@ public final class VBVMiniMap {
 
         // Each map cell represents about two blocks; draw one sample per 2x2 pixels
         // to keep the live browser renderer inexpensive while preserving terrain shape.
-        for (int py = 0; py < SIZE; py += 2) {
+        for (int py = 0; py < SIZE; py += 6) {
             int blockZ = centerZ + (py - SIZE / 2) * 2;
-            for (int px = 0; px < SIZE; px += 2) {
+            for (int px = 0; px < SIZE; px += 6) {
                 int blockX = centerX + (px - SIZE / 2) * 2;
                 long chunk = VBVWorldMap.pack(Math.floorDiv(blockX, 16), Math.floorDiv(blockZ, 16));
                 if (!explored.contains(chunk)) continue;
                 int color = terrainColor(minecraft, blockX, blockZ);
-                graphics.fill(x + px, y + py, x + px + 2, y + py + 2, color);
+                graphics.fill(x + px, y + py, Math.min(x + SIZE, x + px + 6), Math.min(y + SIZE, y + py + 6), color);
             }
         }
         int markerX = x + SIZE / 2;
@@ -57,6 +57,7 @@ public final class VBVMiniMap {
         long key = ((long)blockX << 32) ^ (blockZ & 0xFFFFFFFFL);
         Integer cached = COLORS.get(key);
         if (cached != null) return cached;
+        if (!minecraft.level.hasChunkAt(new BlockPos(blockX, minecraft.player.blockPosition().getY(), blockZ))) return 0xFF202020;
         int surfaceY = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ) - 1;
         if (surfaceY < minecraft.level.getMinY()) return 0xFF202020;
         BlockPos pos = new BlockPos(blockX, surfaceY, blockZ);
@@ -64,11 +65,7 @@ public final class VBVMiniMap {
         int color = state.getMapColor(minecraft.level, pos).col;
         if (color == 0) color = 0xFF202020;
         else if ((color >>> 24) == 0) color |= 0xFF000000;
-        int north = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ - 1) - 1;
-        int south = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ + 1) - 1;
-        int west = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX - 1, blockZ) - 1;
-        int east = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX + 1, blockZ) - 1;
-        int shade = Math.max(80, Math.min(255, 190 + (surfaceY - 64) / 2 + (west - east) * 2 + (north - south) * 2));
+        int shade = Math.max(80, Math.min(255, 190 + (surfaceY - 64) / 2));
         int result = 0xFF000000 | ((((color >> 16) & 255) * shade / 255) << 16)
             | ((((color >> 8) & 255) * shade / 255) << 8) | ((color & 255) * shade / 255);
         if (COLORS.size() > 30000) COLORS.clear();

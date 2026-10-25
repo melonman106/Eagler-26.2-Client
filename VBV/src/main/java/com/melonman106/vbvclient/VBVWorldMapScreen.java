@@ -44,18 +44,14 @@ public final class VBVWorldMapScreen extends Screen {
         long key = ((long) blockX << 32) ^ (blockZ & 0xFFFFFFFFL);
         Integer cached = terrainColorCache.get(key);
         if (cached != null) return cached;
+        if (!minecraft.level.hasChunkAt(new BlockPos(blockX, minecraft.player.blockPosition().getY(), blockZ))) return 0xFF202020;
         int surfaceY = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ) - 1;
         if (surfaceY < minecraft.level.getMinY()) return 0xFF202020;
         BlockPos pos = new BlockPos(blockX, surfaceY, blockZ);
         BlockState state = minecraft.level.getBlockState(pos);
         int color = state.getMapColor(minecraft.level, pos).col;
         if (color == 0) color = 0x303030;
-        int north = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ - 1) - 1;
-        int south = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX, blockZ + 1) - 1;
-        int west = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX - 1, blockZ) - 1;
-        int east = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, blockX + 1, blockZ) - 1;
-        int slope = (west - east) * 2 + (north - south) * 2;
-        int shade = Math.max(0x55, Math.min(0xFF, 190 + (surfaceY - 64) / 2 + slope));
+        int shade = Math.max(0x55, Math.min(0xFF, 190 + (surfaceY - 64) / 2));
         int r = ((color >> 16) & 255) * shade / 255;
         int g = ((color >> 8) & 255) * shade / 255;
         int b = (color & 255) * shade / 255;
@@ -119,7 +115,7 @@ public final class VBVWorldMapScreen extends Screen {
         int mapTop = 30, mapBottom = height - 38, mapLeft = 4, mapRight = width - 4;
         // Sample actual surface block map colours instead of one flat colour per chunk.
         if (minecraft.level != null) {
-            int sampleStep = zoom >= 18.0D ? 1 : 2;
+            int sampleStep = zoom >= 18.0D ? 4 : 6;
             for (int py = mapTop; py < mapBottom; py += sampleStep) {
                 int blockZ = (int) Math.floor(centerZ + (py - height / 2.0D) * blocksPerPixel);
                 for (int px = mapLeft; px < mapRight; px += sampleStep) {
