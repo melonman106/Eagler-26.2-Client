@@ -734,6 +734,11 @@ if shine_tint_marker not in source_text:
                renderState.ambientColor = new Vector3f(renderState.ambientColor)
                   .add(shineRim, shineRim, shineRim);
             }
+            if (com.melonman106.vbvclient.ShineConfig.disabledShading()) {
+               renderState.ambientColor = new Vector3f(1.0F, 1.0F, 1.0F);
+               renderState.blockFactor = Math.max(renderState.blockFactor, 2.0F);
+               renderState.skyFactor = Math.max(renderState.skyFactor, 1.0F);
+            }
 """
         source_text = source_text.replace(ambient_line, rim_code, 1)
     p.write_text(source_text, encoding="utf-8")
