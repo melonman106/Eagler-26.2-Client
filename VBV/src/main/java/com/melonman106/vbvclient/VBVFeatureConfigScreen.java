@@ -29,7 +29,8 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Quick move: " + onOff(VBVMouseTweaks.isQuickMoveEnabled()), () -> VBVMouseTweaks.setQuickMoveEnabled(!VBVMouseTweaks.isQuickMoveEnabled()));
             option(() -> "Drag evenly: " + onOff(VBVMouseTweaks.isDragEvenlyEnabled()), () -> VBVMouseTweaks.setDragEvenlyEnabled(!VBVMouseTweaks.isDragEvenlyEnabled()));
         } else if ("appleskin".equals(modId)) {
-            option(() -> "Food HUD: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
+            option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
+            option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
         }
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());
     }
