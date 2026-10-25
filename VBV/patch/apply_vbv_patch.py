@@ -541,7 +541,7 @@ if container_path is None:
 mouse_hook = "com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()"
 if mouse_hook not in container_src:
     scroll_match = re.search(
-        r"public boolean mouseScrolled\\s*\\([^)]*\\)\\s*\\{",
+        r"public boolean mouseScrolled\s*\([^)]*\)\s*\{",
         container_src
     )
     if not scroll_match:
@@ -578,6 +578,21 @@ if mouse_hook not in container_src:
 else:
     print("Mouse Tweaks wheel hook already present.")
 
+
+
+# Make the Mouse Tweaks toggles affect the actual container input path.
+container_src = container_path.read_text(encoding="utf-8")
+quick_move_old = "boolean quickKey = slotId != -999 && event.hasShiftDown();"
+quick_move_new = "boolean quickKey = slotId != -999 && event.hasShiftDown() && com.melonman106.vbvclient.VBVMouseTweaks.isQuickMoveEnabled();"
+if quick_move_old in container_src:
+    container_src = container_src.replace(quick_move_old, quick_move_new, 1)
+    print("Connected Mouse Tweaks quick-move toggle.")
+drag_old = "this.quickCraftingType = 0;"
+drag_new = "this.quickCraftingType = com.melonman106.vbvclient.VBVMouseTweaks.isDragEvenlyEnabled() ? 0 : 1;"
+if drag_old in container_src:
+    container_src = container_src.replace(drag_old, drag_new, 1)
+    print("Connected Mouse Tweaks drag-evenly toggle.")
+container_path.write_text(container_src, encoding="utf-8")
 
 
 nav = DEST / "VBVNav.java"
