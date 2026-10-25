@@ -13,7 +13,7 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * Lightweight client-side explored-chunk world map for Eaglercraft 26.2.
- * A chunk is recorded when the local player enters it. No server component is required.
+ * Nearby chunks are recorded around the local player. No server component is required.
  */
 public final class VBVWorldMap {
     private static final Map<String, Set<Long>> EXPLORED = new HashMap<>();
