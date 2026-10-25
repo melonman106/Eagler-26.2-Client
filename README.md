@@ -13,7 +13,7 @@ The build workflows are manually triggered from the GitHub Actions tab.
 
 `VBV/src/main/java/com/melonman106/vbvclient/fabriccompat/` contains a small, browser-safe API for future manual mod ports:
 
-- `FabricLoader`, `ModContainer`, and `ModMetadata` for basic mod lookup and metadata.
+- `net.fabricmc.loader.api.FabricLoader`, `ModContainer`, `ModMetadata`, `Version`, and `net.fabricmc.api.ModInitializer` for basic lookup and entrypoints.
 - `ModInitializer` and `FabricCompatClient.registerInitializer(...)` for manually registered mod entrypoints.
 - `ClientTickEvents` and `ClientLifecycleEvents` for client callbacks.
 - `KeyBinding` and `KeyBindingHelper` for logical key registration and keyboard dispatch primitives.
