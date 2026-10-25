@@ -13,8 +13,8 @@ public final class VBVSimpleHud {
         Player player = minecraft.player;
         if (player == null || minecraft.level == null) return;
 
-        int x = 6;
-        int y = 6;
+        int x = 6 + VBVSimpleHudConfig.hudXOffset;
+        int y = 6 + VBVSimpleHudConfig.hudYOffset;
         int line = 11;
         int lines = lineCount();
         graphics.fill(x - 3, y - 3, x + 190, y + lines * line + 1, 0x66000000);
