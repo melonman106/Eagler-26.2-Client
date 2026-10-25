@@ -6,8 +6,9 @@ import net.minecraft.world.entity.player.Player;
 
 /** Nearby loaded terrain minimap; it does not require player exploration. */
 public final class VBVMiniMap {
-    private static final int SIZE = 96;
-    public static boolean enabled = true;
+    private static final int SIZE = 64;
+    // Off by default: per-frame terrain drawing is expensive in a browser client.
+    public static boolean enabled = false;
     public static int offsetX = 0;
     public static int offsetY = 0;
     private VBVMiniMap() {}
@@ -27,8 +28,8 @@ public final class VBVMiniMap {
 
         // No explored-set lookup: show cached terrain from any nearby chunk that
         // was already loaded by Minecraft, even if the player has never entered it.
-        int pixelsPerChunk = 6;
-        int radius = SIZE / (2 * pixelsPerChunk) + 1;
+        int pixelsPerChunk = 8;
+        int radius = SIZE / (2 * pixelsPerChunk);
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 int[] colors = VBVWorldMap.terrain(world, VBVWorldMap.pack(centerX + dx, centerZ + dz));
