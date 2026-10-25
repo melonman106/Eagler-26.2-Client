@@ -610,7 +610,7 @@ else:
     if not inserted: raise SystemExit("Minecraft found, but its constructor hook was not identified")
 
 MAP_TICK_CALL = "com.melonman106.vbvclient.VBVWorldMap.tick();"
-FABRIC_TICK_CALL = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.tick();"
+FABRIC_TICK_CALL = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.tick(this);"
 if MAP_TICK_CALL not in mc_src:
     tick_candidates = list(re.finditer(r"(?:public|protected|private)\s+void\s+tick\s*\(\s*\)\s*\{", mc_src))
     if not tick_candidates: raise SystemExit("Minecraft.tick() was not identified; explored chunks cannot be tracked")
@@ -635,7 +635,7 @@ else:
     print("Explored-chunk tracking hook already present.")
 
 # Fire the client-stopping event when Minecraft closes, if this version exposes close().
-STOP_CALL = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.stop();"
+STOP_CALL = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.stop(this);"
 if STOP_CALL not in mc_src:
     close_match = re.search(r"(?:public|protected|private)\s+void\s+close\s*\(\s*\)\s*\{", mc_src)
     if close_match:
