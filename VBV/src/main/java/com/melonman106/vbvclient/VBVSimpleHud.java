@@ -9,6 +9,8 @@ public final class VBVSimpleHud {
 
     public static void render(GuiGraphicsExtractor graphics) {
         if (!VBVSimpleHudConfig.enabled) return;
+        // BetterF3 replaces the normal debug screen; hide the compact info HUD while it is open.
+        if (VBVExtraFeatures.isBetterF3Enabled() && VBVExtraFeatures.isDebugHudEnabled()) return;
         Minecraft minecraft = Minecraft.getInstance();
         Player player = minecraft.player;
         if (player == null || minecraft.level == null) return;
