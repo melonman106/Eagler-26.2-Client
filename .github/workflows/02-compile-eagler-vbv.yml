@@ -66,6 +66,15 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
+          # The upstream Armor HUD warning sprite is MIT-licensed and pinned
+          # to a specific source commit so builds do not depend on a moving branch.
+          warn_icon="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods/warn.png"
+          mkdir -p "$(dirname "$warn_icon")"
+          curl -fL --retry 5 --retry-delay 2 \
+            "https://raw.githubusercontent.com/uku3lig/armor-hud/233932b08a0fb30501e1104bead784914aff85c4/common/src/main/resources/assets/ukus-armor-hud/warn.png" \
+            -o "$warn_icon"
+          test -s "$warn_icon"
+
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
           for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || {
