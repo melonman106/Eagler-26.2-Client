@@ -32,19 +32,20 @@ public final class VBVMiniMap {
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 int[] colors = VBVWorldMap.terrain(world, VBVWorldMap.pack(centerX + dx, centerZ + dz));
-                if (colors == null || colors.length < 64) continue;
+                if (colors == null || colors.length < VBVWorldMap.terrainSampleCount()) continue;
                 int baseX = x + SIZE / 2 + dx * pixelsPerChunk - pixelsPerChunk / 2;
                 int baseY = y + SIZE / 2 + dz * pixelsPerChunk - pixelsPerChunk / 2;
-                for (int sz = 0; sz < 8; sz++) for (int sx = 0; sx < 8; sx++) {
-                    int px = baseX + sx * pixelsPerChunk / 8;
-                    int py = baseY + sz * pixelsPerChunk / 8;
-                    int x2 = baseX + (sx + 1) * pixelsPerChunk / 8;
-                    int y2 = baseY + (sz + 1) * pixelsPerChunk / 8;
+                int samples = VBVWorldMap.terrainSide();
+                for (int sz = 0; sz < samples; sz++) for (int sx = 0; sx < samples; sx++) {
+                    int px = baseX + sx * pixelsPerChunk / samples;
+                    int py = baseY + sz * pixelsPerChunk / samples;
+                    int x2 = baseX + (sx + 1) * pixelsPerChunk / samples;
+                    int y2 = baseY + (sz + 1) * pixelsPerChunk / samples;
                     if (x2 <= px) x2 = px + 1;
                     if (y2 <= py) y2 = py + 1;
                     int left = Math.max(x, px), top = Math.max(y, py);
                     int right = Math.min(x + SIZE, x2), bottom = Math.min(y + SIZE, y2);
-                    if (left < right && top < bottom) graphics.fill(left, top, right, bottom, colors[sz * 8 + sx]);
+                    if (left < right && top < bottom) graphics.fill(left, top, right, bottom, colors[sz * samples + sx]);
                 }
             }
         }
