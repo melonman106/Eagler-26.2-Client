@@ -32,6 +32,14 @@ public final class VBVArmorHud {
     private static final EquipmentSlot[] SLOT_IDS = {
         EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
+    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");
+    private static final Identifier HOTBAR_OFFHAND_LEFT_SPRITE = Identifier.withDefaultNamespace("hud/hotbar_offhand_left");
+    private static final Identifier[] EMPTY_SLOT_SPRITES = {
+        Identifier.withDefaultNamespace("container/slot/helmet"),
+        Identifier.withDefaultNamespace("container/slot/chestplate"),
+        Identifier.withDefaultNamespace("container/slot/leggings"),
+        Identifier.withDefaultNamespace("container/slot/boots")
+    };
 
     private static final Random RANDOM = new Random();
 
