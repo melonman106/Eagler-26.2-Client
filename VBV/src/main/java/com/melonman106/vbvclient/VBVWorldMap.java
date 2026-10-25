@@ -17,7 +17,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * Lightweight client-side explored-chunk map.
  *
  * A chunk is recorded only when the local player actually enters it. Its four
- * terrain samples are captured once while that chunk is already loaded. HUD
+ * terrain samples are captured once while that chunk is already loaded. The 12x12
+ * grid preserves small terrain features better than a coarse 8x8 overview. HUD
  * rendering then uses only this cache and never asks the world for terrain.
  */
 public final class VBVWorldMap {
@@ -29,7 +30,7 @@ public final class VBVWorldMap {
 
     private VBVWorldMap() {}
 
-    private static final int TERRAIN_SIDE = 8;
+    private static final int TERRAIN_SIDE = 12;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
     private static final int MINIMAP_CACHE_RADIUS = 8;
 
@@ -125,6 +126,9 @@ public final class VBVWorldMap {
         }
         terrain.put(key, colors);
     }
+
+    public static int terrainSide() { return TERRAIN_SIDE; }
+    public static int terrainSampleCount() { return TERRAIN_SAMPLES; }
 
     public static int[] terrain(String world, long chunk) {
         Map<Long, int[]> terrain = TERRAIN.get(world);
