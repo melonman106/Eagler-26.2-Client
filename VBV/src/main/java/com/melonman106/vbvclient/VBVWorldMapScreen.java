@@ -60,7 +60,7 @@ public final class VBVWorldMapScreen extends Screen {
         int g = ((color >> 8) & 255) * shade / 255;
         int b = (color & 255) * shade / 255;
         int result = 0xFF000000 | (r << 16) | (g << 8) | b;
-        if (terrainColorCache.size() > 120000) terrainColorCache.clear();
+        if (terrainColorCache.size() > 300000) terrainColorCache.clear();
         terrainColorCache.put(key, result);
         return result;
     }
@@ -119,7 +119,7 @@ public final class VBVWorldMapScreen extends Screen {
         int mapTop = 30, mapBottom = height - 38, mapLeft = 4, mapRight = width - 4;
         // Sample actual surface block map colours instead of one flat colour per chunk.
         if (minecraft.level != null) {
-            int sampleStep = zoom >= 8.0D ? 1 : 2;
+            int sampleStep = zoom >= 18.0D ? 1 : 2;
             for (int py = mapTop; py < mapBottom; py += sampleStep) {
                 int blockZ = (int) Math.floor(centerZ + (py - height / 2.0D) * blocksPerPixel);
                 for (int px = mapLeft; px < mapRight; px += sampleStep) {
