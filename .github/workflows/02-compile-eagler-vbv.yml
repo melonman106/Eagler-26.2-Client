@@ -1,6 +1,6 @@
-name: "02 - Build Eaglercraft 26.2 u2 (VBV + Herz)"
+name: "02 - Build Eaglercraft 26.2 u2 (VBV + Herz, no Litematica)"
 
-run-name: "02 - Build VBV + Herz from known-good U2 workspace"
+run-name: "02 - Build VBV + Herz without Litematica"
 
 on:
   workflow_dispatch:
@@ -62,24 +62,15 @@ jobs:
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java litematica/LitematicNbtReader.java LitematicaPortScreen.java; do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || {
               echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"
               exit 1
             }
           done
 
-          test -s "$vbv_src/litematica/LitematicNbtReader.java" || {
-            echo "::error::Browser-safe Litematic NBT reader was not injected"
-            exit 1
-          }
-          grep -q 'public static Schematic readGzip' "$vbv_src/litematica/LitematicNbtReader.java" || grep -q 'static Schematic readGzip' "$vbv_src/litematica/LitematicNbtReader.java"
-
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
-          grep -q 'Litematica (Eagler port)' "$vbv_src/VBVClient.java"
-          grep -R -q 'LitematicaPortScreen(screen)' eaglercraft-u2/game/src/main/java
-          grep -R -q 'event.key() == 76' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
