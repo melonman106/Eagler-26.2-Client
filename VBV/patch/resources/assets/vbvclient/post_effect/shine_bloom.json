@@ -1,0 +1,42 @@
+{
+  "targets": {
+    "bloomed": {
+      "use_depth": false
+    }
+  },
+  "passes": [
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "vbvclient:post/shine_bloom",
+      "inputs": [
+        {
+          "sampler_name": "Scene",
+          "target": "minecraft:main",
+          "bilinear": true
+        }
+      ],
+      "output": "bloomed"
+    },
+    {
+      "vertex_shader": "minecraft:core/screenquad",
+      "fragment_shader": "minecraft:post/blit",
+      "inputs": [
+        {
+          "sampler_name": "In",
+          "target": "bloomed",
+          "bilinear": true
+        }
+      ],
+      "uniforms": {
+        "BlitConfig": [
+          {
+            "name": "ColorModulate",
+            "type": "vec4",
+            "value": [1.0, 1.0, 1.0, 1.0]
+          }
+        ]
+      },
+      "output": "minecraft:main"
+    }
+  ]
+}
