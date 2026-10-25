@@ -187,12 +187,17 @@ public final class VBVArmorHud {
             if (VBVArmorHudConfig.style != VBVArmorHudConfig.STYLE_NONE) {
                 // container/slot is an atlas sprite, not a standalone texture.
                 // Draw a browser-safe beveled slot to avoid purple missing-texture tiles.
-                g.fill(x, y, x + SIZE, y + SIZE, 0xFF777777);
-                g.fill(x + 1, y + 1, x + SIZE - 1, y + SIZE - 1, 0xFF252525);
-                g.fill(x + 1, y + 1, x + SIZE - 1, y + 2, 0xFF444444);
-                g.fill(x + 1, y + 1, x + 2, y + SIZE - 1, 0xFF444444);
-                g.fill(x + SIZE - 2, y + 2, x + SIZE - 1, y + SIZE - 1, 0xFF111111);
-                g.fill(x + 2, y + SIZE - 2, x + SIZE - 1, y + SIZE - 1, 0xFF111111);
+                // Procedural, texture-free slot frame: avoids missing purple/black
+                // atlas tiles in the standalone browser build.
+                g.fill(x, y, x + SIZE, y + SIZE, 0xFF080B10);
+                g.fill(x + 1, y + 1, x + SIZE - 1, y + SIZE - 1, 0xFF53616E);
+                g.fill(x + 2, y + 2, x + SIZE - 2, y + SIZE - 2, 0xFF18212A);
+                g.fill(x + 2, y + 2, x + SIZE - 2, y + 3, 0xFF71818F);
+                g.fill(x + 2, y + 2, x + 3, y + SIZE - 2, 0xFF71818F);
+                g.fill(x + SIZE - 3, y + 3, x + SIZE - 2, y + SIZE - 2, 0xFF080B10);
+                g.fill(x + 3, y + SIZE - 3, x + SIZE - 2, y + SIZE - 2, 0xFF080B10);
+                g.fill(x + 3, y + 4, x + SIZE - 3, y + 5, 0xFF263440);
+                g.fill(x + 3, y + SIZE - 5, x + SIZE - 3, y + SIZE - 4, 0xFF10171E);
             }
             if (stack.isEmpty()) continue;
             g.item(stack, x + 3, y + 3);
