@@ -30,6 +30,10 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Drag evenly: " + onOff(VBVMouseTweaks.isDragEvenlyEnabled()), () -> VBVMouseTweaks.setDragEvenlyEnabled(!VBVMouseTweaks.isDragEvenlyEnabled()));
         } else if ("vbv-minimap".equals(modId)) {
             option(() -> "Minimap: " + onOff(VBVMiniMap.enabled), () -> VBVMiniMap.enabled = !VBVMiniMap.enabled);
+            addRenderableWidget(Button.builder(Component.literal("Edit minimap position"),
+                button -> VBVNav.open(new VBVHudEditorScreen(this)))
+                .bounds(width / 2 - 130, nextY, 260, 22).build());
+            nextY += 27;
         } else if ("appleskin".equals(modId)) {
             option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
             option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
