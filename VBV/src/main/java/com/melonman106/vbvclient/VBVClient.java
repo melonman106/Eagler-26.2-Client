@@ -92,7 +92,7 @@ public final class VBVClient {
             "BetterF3 (native port)",
             "Eagler port 1.0.0",
             "TreyRuffy / native Eagler port",
-            "Press B to toggle a compact debug panel showing coordinates, yaw, pitch, and FPS. This is a lightweight native implementation, not the full configurable BetterF3 layout.",
+            "Press F3 or F+3 (Chromebook shortcut) to toggle a compact debug panel showing coordinates, yaw, pitch, and FPS. This is a lightweight native implementation, not the full configurable BetterF3 layout.",
             BUILTIN_MOD_ICON,
             false
         ));
