@@ -4,9 +4,6 @@ run-name: "02 - Build VBV + Herz from known-good U2 workspace"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
