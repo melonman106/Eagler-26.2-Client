@@ -1,37 +1,46 @@
 # ViaBackportVisuals 26.2 Client Side
 
-Native Eaglercraft 26.2 u1 client-side mod suite with a Herz-style client API adapter.
+Native Eaglercraft 26.2 u2 client-side mod suite with a Herz-style adapter and a small Eagler-native Fabric compatibility API.
 
-This is not a Fabric Loader/API mod and does not embed ModMenu. It provides a native installed-mod browser and client features directly inside the Eagler client.
+This project does **not** embed upstream Fabric Loader, Fabric API, or Mixin. The compatibility package provides selected familiar interfaces so features can be ported incrementally without requiring the full Fabric runtime.
 
-## Herz API layer
+## Eagler Fabric compatibility layer
 
-VBV now uses a small 26.2-native Herz adapter for mod registration and lifecycle events:
+Sources are under `src/main/java/com/melonman106/vbvclient/fabriccompat/` and are copied into the generated Eagler game source by the existing recursive Java-source injection step.
 
-- `HerzMod` — common client-mod contract.
-- `HerzModRegistry` — central mod registry.
-- `HerzClient` — initialize/tick lifecycle.
-- `HerzVBVBridge` — exposes existing VBV mods through the API.
+Initial APIs:
 
-The upstream Herz-Core project currently targets Eaglercraft 1.8.8/u53, so its runtime is not copied into this 26.2 client. The adapter is deliberately isolated so it can be replaced by a real 26.2 Herz implementation when one is available.
+- `FabricLoader.getInstance()`: environment type, registered mod lookup, `isModLoaded`, `getModContainer`, and `getAllMods`.
+- `ModMetadata` and `ModContainer`: basic metadata access.
+- `ModInitializer`: familiar initializer contract for manually integrated ports.
+- `ClientTickEvents.START_CLIENT_TICK / END_CLIENT_TICK`: client tick callbacks, dispatched through the existing client lifecycle.
+- `ClientLifecycleEvents.CLIENT_STARTED / CLIENT_STOPPING`: client startup/shutdown callbacks.
+- `KeyBinding` and `KeyBindingHelper`: logical key registration and key press/release dispatch primitives.
 
-## Included
+Existing native VBV mod metadata is exposed through the compatibility registry. The layer is intentionally browser-safe and has no dependency on Fabric Loader JARs or Mixin.
+
+## Compatibility limits
+
+This is a **porting shim, not a drop-in Fabric runtime**. It does not load mod JARs, parse `fabric.mod.json`, resolve dependencies, apply Mixins, transform bytecode, or implement the full Fabric API. Keybindings must be connected to an actual browser keyboard hook before they can receive input. APIs that rely on unsupported Minecraft internals must still be adapted manually.
+
+The intended workflow is to port one small mod feature at a time, add only the API surface it needs, and verify it through the Eaglercraft 26.2 u2 GitHub Actions compile.
+
+## Existing client features
 
 - Native mod viewer and mod details screens, available from the main menu and the in-game Escape menu.
-- `V` opens the Mods screen; `M` opens the explored-chunk world map. These are handled at the keyboard dispatch layer rather than only by a screen.
-- Uku's Armor HUD and Simple HUD Enhanced.
-- AppleSkin-style live food and saturation information in the HUD.
-- Embedded resource-pack assets are copied into Minecraft's actual `assets/<namespace>/...` resource tree; pack icons are read from each ZIP's `pack.png` when present.
-- A generated custom pixel-art panorama replaces the default title-screen panorama during the build.
+- `V` opens the Mods screen; `M` opens the explored-chunk world map.
+- Uku's Armor HUD, Simple HUD Enhanced, AppleSkin-style hunger information, and other native client features.
+- Embedded resource-pack assets are copied into Minecraft's actual `assets/<namespace>/...` resource tree.
 - Client-only explored-chunk world map and waypoints.
-- GitHub Actions build/patch pipeline.
+- GitHub Actions compile and single-HTML packaging pipeline.
 
-## Intentionally removed
+## Intentionally not included
 
-- 26.3 texture recreation.
-- 26.3 blockstate/model recreation.
-- Server-side 26.3 texture compatibility from the client project.
-- Better Clouds.
-- Low Fire.
+- Full upstream Fabric Loader or Fabric API.
+- Mixin/bytecode transformation.
+- Automatic discovery or loading of third-party Fabric JARs.
+- Fabric server-side APIs.
+- 26.3 texture and blockstate recreation.
+- Better Clouds or Low Fire.
 
-The client project no longer replaces normal 26.2 textures with 26.3 placeholders.
+The client project preserves normal 26.2 textures rather than replacing them with 26.3 placeholders.
