@@ -71,7 +71,7 @@ public final class ShineConfigScreen extends Screen {
         graphics.fill(0, 0, width, height, 0xFF101216);
         String heading = "Shine — Visual Effects";
         graphics.text(font, heading, width / 2 - font.width(heading) / 2, 10, 0xFFFFFFFF, true);
-        String note = "Eagler lightmap approximation • changes apply to world lighting";
+        String note = "Screen-space bloom + lightmap lighting • changes apply in-world";
         graphics.text(font, note, width / 2 - font.width(note) / 2, 25, 0xFFB8C0CC, false);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
