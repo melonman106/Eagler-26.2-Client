@@ -40,6 +40,7 @@ public final class VBVArmorHud {
         Identifier.withDefaultNamespace("container/slot/leggings"),
         Identifier.withDefaultNamespace("container/slot/boots")
     };
+    private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:mods/warn.png");
 
     private static final Random RANDOM = new Random();
 
@@ -320,10 +321,10 @@ public final class VBVArmorHud {
         return (int) (RANDOM.nextInt(intensity) - Math.ceil(intensity / 2.0F));
     }
 
-    /** The original mod ships a warn.png sprite; draw an equivalent without needing the asset. */
+    /** Uses the original Armor HUD warning sprite, bundled under the MIT license. */
     private static void drawWarning(GuiGraphicsExtractor g, Font font, int x, int y) {
-        g.fill(x, y, x + WARNING_SIZE, y + WARNING_SIZE, 0xFFCC2222);
-        g.text(font, "!", x + 3, y, 0xFFFFFFFF, false);
+        g.blit(RenderPipelines.GUI_TEXTURED, WARNING_TEXTURE, x, y, 0, 0,
+            WARNING_SIZE, WARNING_SIZE, WARNING_SIZE, WARNING_SIZE);
     }
 
     private static void centered(GuiGraphicsExtractor g, Font font, String text, int cx, int y, int color) {
