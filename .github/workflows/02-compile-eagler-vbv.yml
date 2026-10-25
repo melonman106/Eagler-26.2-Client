@@ -61,6 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"

@@ -8,7 +8,7 @@ import java.util.Map;
 public final class VBVClient {
     public static final String MOD_ID = "viabackportvisuals-client";
     public static final String VERSION = "1.0.0-26.2";
-    private static final String BUILTIN_MOD_ICON = "minecraft:textures/misc/unknown_pack.png";
+    private static final String BUILTIN_MOD_ICON = "minecraft:misc/unknown_pack";
 
     private static final Map<String, VBVModInfo> MODS = new LinkedHashMap<>();
 
@@ -107,6 +107,8 @@ public final class VBVClient {
             false
         ));
 
+        registerMod(new VBVModInfo("jade", "Jade (lightweight native port)", "Eagler port 1.0.0",
+            "Snownee / native Eagler port", "Targeted block/entity tooltip with enable toggle and movable position.", BUILTIN_MOD_ICON, false));
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
     }

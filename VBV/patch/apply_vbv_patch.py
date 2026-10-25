@@ -76,6 +76,7 @@ MODS_PACK = REPO_ROOT / "ModsPack"
 GENERATED_PACK_CLASS = DEST / "VBVGeneratedPackMods.java"
 RESOURCE_ROOT = TARGET.parent / "resources"
 GENERATED_PACK_RESOURCE_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "mods"
+GENERATED_PACK_ICON_ROOT = RESOURCE_ROOT / "assets" / "vbvclient" / "textures" / "mods"
 
  
 def png_chunk(kind, payload):
@@ -205,7 +206,7 @@ def extract_resource_pack(zippath, mod_id):
     # which is not a resource namespace Minecraft scans. Merge actual assets
     # into resources/assets/<namespace>/... and keep each pack icon in VBV's
     # own namespace so the native mod list can display it.
-    icon_destination = GENERATED_PACK_RESOURCE_ROOT / mod_id
+    icon_destination = GENERATED_PACK_ICON_ROOT / mod_id
     if icon_destination.exists():
         shutil.rmtree(icon_destination)
     icon_destination.mkdir(parents=True, exist_ok=True)
@@ -277,11 +278,18 @@ if MODS_PACK.is_dir():
             description = f"Resource-pack client mod imported from {zippath.name}."
         name = display_name(zippath.stem)
 
-        icon = GENERATED_PACK_RESOURCE_ROOT / mod_id / "pack.png"
+        icon = GENERATED_PACK_ICON_ROOT / mod_id / "pack.png"
         if not icon.is_file():
             fallback = CLIENT_SIDE / "pack.png"
             if fallback.is_file():
                 shutil.copy2(fallback, icon)
+        if icon.is_file():
+            try:
+                from PIL import Image
+                with Image.open(icon) as image:
+                    image.convert("RGBA").resize((64, 64), Image.Resampling.LANCZOS).save(icon, format="PNG")
+            except Exception as exc:
+                raise SystemExit(f"Could not normalize resource-pack icon {icon}: {exc}")
 
         mod_json = GENERATED_PACK_RESOURCE_ROOT / mod_id / "mod.json"
         mod_json.write_text(
@@ -318,7 +326,7 @@ for mod_id, name, description in pack_entries:
         '            "1.0.0-26.2",',
         '            "Resource pack",',
         f"            {java_string(description)},",
-        f"            {java_string('vbvclient:mods/' + mod_id + '/pack.png')},",
+        f"            {java_string('vbvclient:mods/' + mod_id + '/pack')},",
         "            true",
         "        ));",
     ])
@@ -545,6 +553,24 @@ if MINIMAP_CALL not in hud_src:
     hud_src = hud_src[:_end] + "\n        " + MINIMAP_CALL + "\n    " + hud_src[_end:]
     hud_path.write_text(hud_src, encoding="utf-8")
     print("Inserted minimap HUD hook into", hud_path)
+
+# Jade-style target tooltip hook.
+JADE_CALL = "com.melonman106.vbvclient.VBVJadeHud.render(graphics);"
+hud_src = hud_path.read_text(encoding="utf-8")
+if JADE_CALL not in hud_src:
+    _m = re.search(r"(?:public|private|protected)\\s+void\\s+extractItemHotbar\\s*\\([^)]*\\)\\s*\\{", hud_src)
+    if not _m:
+        raise SystemExit("Hud.extractItemHotbar method was not identified for Jade hook")
+    _param = re.search(r"GuiGraphicsExtractor\\s+(\\w+)", _m.group(0))
+    if not _param:
+        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for Jade hook")
+    JADE_CALL = JADE_CALL.replace("graphics", _param.group(1))
+    _end = find_method_end(hud_src, _m.start())
+    if _end is None:
+        raise SystemExit("Could not find end of Hud.extractItemHotbar for Jade hook")
+    hud_src = hud_src[:_end] + "\\n        " + JADE_CALL + "\\n    " + hud_src[_end:]
+    hud_path.write_text(hud_src, encoding="utf-8")
+    print("Inserted Jade-style target overlay hook into", hud_path)
 
 # Wire Mouse Tweaks' wheel behavior into the real container-screen input path.
 container_path = None
