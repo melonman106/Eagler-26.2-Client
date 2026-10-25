@@ -77,22 +77,22 @@ public final class VBVWorldMapScreen extends Screen {
         int minChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapTop - height / 2.0D) / (double)pixels) - 1;
         int maxChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapBottom - height / 2.0D) / (double)pixels) + 1;
 
-        int samplePixels = Math.max(1, pixels / 8);
+        int samples = VBVWorldMap.terrainSide();
         for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 long key = VBVWorldMap.pack(chunkX, chunkZ);
                 if (!explored.contains(key)) continue;
                 int[] colors = VBVWorldMap.terrain(world, key);
-                if (colors == null || colors.length < 64) continue;
+                if (colors == null || colors.length < VBVWorldMap.terrainSampleCount()) continue;
                 int chunkLeft = width / 2 + (int)Math.round((chunkX - centerX / 16.0D) * pixels);
                 int chunkTop = height / 2 + (int)Math.round((chunkZ - centerZ / 16.0D) * pixels);
-                for (int sz = 0; sz < 8; sz++) {
-                    for (int sx = 0; sx < 8; sx++) {
-                        int x1 = Math.max(mapLeft, chunkLeft + sx * pixels / 8);
-                        int y1 = Math.max(mapTop, chunkTop + sz * pixels / 8);
-                        int x2 = Math.min(mapRight, chunkLeft + (sx + 1) * pixels / 8);
-                        int y2 = Math.min(mapBottom, chunkTop + (sz + 1) * pixels / 8);
-                        if (x1 < x2 && y1 < y2) graphics.fill(x1, y1, x2, y2, colors[sz * 8 + sx]);
+                for (int sz = 0; sz < samples; sz++) {
+                    for (int sx = 0; sx < samples; sx++) {
+                        int x1 = Math.max(mapLeft, chunkLeft + sx * pixels / samples);
+                        int y1 = Math.max(mapTop, chunkTop + sz * pixels / samples);
+                        int x2 = Math.min(mapRight, chunkLeft + (sx + 1) * pixels / samples);
+                        int y2 = Math.min(mapBottom, chunkTop + (sz + 1) * pixels / samples);
+                        if (x1 < x2 && y1 < y2) graphics.fill(x1, y1, x2, y2, colors[sz * samples + sx]);
                     }
                 }
             }
@@ -117,7 +117,7 @@ public final class VBVWorldMapScreen extends Screen {
 
         graphics.text(minecraft.font, "Explored chunks: " + explored.size(), 8, height - 48, 0xFFFFFFFF, true);
         graphics.text(minecraft.font, "Zoom: " + String.format(java.util.Locale.ROOT, "%.1fx", zoom), 8, height - 60, 0xFFCCCCCC, true);
-        graphics.text(minecraft.font, "Detailed terrain · visited chunks only", 8, 32, 0xFFCCCCCC, true);
+        graphics.text(minecraft.font, "12×12 terrain detail · visited chunks only", 8, 32, 0xFFCCCCCC, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }
