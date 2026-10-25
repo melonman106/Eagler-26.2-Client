@@ -71,6 +71,15 @@ jobs:
 
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
+          compat_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/fabriccompat"
+          for source in FabricCompatClient.java FabricLoader.java ModMetadata.java ModContainer.java ModInitializer.java ClientTickEvents.java ClientLifecycleEvents.java KeyBinding.java KeyBindingHelper.java EnvType.java; do
+            test -s "$compat_src/$source" || {
+              echo "::error::Required Fabric compatibility source is missing: $compat_src/$source"
+              exit 1
+            }
+          done
+          grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
+          grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
