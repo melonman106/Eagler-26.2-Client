@@ -1,0 +1,25 @@
+{
+    "required": true,
+    "package": "fi.dy.masa.malilib.mixin",
+    "compatibilityLevel": "JAVA_17",
+    "minVersion": "0.8",
+    "client": [
+        "MixinClientConfigurationNetworkHandler",
+        "MixinClientPlayNetworkHandler",
+        "MixinDrawContext",
+        "MixinHandledScreen",
+        "MixinInGameHud",
+        "MixinIntegratedServer",
+        "MixinKeyboard",
+        "MixinMinecraftClient",
+        "MixinMouse",
+        "MixinWorldRenderer",
+        "MixinMinecraftServer",
+        "MixinHorseEntity",
+        "MixinPiglinEntity",
+        "MixinSimpleInventory"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}
