@@ -43,7 +43,7 @@ public final class FabricLoader {
         mods.put(metadata.getId(), new ModContainer(metadata));
     }
 
-    public EnvType getEnvironmentType() {
-        return EnvType.CLIENT;
+    public net.fabricmc.api.EnvType getEnvironmentType() {
+        return net.fabricmc.api.EnvType.CLIENT;
     }
 }
