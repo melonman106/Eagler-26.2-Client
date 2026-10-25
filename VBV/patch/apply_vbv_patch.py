@@ -508,7 +508,7 @@ for p, s in java_files():
         container_path, container_src = p, s; break
 if container_path is None: raise SystemExit("AbstractContainerScreen.java was not found; Mouse Tweaks cannot be wired")
 # Add the native ShulkerBoxTooltip preview after the normal inventory tooltip.
-shulker_hook = "com.melonman106.vbvclient.VBVShulkerViewer.render(graphics, this.hoveredSlot, mouseX, mouseY, net.minecraft.client.gui.screens.Screen.hasShiftDown());"
+shulker_hook = "com.melonman106.vbvclient.VBVShulkerViewer.render(graphics, this.hoveredSlot, mouseX, mouseY, net.minecraft.client.Minecraft.getInstance().hasShiftDown());"
 if shulker_hook not in container_src:
     render_match = re.search(
         r"public void extractRenderState\s*\(\s*final GuiGraphicsExtractor graphics,\s*final int mouseX,\s*final int mouseY,\s*final float \w+\s*\)\s*\{",
