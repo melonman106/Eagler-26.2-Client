@@ -1,13 +1,6 @@
 name: "Fabric compatibility API smoke test"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "VBV/src/main/java/com/melonman106/vbvclient/fabriccompat/**"
-      - "VBV/src/main/java/net/fabricmc/**"
-      - "VBV/patch/apply_vbv_patch.py"
-      - ".github/workflows/fabric-compat-smoke.yml"
   workflow_dispatch:
 
 permissions:
