@@ -30,17 +30,17 @@ public final class ShineConfigScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("All Features"), b -> {
             ShineConfig.applyPreset("all");
-            rebuildWidgets();
+            rebuildOptions();
         }).bounds(width / 2 - 130, nextY, 125, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Bloom Only"), b -> {
             ShineConfig.applyPreset("bloom");
-            rebuildWidgets();
+            rebuildOptions();
         }).bounds(width / 2 + 5, nextY, 125, 20).build());
         nextY += 27;
 
         addRenderableWidget(Button.builder(Component.literal("Performance"), b -> {
             ShineConfig.applyPreset("performance");
-            rebuildWidgets();
+            rebuildOptions();
         }).bounds(width / 2 - 130, nextY, 260, 20).build());
         nextY += 27;
 
@@ -56,7 +56,7 @@ public final class ShineConfigScreen extends Screen {
         nextY += 23;
     }
 
-    private void rebuildWidgets() {
+    private void rebuildOptions() {
         clearWidgets();
         nextY = 40;
         init();
