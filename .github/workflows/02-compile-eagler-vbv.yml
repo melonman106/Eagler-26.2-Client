@@ -128,7 +128,7 @@ jobs:
 
           icon_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods")
           pack_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods")
-          files = set(icon_root.glob("*.png")) if icon_root.exists() else set()
+          files = {path for path in icon_root.glob("*.png") if path.name != "warn.png"} if icon_root.exists() else set()
           if pack_root.exists():
               files.update(path for path in pack_root.rglob("*.png") if path.name == "pack.png")
           for path in sorted(files):
