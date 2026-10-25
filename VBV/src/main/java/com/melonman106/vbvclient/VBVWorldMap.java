@@ -213,14 +213,15 @@ public final class VBVWorldMap {
                     for (int i = 0; i < colors.length; i++) colors[i] = buffer.getInt();
                     terrain.put(chunk, colors);
                 } else if (line.startsWith("W:")) {
-                    String[] parts = line.substring(2).split(":", 4);
-                    if (parts.length == 4) {
+                    String[] parts = line.substring(2).split(":", 5);
+                    if (parts.length == 5) {
                         String id = new String(Base64.getUrlDecoder().decode(parts[0]), java.nio.charset.StandardCharsets.UTF_8);
                         String name = new String(Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
                         int x = Integer.parseInt(parts[2]);
-                        int z = Integer.parseInt(parts[3]);
+                        int y = Integer.parseInt(parts[3]);
+                        int z = Integer.parseInt(parts[4]);
                         WAYPOINTS.computeIfAbsent(world, ignored -> new HashMap<>())
-                            .put(id, new VBVWaypoint(id, name, x, z));
+                            .put(id, new VBVWaypoint(id, name, x, y, z));
                     }
                 }
             }
@@ -247,7 +248,7 @@ public final class VBVWorldMap {
             output.append("W:")
                 .append(Base64.getUrlEncoder().withoutPadding().encodeToString(waypoint.id().getBytes(java.nio.charset.StandardCharsets.UTF_8))).append(':')
                 .append(Base64.getUrlEncoder().withoutPadding().encodeToString(waypoint.name().getBytes(java.nio.charset.StandardCharsets.UTF_8))).append(':')
-                .append(waypoint.x()).append(':').append(waypoint.z()).append('\n');
+                .append(waypoint.x()).append(':').append(waypoint.y()).append(':').append(waypoint.z()).append('\n');
         }
         String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
             .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
