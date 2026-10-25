@@ -139,9 +139,12 @@ public final class VBVModsScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("World Map"),
             button -> VBVNav.open(new VBVWorldMapScreen(this)))
-            .bounds(width / 2 - 154, height - 28, 150, 20).build());
+            .bounds(width / 2 - 158, height - 28, 98, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("HUD Editor"),
+            button -> VBVNav.open(new VBVHudEditorScreen(this)))
+            .bounds(width / 2 - 55, height - 28, 105, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent))
-            .bounds(width / 2 + 4, height - 28, 150, 20).build());
+            .bounds(width / 2 + 60, height - 28, 98, 20).build());
 
         applyFilterVisibility();
         refilter();
