@@ -39,24 +39,34 @@ public final class VBVWorldMap {
         if (!(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) return;
         BlockPos pos = player.blockPosition();
         if (!minecraft.level.hasChunkAt(pos)) return;
+
         int chunkX = Math.floorDiv(pos.getX(), 16);
         int chunkZ = Math.floorDiv(pos.getZ(), 16);
         String world = worldKey(minecraft);
         long key = pack(chunkX, chunkZ);
-        if (key == lastChunk && world.equals(lastWorld)) return;
-        lastChunk = key;
-        lastWorld = world;
-        exploredSet(world, true).add(key);
-        captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
+        boolean enteredNewChunk = key != lastChunk || !world.equals(lastWorld);
 
-        // Cache already-loaded nearby terrain for the minimap. Nearby chunks are
-        // not added to EXPLORED, so the full world map remains fogged until visited.
-        // This scan only happens on chunk changes, not every frame or game tick.
-        for (int dz = -MINIMAP_CACHE_RADIUS; dz <= MINIMAP_CACHE_RADIUS; dz++) {
-            for (int dx = -MINIMAP_CACHE_RADIUS; dx <= MINIMAP_CACHE_RADIUS; dx++) {
-                int cx = chunkX + dx, cz = chunkZ + dz;
-                long nearbyKey = pack(cx, cz);
-                if (!hasTerrain(world, nearbyKey)) captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
+        if (enteredNewChunk) {
+            lastChunk = key;
+            lastWorld = world;
+            // Only the chunk the player actually enters is marked explored.
+            exploredSet(world, true).add(key);
+            captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
+        }
+
+        // Refresh the nearby terrain cache periodically so newly loaded chunks
+        // appear on the minimap even when the player stands still. This never
+        // adds nearby chunks to EXPLORED, so the world map keeps its fog of war.
+        if (enteredNewChunk || ++nearbyScanTicks >= 20) {
+            nearbyScanTicks = 0;
+            for (int dz = -MINIMAP_CACHE_RADIUS; dz <= MINIMAP_CACHE_RADIUS; dz++) {
+                for (int dx = -MINIMAP_CACHE_RADIUS; dx <= MINIMAP_CACHE_RADIUS; dx++) {
+                    int cx = chunkX + dx, cz = chunkZ + dz;
+                    long nearbyKey = pack(cx, cz);
+                    if (!hasTerrain(world, nearbyKey)) {
+                        captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
+                    }
+                }
             }
         }
     }
@@ -84,8 +94,9 @@ public final class VBVWorldMap {
         for (int sz = 0; sz < TERRAIN_SIDE; sz++) {
             for (int sx = 0; sx < TERRAIN_SIDE; sx++) {
                 int index = sz * TERRAIN_SIDE + sx;
-                int x = chunkX * 16 + sx * 2 + 1;
-                int z = chunkZ * 16 + sz * 2 + 1;
+                // One sample per block gives the world map much finer terrain detail.
+                int x = chunkX * 16 + sx;
+                int z = chunkZ * 16 + sz;
                 if (!minecraft.level.hasChunkAt(new BlockPos(x, minY, z))) {
                     colors[index] = 0xFF202020;
                     heights[index] = minY;
