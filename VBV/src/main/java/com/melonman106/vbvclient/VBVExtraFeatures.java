@@ -129,6 +129,13 @@ public final class VBVExtraFeatures {
         right.add("Render distance: " + mc.options.renderDistance().get() + " chunks");
         right.add("Simulation distance: " + mc.options.simulationDistance().get() + " chunks");
         right.add("Rendered entities: " + renderedEntities);
+        right.add("Connection: " + (mc.getCurrentServer() == null ? "Singleplayer" : mc.getCurrentServer().ip));
+        right.add("On ground: " + player.onGround());
+        right.add("Sprinting: " + player.isSprinting());
+        right.add("Sneaking: " + player.isCrouching());
+        right.add(String.format(java.util.Locale.ROOT, "Fall distance: %.2f", player.fallDistance));
+        right.add("Local brightness: " + mc.level.getMaxLocalRawBrightness(pos));
+        right.add(String.format(java.util.Locale.ROOT, "Memory use: %.1f%%", maxMb <= 0 ? 0.0D : usedMb * 100.0D / maxMb));
         right.add("Player: " + player.getName().getString());
         right.add(String.format(java.util.Locale.ROOT, "Health: %.1f / %.1f", player.getHealth(), player.getMaxHealth()));
         right.add("Food: " + player.getFoodData().getFoodLevel() + " / 20");
