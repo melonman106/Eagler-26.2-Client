@@ -84,7 +84,7 @@ jobs:
               "",
               "## Compatibility status",
               "",
-              "The upstream projects target Fabric/Minecraft 1.21.1. Their JARs are not Eaglercraft browser mods and are not injected into the HTML client by this workflow. A working port must adapt Fabric entry points, mixins, rendering hooks, input hooks, and Minecraft-version-specific APIs.",
+              "The upstream projects target Fabric/Minecraft 1.21.1. Their JARs are not Eaglercraft browser mods and are not injected into the HTML client. This repository now contains a native Eagler-compatible first-stage port: it imports compressed .litematic files through Eagler's browser file chooser and displays schematic regions, dimensions, palette sizes, and block counts. The upstream Fabric runtime and mixins are not used.",
               "",
           ]
           for title, pattern in patterns:
@@ -109,7 +109,7 @@ jobs:
           report += [
               "## Porting direction",
               "",
-              "Implement a browser-compatible schematic pipeline in Eagler's own client: parse .litematic/NBT data, provide a schematic UI, and render placement previews through Eagler's renderer. Fabric-only classes cannot simply be copied into the browser build.",
+              "Implemented in this repository: a browser-compatible .litematic import and read-only schematic inspector using Eagler's native file chooser and the existing TeaVM-safe NBT reader. Remaining work for full Litematica parity is blockstate-property decoding, ghost-schematic rendering, placement/selection tools, and configuration features. Fabric-only classes cannot simply be copied into the browser build.",
               "",
           ]
           Path("EAGLER_LITEMATICA_PORT_AUDIT.md").write_text("\n".join(report), encoding="utf-8")
