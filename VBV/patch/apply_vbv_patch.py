@@ -436,6 +436,24 @@ else:
     print("Inserted Armor HUD hook into", hud_path)
 
 
+# BetterF3-inspired compact debug overlay (toggle with B).
+DEBUG_CALL = "com.melonman106.vbvclient.VBVExtraFeatures.renderDebug(graphics);"
+hud_src = hud_path.read_text(encoding="utf-8")
+if DEBUG_CALL not in hud_src:
+    _m = re.search(r"(?:public|private|protected)\\s+void\\s+extractItemHotbar\\s*\\([^)]*\\)\\s*\\{", hud_src)
+    if not _m:
+        raise SystemExit("Hud.extractItemHotbar method was not identified for enhanced debug HUD")
+    _param = re.search(r"GuiGraphicsExtractor\\s+(\\w+)", _m.group(0))
+    if not _param:
+        raise SystemExit("Hud.extractItemHotbar has no GuiGraphicsExtractor parameter for enhanced debug HUD")
+    DEBUG_CALL = DEBUG_CALL.replace("graphics", _param.group(1))
+    _end = find_method_end(hud_src, _m.start())
+    if _end is None:
+        raise SystemExit("Could not find end of Hud.extractItemHotbar for enhanced debug HUD")
+    hud_src = hud_src[:_end] + "\\n        " + DEBUG_CALL + "\\n    " + hud_src[_end:]
+    hud_path.write_text(hud_src, encoding="utf-8")
+    print("Inserted BetterF3-inspired debug overlay hook into", hud_path)
+
 # AppleSkin-style live food/saturation/exhaustion information overlay.
 APPLE_CALL = "com.melonman106.vbvclient.VBVAppleSkin.render(graphics);"
 hud_src = hud_path.read_text(encoding="utf-8")
@@ -577,6 +595,8 @@ if pause:
         print("PauseScreen Mods row already present or insertion marker missing.")
 
 # Hook the real keyboard dispatch. V opens Mods; M opens the explored-chunk map.
+# G toggles maximum vanilla brightness, C zooms while held, and B toggles the
+# compact BetterF3-inspired debug overlay.
 keyboard = None
 for p, source_text in java_files():
     if p.name == "KeyboardHandler.java" and re.search(r"class\s+KeyboardHandler\b", source_text):
@@ -598,12 +618,23 @@ if keyboard:
          }
 
          """
+    anchor = "Screen screen = this.minecraft.gui.screen();"
+    if anchor not in source_text:
+        raise SystemExit("KeyboardHandler screen dispatch anchor was not identified")
+
+    if "VBVExtraFeatures.handleKey(event.key(), action)" not in source_text:
+        feature_hook = """if (!event.hasControlDownWithQuirk()
+            && (screen == null || !(screen.getFocused() instanceof EditBox))) {
+            com.melonman106.vbvclient.VBVExtraFeatures.handleKey(event.key(), action);
+         }
+
+         """
+        source_text = source_text.replace(anchor, anchor + "\n         " + feature_hook, 1)
+
     if "VBVWorldMapScreen(screen)" not in source_text:
-        anchor = "Screen screen = this.minecraft.gui.screen();"
-        if anchor not in source_text:
-            raise SystemExit("KeyboardHandler screen dispatch anchor was not identified")
         source_text = source_text.replace(anchor, anchor + "\n         " + hook, 1)
-        p.write_text(source_text, encoding="utf-8")
-        print("Registered V/M keybinds in KeyboardHandler:", p)
+
+    p.write_text(source_text, encoding="utf-8")
+    print("Registered V/M, gamma, zoom, and enhanced-debug keybind hooks in KeyboardHandler:", p)
 else:
     print("KeyboardHandler was not identified; global VBV keybinds were not installed.")
