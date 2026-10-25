@@ -767,7 +767,7 @@ else:
 # Eagler grading pass, but before the player's hand and GUI are rendered.
 game_renderer = None
 for renderer_path, renderer_src in java_files():
-    if renderer_path.name == "GameRenderer.java" and re.search(r"class\\s+GameRenderer\\b", renderer_src):
+    if renderer_path.name == "GameRenderer.java" and re.search(r"class\s+GameRenderer\b", renderer_src):
         game_renderer = (renderer_path, renderer_src)
         break
 if game_renderer is None:
@@ -778,7 +778,7 @@ if failure_flag not in renderer_src:
     renderer_marker = "private boolean eaglerOptimizedShaderRequestedLastFrame;"
     if renderer_marker not in renderer_src:
         raise SystemExit("GameRenderer shader state marker was not found for Shine failure guard")
-    renderer_src = renderer_src.replace(renderer_marker, renderer_marker + "\\n   " + failure_flag, 1)
+    renderer_src = renderer_src.replace(renderer_marker, renderer_marker + "\n   " + failure_flag, 1)
 shine_hook = "com.melonman106.vbvclient.ShineConfig.bloom() && !this.vbvShineBloomFailed"
 if shine_hook not in renderer_src:
     render_marker = "boolean isSleeping = cameraState.entityRenderState.isSleeping;"
