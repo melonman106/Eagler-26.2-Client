@@ -704,6 +704,43 @@ if lightmap:
     else: print("Gamma Utils lightmap override already present.")
 else: raise SystemExit("LightmapRenderStateExtractor.java was not found; Gamma Utils override cannot work.")
 
+# Apply the supported part of Shine to the actual Eagler lightmap. This is a
+# clean-room lightmap approximation, not a claim of full shader/post-process parity.
+shine_tint_marker = "ShineConfig.coloredLighting()"
+block_tint_line = "renderState.blockLightTint = ARGB.vector3fFromRGB24(camera.attributeProbe().getValue(EnvironmentAttributes.BLOCK_LIGHT_TINT, partialTicks));"
+if shine_tint_marker not in source_text:
+    if block_tint_line not in source_text:
+        raise SystemExit("Could not locate block-light tint assignment for Shine lighting")
+    shine_code = block_tint_line + """
+            if (com.melonman106.vbvclient.ShineConfig.coloredLighting()) {
+               float shineTint = Math.min(0.25F, com.melonman106.vbvclient.ShineConfig.lightRadius() / 96.0F);
+               renderState.blockLightTint = new Vector3f(renderState.blockLightTint)
+                  .mul(1.0F, 1.0F - shineTint * 0.6F, 1.0F - shineTint);
+            }
+            if (com.melonman106.vbvclient.ShineConfig.bloom()) {
+               float shineLift = Math.min(0.20F, com.melonman106.vbvclient.ShineConfig.bloomStrength() * 0.08F);
+               renderState.blockFactor += shineLift;
+               renderState.skyFactor += shineLift * 0.35F;
+            }
+"""
+    source_text = source_text.replace(block_tint_line, shine_code, 1)
+    if "com.melonman106.vbvclient.ShineConfig.rimLighting()" not in source_text:
+        ambient_line = "renderState.ambientColor = ARGB.vector3fFromRGB24(camera.attributeProbe().getValue(EnvironmentAttributes.AMBIENT_LIGHT_COLOR, partialTicks));"
+        if ambient_line not in source_text:
+            raise SystemExit("Could not locate ambient-light assignment for Shine rim-light approximation")
+        rim_code = ambient_line + """
+            if (com.melonman106.vbvclient.ShineConfig.rimLighting()) {
+               float shineRim = Math.min(0.18F, com.melonman106.vbvclient.ShineConfig.rimStrength() * 0.12F);
+               renderState.ambientColor = new Vector3f(renderState.ambientColor)
+                  .add(shineRim, shineRim, shineRim);
+            }
+"""
+        source_text = source_text.replace(ambient_line, rim_code, 1)
+    p.write_text(source_text, encoding="utf-8")
+    print("Connected Shine lighting settings to Eagler's lightmap (ambient approximation, not full shader effects).")
+else:
+    print("Shine lightmap settings already connected.")
+
 title = None
 for p, source_text in java_files():
     if re.search(r"class\s+TitleScreen\b", source_text) and "extends Screen" in source_text: title = (p, source_text); break
