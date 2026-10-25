@@ -426,13 +426,13 @@ insert_hud_call("com.melonman106.vbvclient.VBVJadeHud.render(graphics);", "Jade-
 debug_overlay_path = None
 debug_overlay_src = None
 for p, source_text in java_files():
-    if p.name == "DebugScreenOverlay.java" and re.search(r"class\\s+DebugScreenOverlay\\b", source_text):
+    if p.name == "DebugScreenOverlay.java" and re.search(r"class\s+DebugScreenOverlay\b", source_text):
         debug_overlay_path, debug_overlay_src = p, source_text
         break
 if debug_overlay_path is None:
     raise SystemExit("DebugScreenOverlay.java was not found; BetterF3 cannot replace vanilla F3")
 debug_method = re.search(
-    r"(?:public|protected|private)\\s+void\\s+extractRenderState\\s*\\(\\s*(?:final\\s+)?GuiGraphicsExtractor\\s+(\\w+)\\s*\\)\\s*\\{",
+    r"(?:public|protected|private)\s+void\s+extractRenderState\s*\(\s*(?:final\s+)?GuiGraphicsExtractor\s+(\w+)\s*\)\s*\{",
     debug_overlay_src
 )
 if debug_method is None:
@@ -440,11 +440,11 @@ if debug_method is None:
 debug_graphics = debug_method.group(1)
 if "VBVExtraFeatures.isBetterF3Enabled()" not in debug_overlay_src:
     debug_guard = (
-        "\\n      if (com.melonman106.vbvclient.VBVExtraFeatures.isBetterF3Enabled()) {\\n"
+        "\n      if (com.melonman106.vbvclient.VBVExtraFeatures.isBetterF3Enabled()) {\n"
         f"         if (com.melonman106.vbvclient.VBVExtraFeatures.isDebugHudEnabled()) "
-        f"com.melonman106.vbvclient.VBVExtraFeatures.renderDebug({debug_graphics});\\n"
-        "         return;\\n"
-        "      }\\n"
+        f"com.melonman106.vbvclient.VBVExtraFeatures.renderDebug({debug_graphics});\n"
+        "         return;\n"
+        "      }\n"
     )
     debug_overlay_src = debug_overlay_src[:debug_method.end()] + debug_guard + debug_overlay_src[debug_method.end():]
     debug_overlay_path.write_text(debug_overlay_src, encoding="utf-8")
