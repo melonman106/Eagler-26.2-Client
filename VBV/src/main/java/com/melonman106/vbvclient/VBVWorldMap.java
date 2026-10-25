@@ -17,8 +17,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * Lightweight client-side explored-chunk map.
  *
  * A chunk is recorded only when the local player actually enters it. Its four
- * terrain samples are captured once while that chunk is already loaded. The 12x12
- * grid preserves small terrain features better than a coarse 8x8 overview. HUD
+ * terrain samples are captured once while that chunk is already loaded. The 16x16 grid captures each surface block in a chunk for a much more detailed overview. HUD
  * rendering then uses only this cache and never asks the world for terrain.
  */
 public final class VBVWorldMap {
@@ -27,12 +26,13 @@ public final class VBVWorldMap {
     private static final Map<String, Map<String, VBVWaypoint>> WAYPOINTS = new HashMap<>();
     private static long lastChunk = Long.MIN_VALUE;
     private static String lastWorld = "";
+    private static int nearbyScanTicks;
 
     private VBVWorldMap() {}
 
-    private static final int TERRAIN_SIDE = 12;
+    private static final int TERRAIN_SIDE = 16;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
-    private static final int MINIMAP_CACHE_RADIUS = 9;
+    private static final int MINIMAP_CACHE_RADIUS = 10;
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
@@ -90,7 +90,7 @@ public final class VBVWorldMap {
         int[] heights = new int[TERRAIN_SAMPLES];
         int minY = minecraft.level.getMinY();
 
-        // 64 surface samples per chunk instead of four, with one-time capture.
+        // 256 surface samples per chunk, captured once and reused by both maps.
         for (int sz = 0; sz < TERRAIN_SIDE; sz++) {
             for (int sx = 0; sx < TERRAIN_SIDE; sx++) {
                 int index = sz * TERRAIN_SIDE + sx;
