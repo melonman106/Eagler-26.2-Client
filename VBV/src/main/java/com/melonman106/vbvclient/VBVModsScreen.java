@@ -105,11 +105,6 @@ public final class VBVModsScreen extends Screen {
         addRenderableWidget(searchBox);
         setInitialFocus(searchBox);
 
-        addRenderableWidget(Button.builder(Component.literal("="), button -> {
-            filtersShown = !filtersShown;
-            applyFilterVisibility();
-        }).bounds(paneWidth / 2 + searchWidth / 2 - 10 + 2, 22, 20, 20).build());
-
         int sortWidth = font.width("Sort: Z-A") + 28;
         int typeWidth = font.width("Show: Packs") + 20;
         int filtersWidth = sortWidth + typeWidth + 2;
