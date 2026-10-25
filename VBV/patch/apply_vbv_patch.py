@@ -508,7 +508,7 @@ for p, s in java_files():
         container_path, container_src = p, s; break
 if container_path is None: raise SystemExit("AbstractContainerScreen.java was not found; Mouse Tweaks cannot be wired")
 # Add the native ShulkerBoxTooltip preview after the normal inventory tooltip.
-shulker_hook = "com.melonman106.vbvclient.VBVShulkerViewer.render(graphics, this.hoveredSlot, mouseX, mouseY, net.minecraft.client.Minecraft.getInstance().hasShiftDown());"
+shulker_hook = "com.melonman106.vbvclient.VBVShulkerViewer.render(graphics, this.hoveredSlot, mouseX, mouseY, net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown());"
 if shulker_hook not in container_src:
     render_match = re.search(
         r"public void extractRenderState\s*\(\s*final GuiGraphicsExtractor graphics,\s*final int mouseX,\s*final int mouseY,\s*final float \w+\s*\)\s*\{",
@@ -581,6 +581,30 @@ if mouse_hook not in container_src:
     container_path.write_text(container_src, encoding="utf-8")
     print("Inserted Mouse Tweaks wheel handling into", container_path)
 else: print("Mouse Tweaks wheel hook already present.")
+
+container_src = container_path.read_text(encoding="utf-8")
+
+# Suppress the vanilla item tooltip while the Shift-hover shulker preview is active.
+# This runs inside extractTooltip, before the custom preview is drawn.
+tooltip_method = re.search(r"protected void extractTooltip\\s*\\([^)]*\\)\\s*\\{", container_src)
+if tooltip_method is None:
+    raise SystemExit("AbstractContainerScreen.extractTooltip was not identified for shulker tooltip suppression")
+tooltip_end = find_method_end(container_src, tooltip_method.start())
+if tooltip_end is None:
+    raise SystemExit("Could not find end of AbstractContainerScreen.extractTooltip")
+tooltip_src = container_src[tooltip_method.start():tooltip_end]
+tooltip_guard = "com.melonman106.vbvclient.VBVShulkerViewer.shouldPreview(this.hoveredSlot, net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown())"
+old_tooltip_if = "if (this.hoveredSlot != null && this.hoveredSlot.hasItem())"
+new_tooltip_if = "if (!" + tooltip_guard + " && this.hoveredSlot != null && this.hoveredSlot.hasItem())"
+if tooltip_guard not in tooltip_src:
+    if old_tooltip_if not in tooltip_src:
+        raise SystemExit("Expected vanilla inventory tooltip condition was not found")
+    tooltip_src = tooltip_src.replace(old_tooltip_if, new_tooltip_if, 1)
+    container_src = container_src[:tooltip_method.start()] + tooltip_src + container_src[tooltip_end:]
+    container_path.write_text(container_src, encoding="utf-8")
+    print("Suppressed the vanilla item tooltip while the shulker preview is active.")
+else:
+    print("Shulker preview tooltip suppression already installed.")
 
 container_src = container_path.read_text(encoding="utf-8")
 quick_move_old = "boolean quickKey = slotId != -999 && event.hasShiftDown();"
