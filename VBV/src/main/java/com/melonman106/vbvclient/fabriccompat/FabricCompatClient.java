@@ -31,17 +31,21 @@ public final class FabricCompatClient {
                 info.description(), info.authors()));
         }
 
+        List<ModInitializer> pendingInitializers = new ArrayList<>();
         for (List<ModInitializer> entrypoints : INITIALIZERS.values()) {
-            for (ModInitializer entrypoint : new ArrayList<>(entrypoints)) {
-                invokeInitializer(entrypoint);
-            }
+            pendingInitializers.addAll(entrypoints);
         }
-        ClientLifecycleEvents.CLIENT_STARTED.fire(ClientLifecycleEvents.ClientStarted::onClientStarted);
-        started = true;
+        for (ModInitializer entrypoint : pendingInitializers) {
+            invokeInitializer(entrypoint);
+        }
     }
 
     public static synchronized void tick() {
         if (!initialized) initialize();
+        if (!started) {
+            started = true;
+            ClientLifecycleEvents.CLIENT_STARTED.fire(ClientLifecycleEvents.ClientStarted::onClientStarted);
+        }
         ClientTickEvents.START_CLIENT_TICK.invoker(ClientTickEvents.StartTick::onStartTick);
         ClientTickEvents.END_CLIENT_TICK.invoker(ClientTickEvents.EndTick::onEndTick);
     }
