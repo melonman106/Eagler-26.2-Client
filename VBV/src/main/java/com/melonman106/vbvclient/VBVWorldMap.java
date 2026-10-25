@@ -1,10 +1,14 @@
 package com.melonman106.vbvclient;
 
+import java.nio.ByteBuffer;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import org.teavm.jso.JSBody;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -25,6 +29,8 @@ public final class VBVWorldMap {
     private static final Map<String, Set<Long>> EXPLORED = new HashMap<>();
     private static final Map<String, Map<Long, int[]>> TERRAIN = new HashMap<>();
     private static final Map<String, Map<String, VBVWaypoint>> WAYPOINTS = new HashMap<>();
+    private static final Set<String> LOADED_WORLDS = new HashSet<>();
+    private static final String STORAGE_PREFIX = "vbv.worldmap.v1.";
     private static long lastChunk = Long.MIN_VALUE;
     private static String lastWorld = "";
     private static int nearbyScanTicks;
@@ -44,6 +50,7 @@ public final class VBVWorldMap {
         int chunkX = Math.floorDiv(pos.getX(), 16);
         int chunkZ = Math.floorDiv(pos.getZ(), 16);
         String world = worldKey(minecraft);
+        loadWorld(world);
         long key = pack(chunkX, chunkZ);
         boolean enteredNewChunk = key != lastChunk || !world.equals(lastWorld);
 
@@ -51,7 +58,7 @@ public final class VBVWorldMap {
             lastChunk = key;
             lastWorld = world;
             // Only the chunk the player actually enters is marked explored.
-            exploredSet(world, true).add(key);
+            if (exploredSet(world, true).add(key)) saveWorld(world);
         }
         // Retry the player's current chunk until its terrain data is actually
         // available. A one-time failed capture must not leave the map blank forever.
@@ -139,6 +146,8 @@ public final class VBVWorldMap {
             }
         }
         terrain.put(key, colors);
+        // Persist terrain only for chunks the player has actually explored.
+        if (exploredSet(world, false).contains(key)) saveWorld(world);
     }
 
     public static int terrainSide() { return TERRAIN_SIDE; }
@@ -169,13 +178,89 @@ public final class VBVWorldMap {
     }
 
     public static void addWaypoint(String world, VBVWaypoint waypoint) {
+        loadWorld(world);
         WAYPOINTS.computeIfAbsent(world, ignored -> new HashMap<>()).put(waypoint.id(), waypoint);
+        saveWorld(world);
     }
 
     public static void removeWaypoint(String world, String id) {
+        loadWorld(world);
         Map<String, VBVWaypoint> map = WAYPOINTS.get(world);
-        if (map != null) map.remove(id);
+        if (map != null && map.remove(id) != null) saveWorld(world);
     }
+
+    private static void loadWorld(String world) {
+        if (!LOADED_WORLDS.add(world)) return;
+        String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String stored = readStorage(storageKey);
+        if (stored == null || stored.isEmpty()) return;
+        try {
+            Set<Long> explored = exploredSet(world, true);
+            Map<Long, int[]> terrain = TERRAIN.computeIfAbsent(world, ignored -> new HashMap<>());
+            String[] lines = stored.split("\\n");
+            for (String line : lines) {
+                if (line.startsWith("E:")) {
+                    explored.add(Long.parseLong(line.substring(2)));
+                } else if (line.startsWith("T:")) {
+                    int separator = line.indexOf(':', 2);
+                    if (separator < 0) continue;
+                    long chunk = Long.parseLong(line.substring(2, separator));
+                    byte[] bytes = Base64.getDecoder().decode(line.substring(separator + 1));
+                    if (bytes.length != TERRAIN_SAMPLES * Integer.BYTES) continue;
+                    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                    int[] colors = new int[TERRAIN_SAMPLES];
+                    for (int i = 0; i < colors.length; i++) colors[i] = buffer.getInt();
+                    terrain.put(chunk, colors);
+                } else if (line.startsWith("W:")) {
+                    String[] parts = line.substring(2).split(":", 4);
+                    if (parts.length == 4) {
+                        String id = new String(Base64.getUrlDecoder().decode(parts[0]), java.nio.charset.StandardCharsets.UTF_8);
+                        String name = new String(Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
+                        int x = Integer.parseInt(parts[2]);
+                        int z = Integer.parseInt(parts[3]);
+                        WAYPOINTS.computeIfAbsent(world, ignored -> new HashMap<>())
+                            .put(id, new VBVWaypoint(id, name, x, z));
+                    }
+                }
+            }
+        } catch (Exception exception) {
+            System.err.println("[VBV World Map] Could not restore saved map data: " + exception.getMessage());
+        }
+    }
+
+    private static void saveWorld(String world) {
+        StringBuilder output = new StringBuilder();
+        Set<Long> explored = exploredSet(world, false);
+        Map<Long, int[]> terrain = TERRAIN.getOrDefault(world, Collections.emptyMap());
+        for (long chunk : explored) {
+            output.append("E:").append(chunk).append('\n');
+            int[] colors = terrain.get(chunk);
+            if (colors != null && colors.length == TERRAIN_SAMPLES) {
+                ByteBuffer buffer = ByteBuffer.allocate(colors.length * Integer.BYTES);
+                for (int color : colors) buffer.putInt(color);
+                output.append("T:").append(chunk).append(':')
+                    .append(Base64.getEncoder().encodeToString(buffer.array())).append('\n');
+            }
+        }
+        for (VBVWaypoint waypoint : WAYPOINTS.getOrDefault(world, Collections.emptyMap()).values()) {
+            output.append("W:")
+                .append(Base64.getUrlEncoder().withoutPadding().encodeToString(waypoint.id().getBytes(java.nio.charset.StandardCharsets.UTF_8))).append(':')
+                .append(Base64.getUrlEncoder().withoutPadding().encodeToString(waypoint.name().getBytes(java.nio.charset.StandardCharsets.UTF_8))).append(':')
+                .append(waypoint.x()).append(':').append(waypoint.z()).append('\n');
+        }
+        String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        if (!writeStorage(storageKey, output.toString())) {
+            System.err.println("[VBV World Map] Browser storage write failed; map data may not persist.");
+        }
+    }
+
+    @JSBody(params = {"key"}, script = "try { return window.localStorage.getItem(key) || ''; } catch (e) { return ''; }")
+    private static native String readStorage(String key);
+
+    @JSBody(params = {"key", "value"}, script = "try { window.localStorage.setItem(key, value); return true; } catch (e) { return false; }")
+    private static native boolean writeStorage(String key, String value);
 
     public static String worldKey(Minecraft minecraft) {
         if (minecraft.level == null) return "unknown";
