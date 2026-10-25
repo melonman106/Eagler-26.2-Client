@@ -55,10 +55,10 @@ public final class VBVArmorHudConfigScreen extends Screen {
         button(0, 6, () -> "Main hand durability: " + onOff(VBVArmorHudConfig.mainHandDurability),
             () -> VBVArmorHudConfig.mainHandDurability = !VBVArmorHudConfig.mainHandDurability);
 
-        offsetX = box(left() + 100, rowY(6), VBVArmorHudConfig.offsetX);
-        offsetY = box(right() + 100, rowY(6), VBVArmorHudConfig.offsetY);
-        minValue = box(left() + 100, rowY(7), VBVArmorHudConfig.minDurabilityValue);
-        minPercent = box(right() + 100, rowY(7), VBVArmorHudConfig.minDurabilityPercent);
+        offsetX = box(left() + 100, rowY(7), VBVArmorHudConfig.offsetX);
+        offsetY = box(right() + 100, rowY(7), VBVArmorHudConfig.offsetY);
+        minValue = box(left() + 100, rowY(8), VBVArmorHudConfig.minDurabilityValue);
+        minPercent = box(right() + 100, rowY(8), VBVArmorHudConfig.minDurabilityPercent);
 
         addRenderableWidget(Button.builder(Component.literal("Reset defaults"), b -> {
             VBVArmorHudConfig.reset();
@@ -110,10 +110,10 @@ public final class VBVArmorHudConfigScreen extends Screen {
         graphics.fill(0, 0, width, height, 0xFF151515);
         String title = this.title.getString();
         graphics.text(font, title, width / 2 - font.width(title) / 2, 8, 0xFFFFFFFF, true);
-        graphics.text(font, "X offset", left(), rowY(6) + 6, 0xFFCCCCCC, true);
-        graphics.text(font, "Y offset", right(), rowY(6) + 6, 0xFFCCCCCC, true);
-        graphics.text(font, "Min durability", left(), rowY(7) + 6, 0xFFCCCCCC, true);
-        graphics.text(font, "Min dura %", right(), rowY(7) + 6, 0xFFCCCCCC, true);
+        graphics.text(font, "X offset", left(), rowY(7) + 6, 0xFFCCCCCC, true);
+        graphics.text(font, "Y offset", right(), rowY(7) + 6, 0xFFCCCCCC, true);
+        graphics.text(font, "Min durability", left(), rowY(8) + 6, 0xFFCCCCCC, true);
+        graphics.text(font, "Min dura %", right(), rowY(8) + 6, 0xFFCCCCCC, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }
