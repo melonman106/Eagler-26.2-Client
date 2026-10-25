@@ -10,7 +10,8 @@ Sources are under `src/main/java/com/melonman106/vbvclient/fabriccompat/` and ar
 
 Initial APIs:
 
-- `FabricLoader.getInstance()`: environment type, registered mod lookup, `isModLoaded`, `getModContainer`, and `getAllMods`.
+- `net.fabricmc.loader.api.FabricLoader.getInstance()`: environment type, registered mod lookup, `isModLoaded`, `getModContainer`, and `getAllMods`.
+- `net.fabricmc.api.ModInitializer` and `net.fabricmc.api.EnvType`, plus a minimal metadata/version view under `net.fabricmc.loader.api`.
 - `ModMetadata` and `ModContainer`: basic metadata access.
 - `ModInitializer`: familiar initializer contract for manually integrated ports.
 - `ClientTickEvents.START_CLIENT_TICK / END_CLIENT_TICK`: client tick callbacks, dispatched through the existing client lifecycle.
