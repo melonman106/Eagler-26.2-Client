@@ -24,11 +24,13 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
+          # Do not enable setup-java's Gradle cache here. The checked-out
+          # repository root has no Gradle build files; the upstream projects
+          # are cloned/copied into mods/ later in this workflow.
 
       - name: Fetch upstream source repositories
         shell: bash
@@ -66,7 +68,6 @@ jobs:
             git commit -m "Import upstream Litematica and MaLiLib source"
             git push origin HEAD:main
           fi
-
 
       - name: Build upstream MaLiLib reference mod
         working-directory: mods/MaLiLib
