@@ -5,6 +5,7 @@ import net.minecraft.client.player.LocalPlayer;
 /** Native Eagler equivalents for selected client-side features. */
 public final class VBVExtraFeatures {
     private static boolean gammaEnabled;
+    private static long gammaStatusUntil;
     private static double previousGamma = 0.5D;
     private static double gammaLevel = 4.0D;
     private static boolean gammaFeatureEnabled = true;
@@ -39,7 +40,19 @@ public final class VBVExtraFeatures {
             minecraft.options.gamma().set(previousGamma);
             gammaEnabled = false;
         }
+        gammaStatusUntil = System.currentTimeMillis() + 2200L;
     }
+    /** Brief on-screen confirmation after pressing G. */
+    public static void renderGammaStatus(GuiGraphicsExtractor graphics) {
+        if (System.currentTimeMillis() > gammaStatusUntil) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        String text = "Gamma: " + (gammaEnabled ? "ON" : "OFF");
+        int x = graphics.guiWidth() / 2 - minecraft.font.width(text) / 2;
+        int y = graphics.guiHeight() / 2 + 24;
+        graphics.fill(x - 5, y - 3, x + minecraft.font.width(text) + 5, y + minecraft.font.lineHeight + 3, 0xA0000000);
+        graphics.text(minecraft.font, text, x, y, gammaEnabled ? 0xFF80FF80 : 0xFFFF8080, true);
+    }
+
     /** Lightmap hook bypasses the vanilla 0..1 slider validation. */
     public static float gammaOverride(float vanillaGamma) { return gammaEnabled ? (float) gammaLevel : vanillaGamma; }
     private static void startZoom(Minecraft minecraft) {
