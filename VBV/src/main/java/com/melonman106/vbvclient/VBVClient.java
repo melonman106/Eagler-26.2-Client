@@ -32,7 +32,7 @@ public final class VBVClient {
             "Uku's Armor HUD",
             "Eagler port 1.0.0",
             "Uku3lig / Eagler client port",
-            "Four vertical armor slots beside the hotbar showing helmet, chestplate, leggings, boots, and remaining durability.",
+            "Armor slots with browser-safe panels, armor icons, and durability indicators.",
             BUILTIN_MOD_ICON,
             false
         ));
@@ -102,7 +102,7 @@ public final class VBVClient {
             "VBV Minimap",
             "Native Eagler port 1.0.0",
             "melonman106",
-            "Detailed explored-terrain minimap with terrain shading and a player marker.",
+            "Live nearby-terrain minimap with shaded 8x8 samples, independent of world-map exploration.",
             BUILTIN_MOD_ICON,
             false
         ));

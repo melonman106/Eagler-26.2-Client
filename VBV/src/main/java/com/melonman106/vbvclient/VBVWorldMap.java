@@ -29,53 +29,98 @@ public final class VBVWorldMap {
 
     private VBVWorldMap() {}
 
+    private static final int TERRAIN_SIDE = 8;
+    private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
+    private static final int MINIMAP_CACHE_RADIUS = 8;
+
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
         if (!(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) return;
-
         BlockPos pos = player.blockPosition();
         if (!minecraft.level.hasChunkAt(pos)) return;
         int chunkX = Math.floorDiv(pos.getX(), 16);
         int chunkZ = Math.floorDiv(pos.getZ(), 16);
         String world = worldKey(minecraft);
         long key = pack(chunkX, chunkZ);
-        Set<Long> visited = exploredSet(world, true);
-        if (!visited.add(key)) return;
-
-        // This is the only terrain sampling done for the map. The chunk is
-        // already loaded because the player is standing in it.
-        captureTerrain(minecraft, world, key, chunkX, chunkZ);
+        if (key == lastChunk && world.equals(lastWorld)) return;
         lastChunk = key;
         lastWorld = world;
+        exploredSet(world, true).add(key);
+        captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
+
+        // Cache already-loaded nearby terrain for the minimap. Nearby chunks are
+        // not added to EXPLORED, so the full world map remains fogged until visited.
+        // This scan only happens on chunk changes, not every frame or game tick.
+        for (int dz = -MINIMAP_CACHE_RADIUS; dz <= MINIMAP_CACHE_RADIUS; dz++) {
+            for (int dx = -MINIMAP_CACHE_RADIUS; dx <= MINIMAP_CACHE_RADIUS; dx++) {
+                int cx = chunkX + dx, cz = chunkZ + dz;
+                long nearbyKey = pack(cx, cz);
+                if (!hasTerrain(world, nearbyKey)) captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
+            }
+        }
+    }
+
+    private static boolean hasTerrain(String world, long key) {
+        Map<Long, int[]> map = TERRAIN.get(world);
+        return map != null && map.containsKey(key);
+    }
+
+    private static void captureTerrainIfLoaded(Minecraft minecraft, String world, long key, int chunkX, int chunkZ) {
+        if (hasTerrain(world, key)) return;
+        int minY = minecraft.level.getMinY();
+        if (!minecraft.level.hasChunkAt(new BlockPos(chunkX * 16 + 8, minY, chunkZ * 16 + 8))) return;
+        captureTerrain(minecraft, world, key, chunkX, chunkZ);
     }
 
     private static void captureTerrain(Minecraft minecraft, String world, long key, int chunkX, int chunkZ) {
         Map<Long, int[]> terrain = TERRAIN.computeIfAbsent(world, ignored -> new HashMap<>());
         if (terrain.containsKey(key)) return;
-        int[] colors = new int[4];
-        int index = 0;
-        for (int sz = 0; sz < 2; sz++) {
-            for (int sx = 0; sx < 2; sx++) {
-                int x = chunkX * 16 + sx * 8 + 4;
-                int z = chunkZ * 16 + sz * 8 + 4;
-                if (!minecraft.level.hasChunkAt(new BlockPos(x, minecraft.level.getMinY(), z))) {
-                    colors[index++] = 0xFF202020;
+        int[] colors = new int[TERRAIN_SAMPLES];
+        int[] heights = new int[TERRAIN_SAMPLES];
+        int minY = minecraft.level.getMinY();
+
+        // 64 surface samples per chunk instead of four, with one-time capture.
+        for (int sz = 0; sz < TERRAIN_SIDE; sz++) {
+            for (int sx = 0; sx < TERRAIN_SIDE; sx++) {
+                int index = sz * TERRAIN_SIDE + sx;
+                int x = chunkX * 16 + sx * 2 + 1;
+                int z = chunkZ * 16 + sz * 2 + 1;
+                if (!minecraft.level.hasChunkAt(new BlockPos(x, minY, z))) {
+                    colors[index] = 0xFF202020;
+                    heights[index] = minY;
                     continue;
                 }
                 int y = minecraft.level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
-                if (y < minecraft.level.getMinY()) {
-                    colors[index++] = 0xFF202020;
+                heights[index] = y;
+                if (y < minY) {
+                    colors[index] = 0xFF202020;
                     continue;
                 }
                 BlockPos sample = new BlockPos(x, y, z);
                 BlockState state = minecraft.level.getBlockState(sample);
                 int color = state.getMapColor(minecraft.level, sample).col;
                 if (color == 0) color = 0x303030;
-                int shade = Math.max(0x55, Math.min(0xFF, 190 + (y - 64) / 2));
+                int shade = Math.max(0x70, Math.min(0xFF, 188 + (y - 64) / 2));
                 int r = ((color >> 16) & 255) * shade / 255;
                 int g = ((color >> 8) & 255) * shade / 255;
                 int b = (color & 255) * shade / 255;
-                colors[index++] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                colors[index] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            }
+        }
+
+        // Slope shading adds relief to hills and ridges without per-frame world reads.
+        for (int sz = 0; sz < TERRAIN_SIDE; sz++) {
+            for (int sx = 0; sx < TERRAIN_SIDE; sx++) {
+                int index = sz * TERRAIN_SIDE + sx;
+                int right = sz * TERRAIN_SIDE + Math.min(TERRAIN_SIDE - 1, sx + 1);
+                int down = Math.min(TERRAIN_SIDE - 1, sz + 1) * TERRAIN_SIDE + sx;
+                int slope = heights[right] - heights[index] + heights[down] - heights[index];
+                int shade = Math.max(0x65, Math.min(0x125, 0x100 - slope * 3));
+                int color = colors[index];
+                int r = ((color >> 16) & 255) * shade / 255;
+                int g = ((color >> 8) & 255) * shade / 255;
+                int b = (color & 255) * shade / 255;
+                colors[index] = 0xFF000000 | (r << 16) | (g << 8) | b;
             }
         }
         terrain.put(key, colors);

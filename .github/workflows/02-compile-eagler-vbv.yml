@@ -76,6 +76,7 @@ jobs:
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
+          grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
 
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
           find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort

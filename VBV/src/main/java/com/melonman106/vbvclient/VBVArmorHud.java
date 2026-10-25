@@ -9,8 +9,6 @@ import net.minecraft.client.AttackIndicatorStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
@@ -187,8 +185,14 @@ public final class VBVArmorHud {
             int y = rect[1] + (horizontal ? 0 : STEP * i);
 
             if (VBVArmorHudConfig.style != VBVArmorHudConfig.STYLE_NONE) {
-                g.blit(RenderPipelines.GUI_TEXTURED, Identifier.withDefaultNamespace("container/slot"),
-                    x, y, 0.0F, 0.0F, SIZE, SIZE, 18, 18);
+                // container/slot is an atlas sprite, not a standalone texture.
+                // Draw a browser-safe beveled slot to avoid purple missing-texture tiles.
+                g.fill(x, y, x + SIZE, y + SIZE, 0xFF777777);
+                g.fill(x + 1, y + 1, x + SIZE - 1, y + SIZE - 1, 0xFF252525);
+                g.fill(x + 1, y + 1, x + SIZE - 1, y + 2, 0xFF444444);
+                g.fill(x + 1, y + 1, x + 2, y + SIZE - 1, 0xFF444444);
+                g.fill(x + SIZE - 2, y + 2, x + SIZE - 1, y + SIZE - 1, 0xFF111111);
+                g.fill(x + 2, y + SIZE - 2, x + SIZE - 1, y + SIZE - 1, 0xFF111111);
             }
             if (stack.isEmpty()) continue;
             g.item(stack, x + 3, y + 3);

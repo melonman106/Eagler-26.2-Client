@@ -418,11 +418,40 @@ def insert_hud_call(call, label):
 
 insert_hud_call("com.melonman106.vbvclient.VBVSimpleHud.render(graphics);", "VBV Simple HUD")
 insert_hud_call("com.melonman106.vbvclient.VBVArmorHud.render(graphics);", "VBV Armor HUD")
-insert_hud_call("com.melonman106.vbvclient.VBVExtraFeatures.renderDebug(graphics);", "BetterF3-inspired debug overlay")
 insert_hud_call("com.melonman106.vbvclient.VBVExtraFeatures.renderGammaStatus(graphics);", "Gamma status")
 insert_hud_call("com.melonman106.vbvclient.VBVAppleSkin.render(graphics);", "AppleSkin-style food information")
 insert_hud_call("com.melonman106.vbvclient.VBVMiniMap.render(graphics);", "minimap")
 insert_hud_call("com.melonman106.vbvclient.VBVJadeHud.render(graphics);", "Jade-style target overlay")
+
+debug_overlay_path = None
+debug_overlay_src = None
+for p, source_text in java_files():
+    if p.name == "DebugScreenOverlay.java" and re.search(r"class\\s+DebugScreenOverlay\\b", source_text):
+        debug_overlay_path, debug_overlay_src = p, source_text
+        break
+if debug_overlay_path is None:
+    raise SystemExit("DebugScreenOverlay.java was not found; BetterF3 cannot replace vanilla F3")
+debug_method = re.search(
+    r"(?:public|protected|private)\\s+void\\s+extractRenderState\\s*\\(\\s*(?:final\\s+)?GuiGraphicsExtractor\\s+(\\w+)\\s*\\)\\s*\\{",
+    debug_overlay_src
+)
+if debug_method is None:
+    raise SystemExit("DebugScreenOverlay.extractRenderState was not identified")
+debug_graphics = debug_method.group(1)
+if "VBVExtraFeatures.isBetterF3Enabled()" not in debug_overlay_src:
+    debug_guard = (
+        "\\n      if (com.melonman106.vbvclient.VBVExtraFeatures.isBetterF3Enabled()) {\\n"
+        f"         if (com.melonman106.vbvclient.VBVExtraFeatures.isDebugHudEnabled()) "
+        f"com.melonman106.vbvclient.VBVExtraFeatures.renderDebug({debug_graphics});\\n"
+        "         return;\\n"
+        "      }\\n"
+    )
+    debug_overlay_src = debug_overlay_src[:debug_method.end()] + debug_guard + debug_overlay_src[debug_method.end():]
+    debug_overlay_path.write_text(debug_overlay_src, encoding="utf-8")
+    print("Installed BetterF3 replacement in", debug_overlay_path)
+else:
+    print("BetterF3 replacement already present in", debug_overlay_path)
+
 
 container_path = None
 container_src = None

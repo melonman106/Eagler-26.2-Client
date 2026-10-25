@@ -11,7 +11,7 @@ public final class VBVWorldMapScreen extends Screen {
     private final Screen parent;
     private double centerX;
     private double centerZ;
-    private double zoom = 12.0D;
+    private double zoom = 24.0D;
 
     public VBVWorldMapScreen(Screen parent) {
         this(parent, Double.NaN, Double.NaN);
@@ -30,7 +30,7 @@ public final class VBVWorldMapScreen extends Screen {
         }
     }
 
-    private int chunkPixels() { return Math.max(3, (int)Math.round(zoom)); }
+    private int chunkPixels() { return Math.max(8, (int)Math.round(zoom)); }
     private double panBlocks() { return Math.max(16.0D, 60.0D / chunkPixels() * 16.0D); }
 
     private void recenterOnPlayer() {
@@ -50,9 +50,9 @@ public final class VBVWorldMapScreen extends Screen {
             .bounds(134, 8, 90, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
             .bounds(width - 108, 8, 100, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("-"), b -> zoom = Math.max(2.0D, zoom / 1.35D))
+        addRenderableWidget(Button.builder(Component.literal("-"), b -> zoom = Math.max(8.0D, zoom / 1.3D))
             .bounds(width / 2 - 50, height - 30, 40, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("+"), b -> zoom = Math.min(80.0D, zoom * 1.35D))
+        addRenderableWidget(Button.builder(Component.literal("+"), b -> zoom = Math.min(96.0D, zoom * 1.3D))
             .bounds(width / 2 + 10, height - 30, 40, 20).build());
         addRenderableWidget(Button.builder(Component.literal("<"), b -> centerX -= panBlocks()).bounds(8, height - 30, 22, 20).build());
         addRenderableWidget(Button.builder(Component.literal("^"), b -> centerZ -= panBlocks()).bounds(32, height - 30, 22, 20).build());
@@ -68,32 +68,31 @@ public final class VBVWorldMapScreen extends Screen {
         String world = VBVWorldMap.worldKey(minecraft);
         java.util.Set<Long> explored = VBVWorldMap.explored(world);
         int pixels = chunkPixels();
-        double chunksPerPixel = 1.0D / pixels;
         int mapTop = 30, mapBottom = height - 38, mapLeft = 4, mapRight = width - 4;
 
-        // Never call Level#getHeight/getBlockState here. Only chunks previously
-        // entered by the player are drawn from VBVWorldMap's immutable snapshot.
-        int minChunkX = (int)Math.floor((centerX / 16.0D) + (mapLeft - width / 2.0D) * chunksPerPixel) - 1;
-        int maxChunkX = (int)Math.floor((centerX / 16.0D) + (mapRight - width / 2.0D) * chunksPerPixel) + 1;
-        int minChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapTop - height / 2.0D) * chunksPerPixel) - 1;
-        int maxChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapBottom - height / 2.0D) * chunksPerPixel) + 1;
+        // Never query live terrain while rendering the map. It uses one-time
+        // 8x8 cached surface samples and still displays only visited chunks.
+        int minChunkX = (int)Math.floor((centerX / 16.0D) + (mapLeft - width / 2.0D) / (double)pixels) - 1;
+        int maxChunkX = (int)Math.floor((centerX / 16.0D) + (mapRight - width / 2.0D) / (double)pixels) + 1;
+        int minChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapTop - height / 2.0D) / (double)pixels) - 1;
+        int maxChunkZ = (int)Math.floor((centerZ / 16.0D) + (mapBottom - height / 2.0D) / (double)pixels) + 1;
 
+        int samplePixels = Math.max(1, pixels / 8);
         for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 long key = VBVWorldMap.pack(chunkX, chunkZ);
                 if (!explored.contains(key)) continue;
                 int[] colors = VBVWorldMap.terrain(world, key);
-                if (colors == null || colors.length < 4) continue;
-                int baseX = width / 2 + (int)Math.round((chunkX + 0.5D - centerX / 16.0D) * pixels);
-                int baseY = height / 2 + (int)Math.round((chunkZ + 0.5D - centerZ / 16.0D) * pixels);
-                int half = Math.max(1, pixels / 2);
-                for (int sz = 0; sz < 2; sz++) {
-                    for (int sx = 0; sx < 2; sx++) {
-                        int px = baseX - half + sx * half;
-                        int py = baseY - half + sz * half;
-                        int x1 = Math.max(mapLeft, px), y1 = Math.max(mapTop, py);
-                        int x2 = Math.min(mapRight, px + half + 1), y2 = Math.min(mapBottom, py + half + 1);
-                        if (x1 < x2 && y1 < y2) graphics.fill(x1, y1, x2, y2, colors[sz * 2 + sx]);
+                if (colors == null || colors.length < 64) continue;
+                int chunkLeft = width / 2 + (int)Math.round((chunkX - centerX / 16.0D) * pixels);
+                int chunkTop = height / 2 + (int)Math.round((chunkZ - centerZ / 16.0D) * pixels);
+                for (int sz = 0; sz < 8; sz++) {
+                    for (int sx = 0; sx < 8; sx++) {
+                        int x1 = Math.max(mapLeft, chunkLeft + sx * pixels / 8);
+                        int y1 = Math.max(mapTop, chunkTop + sz * pixels / 8);
+                        int x2 = Math.min(mapRight, chunkLeft + (sx + 1) * pixels / 8);
+                        int y2 = Math.min(mapBottom, chunkTop + (sz + 1) * pixels / 8);
+                        if (x1 < x2 && y1 < y2) graphics.fill(x1, y1, x2, y2, colors[sz * 8 + sx]);
                     }
                 }
             }
@@ -118,7 +117,7 @@ public final class VBVWorldMapScreen extends Screen {
 
         graphics.text(minecraft.font, "Explored chunks: " + explored.size(), 8, height - 48, 0xFFFFFFFF, true);
         graphics.text(minecraft.font, "Zoom: " + String.format(java.util.Locale.ROOT, "%.1fx", zoom), 8, height - 60, 0xFFCCCCCC, true);
-        graphics.text(minecraft.font, "Only visited chunks are shown.", 8, 32, 0xFFCCCCCC, true);
+        graphics.text(minecraft.font, "Detailed terrain · visited chunks only", 8, 32, 0xFFCCCCCC, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }
