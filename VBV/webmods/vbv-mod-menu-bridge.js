@@ -1,11 +1,4 @@
-/*
- * VBV browser bridge for the immutable Eagler HTML client.
- *
- * Native VBV ports remain the fallback. When the WebMC JSMod compatibility
- * layer is present, converted Fabric mods can be loaded beside those native
- * ports. This mirrors the useful part of AmphibianDev/webmc-jsmod without
- * requiring Fabric Loader or arbitrary JAR execution in the browser.
- */
+/* VBV browser bridge for the immutable Eagler HTML client. */
 (function () {
   const nativeMods = [
     {
@@ -81,14 +74,29 @@
 
       if (converted) {
         const refreshStatus = () => {
-          const s = window.VBVJSMods?.status?.(mod.id) || "available";
-          status.textContent = s === "loaded" ? "Converted: loaded" : s === "failed" ? "Converted: failed; native fallback remains" : "Converted: click to load";
+          const api = window.VBVJSMods;
+          if (mod.toggleable) {
+            const enabled = api?.isEnabled?.(mod.id) || false;
+            const loaded = api?.isLoaded?.(mod.id) || false;
+            status.textContent = enabled ? (loaded ? "JEI: ON" : "JEI: ON (loading)") : "JEI: OFF";
+            row.setAttribute("aria-pressed", enabled ? "true" : "false");
+          } else {
+            const s = api?.status?.(mod.id) || "available";
+            status.textContent = s === "loaded" ? "Converted: loaded" : s === "failed" ? "Converted: failed; native fallback remains" : "Converted: click to load";
+          }
         };
         refreshStatus();
         row.addEventListener("click", async () => {
-          status.textContent = "Loading converted mod…";
-          const ok = await window.VBVJSMods?.load?.(mod.id);
-          status.textContent = ok ? "Converted: loaded" : "Converted: failed; native fallback remains";
+          const api = window.VBVJSMods;
+          if (mod.toggleable) {
+            status.textContent = "JEI: toggling…";
+            await api?.toggle?.(mod.id);
+            refreshStatus();
+          } else {
+            status.textContent = "Loading converted mod…";
+            const ok = await api?.load?.(mod.id);
+            status.textContent = ok ? "Converted: loaded" : "Converted: failed; native fallback remains";
+          }
         });
       } else {
         row.addEventListener("click", () => mod.open());
@@ -108,7 +116,7 @@
         const size = mod.size ? ` ${(mod.size / 1048576).toFixed(1)} MB` : "";
         addRow({
           ...mod,
-          description: (mod.large ? "Large optional package." : "Converted Fabric package.") + size + "."
+          description: mod.toggleable ? "Optional JEI integration." : ((mod.large ? "Large optional package." : "Converted Fabric package.") + size + ".")
         }, true);
       }
     }
