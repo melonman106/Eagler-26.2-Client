@@ -46,11 +46,13 @@ public final class VBVArmorHudConfigScreen extends Screen {
             () -> VBVArmorHudConfig.durabilityDisplay = VBVArmorHudConfig.next(VBVArmorHudConfig.durabilityDisplay, VBVArmorHudConfig.DURABILITY.length));
         button(0, 4, () -> "Reversed: " + onOff(VBVArmorHudConfig.reversed),
             () -> VBVArmorHudConfig.reversed = !VBVArmorHudConfig.reversed);
-        button(1, 4, () -> "Warning: " + onOff(VBVArmorHudConfig.warningShown),
+        button(1, 4, () -> "Empty slot icons: " + onOff(VBVArmorHudConfig.iconsShown),
+            () -> VBVArmorHudConfig.iconsShown = !VBVArmorHudConfig.iconsShown);
+        button(0, 5, () -> "Warning: " + onOff(VBVArmorHudConfig.warningShown),
             () -> VBVArmorHudConfig.warningShown = !VBVArmorHudConfig.warningShown);
-        button(0, 5, () -> "Offhand durability: " + onOff(VBVArmorHudConfig.offHandDurability),
+        button(1, 5, () -> "Offhand durability: " + onOff(VBVArmorHudConfig.offHandDurability),
             () -> VBVArmorHudConfig.offHandDurability = !VBVArmorHudConfig.offHandDurability);
-        button(1, 5, () -> "Main hand durability: " + onOff(VBVArmorHudConfig.mainHandDurability),
+        button(0, 6, () -> "Main hand durability: " + onOff(VBVArmorHudConfig.mainHandDurability),
             () -> VBVArmorHudConfig.mainHandDurability = !VBVArmorHudConfig.mainHandDurability);
 
         offsetX = box(left() + 100, rowY(6), VBVArmorHudConfig.offsetX);
