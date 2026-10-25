@@ -528,6 +528,57 @@ if APPLE_CALL not in hud_src:
     hud_path.write_text(hud_src, encoding="utf-8")
     print("Inserted AppleSkin-style food information hook into", hud_path)
 
+# Wire Mouse Tweaks' wheel behavior into the real container-screen input path.
+container_path = None
+container_src = None
+for p, s in java_files():
+    if p.name == "AbstractContainerScreen.java" and "class AbstractContainerScreen" in s:
+        container_path = p
+        container_src = s
+        break
+if container_path is None:
+    raise SystemExit("AbstractContainerScreen.java was not found; Mouse Tweaks cannot be wired")
+mouse_hook = "com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()"
+if mouse_hook not in container_src:
+    scroll_match = re.search(
+        r"public boolean mouseScrolled\\s*\\([^)]*\\)\\s*\\{",
+        container_src
+    )
+    if not scroll_match:
+        raise SystemExit("AbstractContainerScreen.mouseScrolled was not identified")
+    scroll_end = find_method_end(container_src, scroll_match.start())
+    if scroll_end is None:
+        raise SystemExit("Could not find end of AbstractContainerScreen.mouseScrolled")
+    method = container_src[scroll_match.start():scroll_end]
+    return_false = method.rfind("return false;")
+    if return_false < 0:
+        raise SystemExit("Could not find fallback return in AbstractContainerScreen.mouseScrolled")
+    wheel_code = """if (com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()
+            && this.hoveredSlot != null && this.hoveredSlot.hasItem()
+            && (this.minecraft.mouseHandler.isLeftPressed() || this.minecraft.mouseHandler.isRightPressed())
+            && (scrollY != 0.0D)) {
+         int direction = scrollY > 0.0D ? 1 : -1;
+         int steps = Math.min(8, Math.max(1, (int)Math.ceil(Math.abs(scrollY))));
+         int button = this.minecraft.mouseHandler.isRightPressed() ? 1 : 0;
+         for (int wheelStep = 0; wheelStep < steps; wheelStep++) {
+            if (this.menu.getCarried().isEmpty()) {
+               this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+            } else {
+               this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, button == 1 ? 1 : 1, net.minecraft.world.inventory.ContainerInput.PICKUP);
+            }
+         }
+         return true;
+      }
+
+      """
+    method = method[:return_false] + wheel_code + method[return_false:]
+    container_src = container_src[:scroll_match.start()] + method + container_src[scroll_end:]
+    container_path.write_text(container_src, encoding="utf-8")
+    print("Inserted Mouse Tweaks wheel handling into", container_path)
+else:
+    print("Mouse Tweaks wheel hook already present.")
+
+
 
 nav = DEST / "VBVNav.java"
 nav_src = nav.read_text(encoding="utf-8")
