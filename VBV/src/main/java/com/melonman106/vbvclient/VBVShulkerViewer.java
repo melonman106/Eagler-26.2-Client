@@ -20,8 +20,16 @@ public final class VBVShulkerViewer {
     private static final int ROWS = 3;
     private VBVShulkerViewer() {}
 
+    public static boolean shouldPreview(Slot hovered, boolean shiftDown) {
+        if (!enabled || !shiftDown || hovered == null || !hovered.hasItem()) return false;
+        ItemStack box = hovered.getItem();
+        if (!(box.getItem() instanceof net.minecraft.world.item.BlockItem blockItem)
+                || !(blockItem.getBlock() instanceof ShulkerBoxBlock)) return false;
+        return box.get(DataComponents.CONTAINER) != null;
+    }
+
     public static void render(GuiGraphicsExtractor graphics, Slot hovered, int mouseX, int mouseY, boolean shiftDown) {
-        if (!enabled || !shiftDown || hovered == null || !hovered.hasItem()) return;
+        if (!shouldPreview(hovered, shiftDown)) return;
         ItemStack box = hovered.getItem();
         if (!(box.getItem() instanceof net.minecraft.world.item.BlockItem blockItem)
                 || !(blockItem.getBlock() instanceof ShulkerBoxBlock)) return;
