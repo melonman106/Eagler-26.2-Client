@@ -613,12 +613,12 @@ if MAP_TICK_CALL not in mc_src:
     print("Inserted explored-chunk tracking and Fabric client tick hooks into", mc_path)
 else:
     if FABRIC_TICK_CALL not in mc_src:
-        tick_candidates = list(re.finditer(r"(?:public|protected|private)\\s+void\\s+tick\\s*\\(\\s*\\)\\s*\\{", mc_src))
+        tick_candidates = list(re.finditer(r"(?:public|protected|private)\s+void\s+tick\s*\(\s*\)\s*\{", mc_src))
         if not tick_candidates: raise SystemExit("Minecraft.tick() was not identified; Fabric client events cannot run")
         tick_match = tick_candidates[0]
         tick_end = find_method_end(mc_src, tick_match.start())
         if tick_end is None: raise SystemExit("Could not find end of Minecraft.tick() for Fabric client events")
-        mc_src = mc_src[:tick_end] + "\\n        " + FABRIC_TICK_CALL + "\\n    " + mc_src[tick_end:]
+        mc_src = mc_src[:tick_end] + "\n        " + FABRIC_TICK_CALL + "\n    " + mc_src[tick_end:]
         mc_path.write_text(mc_src, encoding="utf-8")
         print("Inserted Fabric client tick hook into", mc_path)
     else:
@@ -711,7 +711,7 @@ if keyboard:
 
          """
     if "KeyBindingHelper.onKeyPressed(event.key())" not in source_text:
-        source_text = source_text.replace(anchor, anchor + "\\n         " + keybind_hook, 1)
+        source_text = source_text.replace(anchor, anchor + "\n         " + keybind_hook, 1)
     if anchor not in source_text: raise SystemExit("KeyboardHandler screen dispatch anchor was not identified")
     if "VBVExtraFeatures.handleKey(event.key(), action)" not in source_text:
         feature_hook = """if (!event.hasControlDownWithQuirk()
