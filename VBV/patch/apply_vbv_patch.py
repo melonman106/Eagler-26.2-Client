@@ -628,9 +628,9 @@ else:
 # Fire the client-stopping event when Minecraft closes, if this version exposes close().
 STOP_CALL = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.stop();"
 if STOP_CALL not in mc_src:
-    close_match = re.search(r"(?:public|protected|private)\\s+void\\s+close\\s*\\(\\s*\\)\\s*\\{", mc_src)
+    close_match = re.search(r"(?:public|protected|private)\s+void\s+close\s*\(\s*\)\s*\{", mc_src)
     if close_match:
-        mc_src = mc_src[:close_match.end()] + "\\n        " + STOP_CALL + mc_src[close_match.end():]
+        mc_src = mc_src[:close_match.end()] + "\n        " + STOP_CALL + mc_src[close_match.end():]
         mc_path.write_text(mc_src, encoding="utf-8")
         print("Inserted Fabric client stopping hook into", mc_path)
     else:
