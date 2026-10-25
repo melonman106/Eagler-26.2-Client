@@ -23,7 +23,7 @@ public final class VBVArmorHudConfigScreen extends Screen {
 
     private int left() { return width / 2 - 205; }
     private int right() { return width / 2 + 5; }
-    private int rowY(int row) { return 24 + row * 24; }
+    private int rowY(int row) { return 20 + row * 21; }
 
     @Override
     protected void init() {
@@ -79,7 +79,7 @@ public final class VBVArmorHudConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(label.get()), b -> {
             action.run();
             b.setMessage(Component.literal(label.get()));
-        }).bounds(x, rowY(row), 200, 22).build());
+        }).bounds(x, rowY(row), 200, 20).build());
     }
 
     private EditBox box(int x, int y, int value) {
