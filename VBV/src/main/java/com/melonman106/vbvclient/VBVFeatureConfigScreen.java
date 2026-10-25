@@ -28,6 +28,8 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Wheel tweak: " + onOff(VBVMouseTweaks.isWheelTweakEnabled()), () -> VBVMouseTweaks.setWheelTweakEnabled(!VBVMouseTweaks.isWheelTweakEnabled()));
             option(() -> "Quick move: " + onOff(VBVMouseTweaks.isQuickMoveEnabled()), () -> VBVMouseTweaks.setQuickMoveEnabled(!VBVMouseTweaks.isQuickMoveEnabled()));
             option(() -> "Drag evenly: " + onOff(VBVMouseTweaks.isDragEvenlyEnabled()), () -> VBVMouseTweaks.setDragEvenlyEnabled(!VBVMouseTweaks.isDragEvenlyEnabled()));
+        } else if ("vbv-minimap".equals(modId)) {
+            option(() -> "Minimap: " + onOff(VBVMiniMap.enabled), () -> VBVMiniMap.enabled = !VBVMiniMap.enabled);
         } else if ("appleskin".equals(modId)) {
             option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
             option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
