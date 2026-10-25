@@ -586,7 +586,7 @@ container_src = container_path.read_text(encoding="utf-8")
 
 # Suppress the vanilla item tooltip while the Shift-hover shulker preview is active.
 # This runs inside extractTooltip, before the custom preview is drawn.
-tooltip_method = re.search(r"protected void extractTooltip\\s*\\([^)]*\\)\\s*\\{", container_src)
+tooltip_method = re.search(r"protected void extractTooltip\s*\([^)]*\)\s*\{", container_src)
 if tooltip_method is None:
     raise SystemExit("AbstractContainerScreen.extractTooltip was not identified for shulker tooltip suppression")
 tooltip_end = find_method_end(container_src, tooltip_method.start())
