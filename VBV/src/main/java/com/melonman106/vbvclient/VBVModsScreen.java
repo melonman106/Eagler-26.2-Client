@@ -15,22 +15,18 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
-/**
- * Native Eagler mod browser laid out like Mod Menu 26.2.
- */
+/** Native Eagler mod browser laid out like Mod Menu 26.2. */
 public final class VBVModsScreen extends Screen {
     private static final int RIGHT_PANE_Y = 48;
     private static final int LIST_TOP = 67;
-    private static final int ROW_HEIGHT = 32;
-    // Keep mod/pack artwork compact. The source files can remain 64x64 for
-    // texture quality; only the UI presentation is intentionally smaller.
-    private static final int ICON = 24;
+    private static final int ROW_HEIGHT = 28;
+    // Icons are deliberately small in the list. Source textures stay 64x64.
+    private static final int ICON = 18;
     private static final int DESC_TOP = 84;
 
     private final Screen parent;
     private final List<VBVModInfo> all = new ArrayList<>();
     private final List<VBVModInfo> shown = new ArrayList<>();
-
     private VBVModInfo selected;
     private String searchText = "";
     private boolean ascending = true;
@@ -38,15 +34,12 @@ public final class VBVModsScreen extends Screen {
     private boolean filtersShown = false;
     private int listScroll = 0;
     private int descScroll = 0;
-
     private final List<String> descLines = new ArrayList<>();
     private final List<Integer> descColors = new ArrayList<>();
-
     private EditBox searchBox;
     private Button sortButton;
     private Button typeButton;
     private Button configButton;
-
     private int paneWidth;
     private int rightPaneX;
     private int searchBoxX;
@@ -58,100 +51,51 @@ public final class VBVModsScreen extends Screen {
         this.all.addAll(VBVClient.getMods());
     }
 
-    private int listBottom() {
-        return height - 36;
-    }
-
-    private int visibleRows() {
-        return Math.max(1, (listBottom() - LIST_TOP - 4) / ROW_HEIGHT);
-    }
-
-    private int maxListScroll() {
-        return Math.max(0, shown.size() - visibleRows());
-    }
-
-    private boolean listOverflows() {
-        return shown.size() > visibleRows();
-    }
-
-    private int rowWidth() {
-        return paneWidth - (listOverflows() ? 18 : 12);
-    }
-
-    private int descVisibleLines() {
-        return Math.max(1, (listBottom() - DESC_TOP - 6) / (font.lineHeight + 1));
-    }
+    private int listBottom() { return height - 36; }
+    private int visibleRows() { return Math.max(1, (listBottom() - LIST_TOP - 4) / ROW_HEIGHT); }
+    private int maxListScroll() { return Math.max(0, shown.size() - visibleRows()); }
+    private boolean listOverflows() { return shown.size() > visibleRows(); }
+    private int rowWidth() { return paneWidth - (listOverflows() ? 18 : 12); }
+    private int descVisibleLines() { return Math.max(1, (listBottom() - DESC_TOP - 6) / (font.lineHeight + 1)); }
 
     @Override
     protected void init() {
         super.init();
         paneWidth = width / 2 - 8;
         rightPaneX = width - paneWidth;
-
         int searchWidth = paneWidth - 32 - 22;
         searchBoxX = paneWidth / 2 - searchWidth / 2 - 11;
         searchBox = new EditBox(font, searchBoxX, 22, searchWidth, 20, Component.literal("Search"));
         searchBox.setValue(searchText);
-        searchBox.setResponder(text -> {
-            searchText = text;
-            listScroll = 0;
-            refilter();
-        });
+        searchBox.setResponder(text -> { searchText = text; listScroll = 0; refilter(); });
         addRenderableWidget(searchBox);
         setInitialFocus(searchBox);
-
-        addRenderableWidget(Button.builder(Component.literal("="), button -> {
-            filtersShown = !filtersShown;
-            applyFilterVisibility();
-        }).bounds(paneWidth / 2 + searchWidth / 2 - 10 + 2, 22, 20, 20).build());
-
+        addRenderableWidget(Button.builder(Component.literal("="), button -> { filtersShown = !filtersShown; applyFilterVisibility(); })
+            .bounds(paneWidth / 2 + searchWidth / 2 - 8, 22, 20, 20).build());
         int sortWidth = font.width("Sort: Z-A") + 28;
         int typeWidth = font.width("Show: Packs") + 20;
         int filtersWidth = sortWidth + typeWidth + 2;
         int searchRowWidth = searchBoxX + searchWidth + 22;
         filtersX = searchRowWidth - filtersWidth + 1;
-
-        sortButton = Button.builder(Component.literal(sortLabel()), button -> {
-            ascending = !ascending;
-            button.setMessage(Component.literal(sortLabel()));
-            refilter();
-        }).bounds(filtersX, 45, sortWidth, 20).build();
-        typeButton = Button.builder(Component.literal(typeLabel()), button -> {
-            typeFilter = (typeFilter + 1) % 3;
-            button.setMessage(Component.literal(typeLabel()));
-            listScroll = 0;
-            refilter();
-        }).bounds(filtersX + sortWidth + 2, 45, typeWidth, 20).build();
+        sortButton = Button.builder(Component.literal(sortLabel()), button -> { ascending = !ascending; button.setMessage(Component.literal(sortLabel())); refilter(); })
+            .bounds(filtersX, 45, sortWidth, 20).build();
+        typeButton = Button.builder(Component.literal(typeLabel()), button -> { typeFilter = (typeFilter + 1) % 3; button.setMessage(Component.literal(typeLabel())); listScroll = 0; refilter(); })
+            .bounds(filtersX + sortWidth + 2, 45, typeWidth, 20).build();
         addRenderableWidget(sortButton);
         addRenderableWidget(typeButton);
-
         configButton = Button.builder(Component.literal("Config"), button -> {
-            if (selected != null && "shine".equals(selected.id())) {
-                VBVNav.open(new ShineConfigScreen(this));
-            } else if (selected != null && "simple-hud-enhanced".equals(selected.id())) {
-                VBVNav.open(new VBVSimpleHudConfigScreen(this));
-            }
+            if (selected != null && "shine".equals(selected.id())) VBVNav.open(new ShineConfigScreen(this));
+            else if (selected != null && "simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
         addRenderableWidget(configButton);
-
-        addRenderableWidget(Button.builder(Component.literal("World Map"),
-            button -> VBVNav.open(new VBVWorldMapScreen(this)))
-            .bounds(width / 2 - 158, height - 28, 98, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("HUD Editor"),
-            button -> VBVNav.open(new VBVHudEditorScreen(this)))
-            .bounds(width / 2 - 55, height - 28, 105, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent))
-            .bounds(width / 2 + 60, height - 28, 98, 20).build());
-
+        addRenderableWidget(Button.builder(Component.literal("World Map"), button -> VBVNav.open(new VBVWorldMapScreen(this))).bounds(width / 2 - 158, height - 28, 98, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("HUD Editor"), button -> VBVNav.open(new VBVHudEditorScreen(this))).bounds(width / 2 - 55, height - 28, 105, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 + 60, height - 28, 98, 20).build());
         applyFilterVisibility();
         refilter();
     }
 
-    private void applyFilterVisibility() {
-        sortButton.visible = filtersShown;
-        typeButton.visible = filtersShown;
-    }
-
+    private void applyFilterVisibility() { sortButton.visible = filtersShown; typeButton.visible = filtersShown; }
     private String sortLabel() { return ascending ? "Sort: A-Z" : "Sort: Z-A"; }
     private String typeLabel() { return typeFilter == 0 ? "Show: All" : typeFilter == 1 ? "Show: Native" : "Show: Packs"; }
 
@@ -178,33 +122,24 @@ public final class VBVModsScreen extends Screen {
     }
 
     private void select(VBVModInfo info) {
-        selected = info;
-        descScroll = 0;
-        if (configButton != null) {
-            configButton.visible = info != null && ("shine".equals(info.id()) || "simple-hud-enhanced".equals(info.id()));
-        }
+        selected = info; descScroll = 0;
+        if (configButton != null) configButton.visible = info != null && ("shine".equals(info.id()) || "simple-hud-enhanced".equals(info.id()));
         rebuildDescription();
     }
 
     private void rebuildDescription() {
-        descLines.clear();
-        descColors.clear();
+        descLines.clear(); descColors.clear();
         if (selected == null || font == null) return;
         int wrapWidth = paneWidth - 6 - 18;
         addWrapped(String.valueOf(selected.description()), wrapWidth, 0xFFAAAAAA);
-        addLine("", 0xFFAAAAAA);
-        addLine("Type", 0xFFFFFFFF);
+        addLine("", 0xFFAAAAAA); addLine("Type", 0xFFFFFFFF);
         addWrapped(selected.resourcePackMod() ? "Resource-pack client mod" : "Native client mod", wrapWidth, 0xFFAAAAAA);
-        addLine("", 0xFFAAAAAA);
-        addLine("Mod ID", 0xFFFFFFFF);
+        addLine("", 0xFFAAAAAA); addLine("Mod ID", 0xFFFFFFFF);
         addWrapped(String.valueOf(selected.id()), wrapWidth, 0xFFAAAAAA);
     }
 
     private void addLine(String text, int color) { descLines.add(text); descColors.add(color); }
-
-    private void addWrapped(String text, int width, int color) {
-        for (String line : wrap(text, width, Integer.MAX_VALUE)) addLine(line, color);
-    }
+    private void addWrapped(String text, int width, int color) { for (String line : wrap(text, width, Integer.MAX_VALUE)) addLine(line, color); }
 
     private List<String> wrap(String text, int maxWidth, int maxLines) {
         List<String> lines = new ArrayList<>();
@@ -213,21 +148,13 @@ public final class VBVModsScreen extends Screen {
         for (String word : text.replace("\n", " ").split(" ")) {
             if (word.isEmpty()) continue;
             String candidate = current.length() == 0 ? word : current + " " + word;
-            if (font.width(candidate) <= maxWidth) {
-                current.setLength(0);
-                current.append(candidate);
-                continue;
-            }
-            if (current.length() > 0) {
-                lines.add(current.toString());
-                current.setLength(0);
-            }
+            if (font.width(candidate) <= maxWidth) { current.setLength(0); current.append(candidate); continue; }
+            if (current.length() > 0) { lines.add(current.toString()); current.setLength(0); }
             String rest = word;
             while (font.width(rest) > maxWidth && rest.length() > 1) {
                 int cut = rest.length() - 1;
                 while (cut > 1 && font.width(rest.substring(0, cut)) > maxWidth) cut--;
-                lines.add(rest.substring(0, cut));
-                rest = rest.substring(cut);
+                lines.add(rest.substring(0, cut)); rest = rest.substring(cut);
             }
             current.append(rest);
         }
@@ -250,35 +177,27 @@ public final class VBVModsScreen extends Screen {
     private void moveSelection(int delta) {
         if (shown.isEmpty()) return;
         int index = selected == null ? 0 : Math.max(0, shown.indexOf(selected));
-        index = Math.max(0, Math.min(shown.size() - 1, index + delta));
-        select(shown.get(index));
+        index = Math.max(0, Math.min(shown.size() - 1, index + delta)); select(shown.get(index));
         if (index < listScroll) listScroll = index;
         if (index >= listScroll + visibleRows()) listScroll = index - visibleRows() + 1;
         listScroll = Math.max(0, Math.min(listScroll, maxListScroll()));
     }
 
-    @Override
-    public boolean keyPressed(KeyEvent input) {
+    @Override public boolean keyPressed(KeyEvent input) {
         if (input.isUp()) { moveSelection(-1); return true; }
         if (input.isDown()) { moveSelection(1); return true; }
         return super.keyPressed(input);
     }
 
-    @Override
-    public boolean mouseClicked(MouseButtonEvent click, boolean doubleClick) {
+    @Override public boolean mouseClicked(MouseButtonEvent click, boolean doubleClick) {
         if (super.mouseClicked(click, doubleClick)) return true;
-        double mx = click.x();
-        double my = click.y();
+        double mx = click.x(), my = click.y();
         int rowLeft = 6;
         if (mx >= rowLeft && mx <= rowLeft + rowWidth() && my >= LIST_TOP && my < listBottom()) {
             for (int k = 0; k < visibleRows(); k++) {
-                int index = listScroll + k;
-                if (index >= shown.size()) break;
+                int index = listScroll + k; if (index >= shown.size()) break;
                 int top = LIST_TOP + 4 + k * ROW_HEIGHT - 2;
-                if (my >= top && my < top + ROW_HEIGHT) {
-                    select(shown.get(index));
-                    return true;
-                }
+                if (my >= top && my < top + ROW_HEIGHT) { select(shown.get(index)); return true; }
             }
         }
         return false;
@@ -288,27 +207,18 @@ public final class VBVModsScreen extends Screen {
         int step = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0;
         if (step == 0) return false;
         if (mouseX < paneWidth) listScroll = Math.max(0, Math.min(maxListScroll(), listScroll + step));
-        else {
-            int max = Math.max(0, descLines.size() - descVisibleLines());
-            descScroll = Math.max(0, Math.min(max, descScroll + step));
-        }
+        else { int max = Math.max(0, descLines.size() - descVisibleLines()); descScroll = Math.max(0, Math.min(max, descScroll + step)); }
         return true;
     }
 
-    @Override
-    public void onClose() { VBVNav.open(parent); }
+    @Override public void onClose() { VBVNav.open(parent); }
 
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         String title = "Mods";
         graphics.text(font, title, paneWidth / 2 - font.width(title) / 2, 8, 0xFFFFFFFF, true);
-        drawCount(graphics);
-        drawPanel(graphics, 0, paneWidth, LIST_TOP, listBottom());
-        drawList(graphics);
-        drawPanel(graphics, rightPaneX, width, DESC_TOP, listBottom());
-        drawDetails(graphics);
-        drawDescription(graphics);
+        drawCount(graphics); drawPanel(graphics, 0, paneWidth, LIST_TOP, listBottom()); drawList(graphics);
+        drawPanel(graphics, rightPaneX, width, DESC_TOP, listBottom()); drawDetails(graphics); drawDescription(graphics);
     }
 
     private void drawCount(GuiGraphicsExtractor graphics) {
@@ -321,20 +231,15 @@ public final class VBVModsScreen extends Screen {
 
     private void drawPanel(GuiGraphicsExtractor graphics, int x1, int x2, int top, int bottom) {
         graphics.fill(x1, top, x2, bottom, 0x80000000);
-        graphics.fill(x1, top - 2, x2, top - 1, 0xFF000000);
-        graphics.fill(x1, top - 1, x2, top, 0xFF373737);
-        graphics.fill(x1, bottom, x2, bottom + 1, 0xFF373737);
-        graphics.fill(x1, bottom + 1, x2, bottom + 2, 0xFF000000);
+        graphics.fill(x1, top - 2, x2, top - 1, 0xFF000000); graphics.fill(x1, top - 1, x2, top, 0xFF373737);
+        graphics.fill(x1, bottom, x2, bottom + 1, 0xFF373737); graphics.fill(x1, bottom + 1, x2, bottom + 2, 0xFF000000);
     }
 
     private void drawList(GuiGraphicsExtractor graphics) {
-        int rowLeft = 6;
-        int rowWidth = rowWidth();
+        int rowLeft = 6, rowWidth = rowWidth();
         for (int k = 0; k < visibleRows(); k++) {
-            int index = listScroll + k;
-            if (index >= shown.size()) break;
-            VBVModInfo info = shown.get(index);
-            int y = LIST_TOP + 4 + k * ROW_HEIGHT;
+            int index = listScroll + k; if (index >= shown.size()) break;
+            VBVModInfo info = shown.get(index); int y = LIST_TOP + 4 + k * ROW_HEIGHT;
             if (info == selected) {
                 graphics.fill(rowLeft - 2, y - 2, rowLeft + rowWidth + 2, y + ICON + 2, 0xFFFFFFFF);
                 graphics.fill(rowLeft - 1, y - 1, rowLeft + rowWidth + 1, y + ICON + 1, 0xFF000000);
@@ -355,7 +260,7 @@ public final class VBVModsScreen extends Screen {
         if (selected == null) return;
         int x = rightPaneX;
         drawIcon(graphics, selected, x, RIGHT_PANE_Y, ICON);
-        int imageOffset = 28;
+        int imageOffset = ICON + 5;
         int maxNameWidth = width - (x + imageOffset) - (configButton != null && configButton.visible ? 58 : 4);
         String name = ellipsize(String.valueOf(selected.name()), maxNameWidth);
         graphics.text(font, name, x + imageOffset, RIGHT_PANE_Y + 1, 0xFFFFFFFF, true);
@@ -367,11 +272,9 @@ public final class VBVModsScreen extends Screen {
     }
 
     private void drawDescription(GuiGraphicsExtractor graphics) {
-        int lineHeight = font.lineHeight + 1;
-        int visible = descVisibleLines();
+        int lineHeight = font.lineHeight + 1, visible = descVisibleLines();
         for (int k = 0; k < visible; k++) {
-            int index = descScroll + k;
-            if (index >= descLines.size()) break;
+            int index = descScroll + k; if (index >= descLines.size()) break;
             graphics.text(font, descLines.get(index), rightPaneX + 6, DESC_TOP + 4 + k * lineHeight, descColors.get(index), false);
         }
         drawScrollbar(graphics, width - 6, DESC_TOP, listBottom(), descLines.size(), visible, descScroll);
@@ -383,9 +286,7 @@ public final class VBVModsScreen extends Screen {
             Identifier icon = path.contains(":") ? Identifier.parse(path) : Identifier.withDefaultNamespace(path);
             graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0.0F, 0.0F, size, size, 64, 64);
             return;
-        } catch (RuntimeException ignored) {
-            // Keep the list usable if an optional icon is missing or malformed.
-        }
+        } catch (RuntimeException ignored) { }
         graphics.fill(x, y, x + size, y + size, 0xFF333333);
     }
 
@@ -399,11 +300,8 @@ public final class VBVModsScreen extends Screen {
 
     private void drawScrollbar(GuiGraphicsExtractor graphics, int x, int top, int bottom, int total, int visible, int scroll) {
         if (total <= visible) return;
-        int track = bottom - top;
-        int thumb = Math.max(12, track * visible / total);
-        int travel = track - thumb;
+        int track = bottom - top, thumb = Math.max(12, track * visible / total), travel = track - thumb;
         int pos = top + (travel * scroll / Math.max(1, total - visible));
-        graphics.fill(x, top, x + 2, bottom, 0xFF202020);
-        graphics.fill(x, pos, x + 3, pos + thumb, 0xFF777777);
+        graphics.fill(x, top, x + 2, bottom, 0xFF202020); graphics.fill(x, pos, x + 3, pos + thumb, 0xFF777777);
     }
 }
