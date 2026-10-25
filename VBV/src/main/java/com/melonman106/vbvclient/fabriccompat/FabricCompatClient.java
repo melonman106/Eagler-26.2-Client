@@ -41,18 +41,30 @@ public final class FabricCompatClient {
     }
 
     public static synchronized void tick() {
+        tick(null);
+    }
+
+    public static synchronized void tick(net.minecraft.client.Minecraft client) {
         if (!initialized) initialize();
         if (!started) {
             started = true;
             ClientLifecycleEvents.CLIENT_STARTED.fire(ClientLifecycleEvents.ClientStarted::onClientStarted);
+            net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.fireStarted(client);
         }
         ClientTickEvents.START_CLIENT_TICK.invoker(ClientTickEvents.StartTick::onStartTick);
         ClientTickEvents.END_CLIENT_TICK.invoker(ClientTickEvents.EndTick::onEndTick);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.fireStart(client);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.fireEnd(client);
     }
 
     public static synchronized void stop() {
+        stop(null);
+    }
+
+    public static synchronized void stop(net.minecraft.client.Minecraft client) {
         if (!started) return;
         ClientLifecycleEvents.CLIENT_STOPPING.fire(ClientLifecycleEvents.ClientStopping::onClientStopping);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.fireStopping(client);
         started = false;
     }
 
