@@ -20,8 +20,6 @@ void main() {
     vec4 scene = texture(SceneSampler, texCoord);
     vec2 texel = 1.0 / max(InSize, vec2(1.0));
 
-    // A compact 3x3 bright-pass blur. This is a real screen-space bloom pass:
-    // only highlights contribute, and neighbouring highlights spread softly.
     vec3 glow = extractHighlights(scene.rgb) * 0.24;
     glow += extractHighlights(texture(SceneSampler, texCoord + texel * vec2(-2.0, -2.0)).rgb) * 0.08;
     glow += extractHighlights(texture(SceneSampler, texCoord + texel * vec2( 0.0, -2.0)).rgb) * 0.12;
