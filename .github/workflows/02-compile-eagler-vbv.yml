@@ -92,13 +92,22 @@ jobs:
             }
           done
 
-          grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
-          grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
-          grep -R -q 'FabricCompatClient.tick(this);' eaglercraft-u2/game/src/main/java/net/minecraft/client
-          grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
-          grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
-          grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
-          grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
+          require_pattern() {
+            local pattern="$1"
+            local file="$2"
+            if ! grep -q "$pattern" "$file"; then
+              echo "::error::Keyboard/HUD integration check failed: pattern [$pattern] missing from $file"
+              exit 1
+            fi
+          }
+          require_pattern 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
+          require_pattern 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
+          require_pattern 'FabricCompatClient.tick(this);' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
+          require_pattern 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java/net/minecraft/client/KeyboardHandler.java
+          require_pattern 'KeyBindingHelper.onKeyReleased(event.key())' eaglercraft-u2/game/src/main/java/net/minecraft/client/KeyboardHandler.java
+          require_pattern 'VBVExtraFeatures.handleKey(event.key(), action)' eaglercraft-u2/game/src/main/java/net/minecraft/client/KeyboardHandler.java
+          require_pattern 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
+          require_pattern 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
 
           # The browser-side JS mod directory was removed. Native VBV is authoritative.
           test ! -d VBV/webmods
