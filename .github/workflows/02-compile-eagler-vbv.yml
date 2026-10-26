@@ -61,13 +61,9 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
-          warn_icon="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods/warn.png"
-          mkdir -p "$(dirname "$warn_icon")"
-          curl -fL --retry 5 --retry-delay 2 \
-            "https://raw.githubusercontent.com/uku3lig/armor-hud/233932b08a0fb30501e1104bead784914aff85c4/common/src/main/resources/assets/ukus-armor-hud/warn.png" \
-            -o "$warn_icon"
-          test -s "$warn_icon"
-
+          # Armor HUD warning icons now come from Unique Dark:
+          # assets/armor_hud/textures/gui/exclamation_marks.png.
+          # Do not download the obsolete standalone ukus-armor-hud/warn.png.
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
           for source in \
             VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVJadeHud.java \
