@@ -1,6 +1,6 @@
-name: "02 - Build Eaglercraft 26.2 u2 (VBV + Herz, no Litematica)"
+name: "02 - Build Eaglercraft 26.2 u2 (VBV native-only)"
 
-run-name: "02 - Build VBV + Herz without Litematica"
+run-name: "02 - Build VBV native-only"
 
 on:
   workflow_dispatch:
@@ -54,15 +54,13 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x eaglercraft-u2/gradlew
 
-      - name: Inject VBV + Herz and embedded resource-pack mods
+      - name: Inject native VBV + Herz
         shell: bash
         run: |
           set -euo pipefail
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
 
-          # The upstream Armor HUD warning sprite is MIT-licensed and pinned
-          # to a specific source commit so builds do not depend on a moving branch.
           warn_icon="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods/warn.png"
           mkdir -p "$(dirname "$warn_icon")"
           curl -fL --retry 5 --retry-delay 2 \
@@ -71,39 +69,43 @@ jobs:
           test -s "$warn_icon"
 
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+          for source in \
+            VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVJadeHud.java \
+            VBVShulkerViewer.java VBVArmorHud.java VBVArmorHudConfig.java \
+            VBVArmorHudConfigScreen.java VBVModsScreen.java VBVModInfo.java \
+            VBVFeatureConfigScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java \
+            HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || {
-              echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"
+              echo "::error::Required native VBV source was not injected: $vbv_src/$source"
               exit 1
             }
           done
 
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
-          compat_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/fabriccompat"
+          grep -q 'VBVAppleSkin' "$vbv_src/VBVClient.java"
+          grep -q 'VBVJadeHud' "$vbv_src/VBVClient.java"
+          grep -q 'VBVShulkerViewer' "$vbv_src/VBVClient.java"
+
+          compat_src="$vbv_src/fabriccompat"
           for source in FabricCompatClient.java FabricLoader.java ModMetadata.java ModContainer.java ModInitializer.java ClientTickEvents.java ClientLifecycleEvents.java KeyBinding.java KeyBindingHelper.java EnvType.java; do
             test -s "$compat_src/$source" || {
               echo "::error::Required Fabric compatibility source is missing: $compat_src/$source"
               exit 1
             }
           done
+
           grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
           grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/ModInitializer.java
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/EnvType.java
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/FabricLoader.java
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/ModContainer.java
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/metadata/ModMetadata.java
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents.java
-          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientLifecycleEvents.java
           grep -R -q 'FabricCompatClient.tick(this);' eaglercraft-u2/game/src/main/java/net/minecraft/client
           grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
 
-          test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
-          find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort
+          # Native-only guard: nothing from the removed WebMC JSMod system may be copied.
+          test ! -d VBV/webmods
+          ! grep -R -q 'webmc-jsmod\|VBV-WEBMC-JSMOD-INTEGRATION\|VBVJSMods' VBV .github/workflows/02-compile-eagler-vbv.yml
 
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
           for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced shine mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
@@ -112,20 +114,15 @@ jobs:
               exit 1
             }
           done
-          find "$icon_root" -maxdepth 1 -type f -name '*.png' -print | sort
 
-          # VBVModInfo.drawIcon blits icons using a 64x64 source texture.
-          # Normalize mod icons and embedded pack.png files to that exact size
-          # while fitting the full image (rather than cropping/zooming its top-left).
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageOps
-
           icon_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods")
           pack_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods")
-          files = {path for path in icon_root.glob("*.png") if path.name != "warn.png"} if icon_root.exists() else set()
+          files = {p for p in icon_root.glob("*.png") if p.name != "warn.png"}
           if pack_root.exists():
-              files.update(path for path in pack_root.rglob("*.png") if path.name == "pack.png")
+              files.update(p for p in pack_root.rglob("*.png") if p.name == "pack.png")
           for path in sorted(files):
               with Image.open(path) as source:
                   image = source.convert("RGBA")
@@ -133,12 +130,9 @@ jobs:
               canvas = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
               canvas.alpha_composite(image, ((64 - image.width) // 2, (64 - image.height) // 2))
               canvas.save(path, format="PNG", optimize=True)
-              print(f"Normalized icon: {path}")
           PY
-          test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_0.png
-          test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_5.png
 
-      - name: Compile game Java after injection
+      - name: Compile game Java after native injection
         working-directory: eaglercraft-u2
         run: ./gradlew :game:processResources :game:compileJava --console=plain --no-daemon --stacktrace
 
@@ -146,22 +140,16 @@ jobs:
         working-directory: eaglercraft-u2
         run: npm ci --ignore-scripts
 
-      - name: Restore bundled U2 sounds archive before standalone build
+      - name: Restore bundled U2 sounds archive
         shell: bash
         run: |
           set -euo pipefail
           web="eaglercraft-u2/target_teavm_wasm_gc/build/web"
           mkdir -p "$web"
-
-          sounds_url="https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/generated-u2-source/sounds.epk"
-          curl -fL --retry 5 --retry-delay 2 "$sounds_url" -o "$web/sounds.epk"
-
-          test -s "$web/sounds.epk" || {
-            echo "::error::Failed to restore sounds.epk from generated-u2-source"
-            exit 1
-          }
-          echo "Restored sounds.epk: $(stat -c%s "$web/sounds.epk") bytes"
-          sha256sum "$web/sounds.epk"
+          curl -fL --retry 5 --retry-delay 2 \
+            "https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/generated-u2-source/sounds.epk" \
+            -o "$web/sounds.epk"
+          test -s "$web/sounds.epk"
 
       - name: Patch standalone packager for lean no-music build
         working-directory: eaglercraft-u2
@@ -170,10 +158,8 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           path = Path("wasm-toolchain/build-single-html.js")
           text = path.read_text(encoding="utf-8")
-
           old_source = '''if (!fs.existsSync(musicSource)) {
             fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
           }
@@ -182,15 +168,10 @@ jobs:
             fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
           }
           const music = withMusic ? fs.readFileSync(musicSource) : null;'''
-
           if old_source in text:
               text = text.replace(old_source, new_source, 1)
-              print("Patched music-source check.")
-          elif 'if (withMusic && !fs.existsSync(musicSource))' in text:
-              print("Music-source check already patched.")
-          else:
-              raise SystemExit("Expected music-source check was not found; refusing to patch an unknown U2 packager")
-
+          elif 'if (withMusic && !fs.existsSync(musicSource))' not in text:
+              raise SystemExit("Expected music-source check was not found")
           old_export = '''if (withoutMusic && !liteBuild) {
             const musicPack = spawnSync(process.execPath, [
               path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
@@ -215,21 +196,14 @@ jobs:
           } else if (liteBuild) {
             console.log("[single-html] Lite mode: optional music pack export skipped");
           }'''
-
           if old_export in text:
               text = text.replace(old_export, new_export, 1)
-              print("Patched optional music export to skip when music.epk is absent.")
-          elif 'fs.existsSync(musicSource)' in text and 'optional music pack export skipped' in text:
-              print("Optional music export already patched.")
-          else:
-              raise SystemExit("Expected optional music export block was not found; refusing to patch an unknown U2 packager")
-
+          elif 'optional music pack export skipped' not in text:
+              raise SystemExit("Expected optional music export block was not found")
           path.write_text(text, encoding="utf-8")
           PY
-
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
-          grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
 
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
@@ -242,109 +216,29 @@ jobs:
         run: |
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-assets' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-sounds' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
-            echo "::error::Lean build unexpectedly embedded music.epk"
-            exit 1
-          fi
-          echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
+          ! grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          echo "Built native-only HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
-      - name: Add WebMC JSMod runtime and converted Fabric enhancements
+      - name: Verify native-only HTML contains no WebMC JSMod layer
         shell: bash
         run: |
           set -euo pipefail
-          work="$RUNNER_TEMP/webmc-jsmods"
-          mkdir -p "$work"
-
-          # Runtime and converted packages are fetched from the reference implementation.
-          # Large JEI/Litematica/Meteor packages remain lazy-loaded by jsmod-loader.js so the
-          # normal standalone HTML does not gain tens of megabytes or a large startup parse job.
-          curl -fL --retry 5 --retry-delay 2 \
-            "https://raw.githubusercontent.com/AmphibianDev/webmc-jsmod/main/runtime/dist/webmc.js" \
-            -o "$work/webmc.js"
-
-          for mod in appleskin gammautils jade zoomify shulkerboxtooltip; do
-            curl -fL --retry 5 --retry-delay 2 \
-              "https://raw.githubusercontent.com/AmphibianDev/webmc-jsmod/main/mods/converted/$mod.js" \
-              -o "$work/$mod.js"
-            test -s "$work/$mod.js"
-          done
-          test -s "$work/webmc.js"
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import html
-
-          html_path = Path("eaglercraft-26.2-vbv-herz.html")
-          text = html_path.read_text(encoding="utf-8")
-          marker = "<!-- VBV-WEBMC-JSMOD-INTEGRATION -->"
-          if marker in text:
-              raise SystemExit("JSMod integration is already present in the generated HTML")
-
-          root = Path(__import__('os').environ["RUNNER_TEMP"]) / "webmc-jsmods"
-          loader = Path("VBV/webmods/vbv-mod-loader.js").read_text(encoding="utf-8")
-          jsmod_loader = Path("VBV/webmods/jsmod-loader.js").read_text(encoding="utf-8")
-          menu = Path("VBV/webmods/vbv-mod-menu-bridge.js").read_text(encoding="utf-8")
-          runtime = (root / "webmc.js").read_text(encoding="utf-8")
-
-          def safe_script(source):
-              # HTML parsers terminate a classic script on literal </script>, even inside JS strings.
-              return source.replace("</script>", "<\\/script>")
-
-          blocks = [
-              marker,
-              '<script id="vbv-webmc-runtime">' + safe_script(runtime) + '</script>',
-              '<script>' + safe_script(loader) + '</script>',
-              '<script>' + safe_script(jsmod_loader) + '</script>',
-          ]
-
-          # Inline the smaller converted packages. The loader evaluates these on demand after the
-          # client starts, keeping parser work out of the initial game bootstrap.
-          for mod in ("appleskin", "gammautils", "jade", "zoomify", "shulkerboxtooltip"):
-              source = (root / f"{mod}.js").read_text(encoding="utf-8")
-              blocks.append(f'<script data-vbv-jsmod="{html.escape(mod, quote=True)}">' + safe_script(source) + '</script>')
-
-          blocks.append('<script>' + safe_script(menu) + '</script>')
-          injection = "\n".join(blocks) + "\n"
-
-          if "</body>" in text:
-              text = text.replace("</body>", injection + "</body>", 1)
-          else:
-              text += injection
-          html_path.write_text(text, encoding="utf-8")
-          print("Embedded WebMC runtime and 5 converted Fabric mod packages.")
-          print("Lazy-loadable large packages: JEI, Litematica, Meteor Client.")
-          PY
-
-          grep -q 'VBV-WEBMC-JSMOD-INTEGRATION' eaglercraft-26.2-vbv-herz.html
-          grep -q 'WebMC JS mod runtime' eaglercraft-26.2-vbv-herz.html
-          grep -q 'data-vbv-jsmod="appleskin"' eaglercraft-26.2-vbv-herz.html
-          grep -q 'data-vbv-jsmod="gammautils"' eaglercraft-26.2-vbv-herz.html
-          grep -q 'data-vbv-jsmod="jade"' eaglercraft-26.2-vbv-herz.html
-          grep -q 'data-vbv-jsmod="zoomify"' eaglercraft-26.2-vbv-herz.html
-          grep -q 'data-vbv-jsmod="shulkerboxtooltip"' eaglercraft-26.2-vbv-herz.html
-          echo "Final HTML with JSMod integration: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
+          html="eaglercraft-26.2-vbv-herz.html"
+          ! grep -q 'VBV-WEBMC-JSMOD-INTEGRATION' "$html"
+          ! grep -q 'webmc-jsmod' "$html"
+          ! grep -q 'VBVJSMods' "$html"
+          echo "Confirmed: standalone client is native VBV only."
 
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
-          name: Eaglercraft-26.2-VBV-Herz-Single-HTML-${{ github.run_id }}
+          name: Eaglercraft-26.2-VBV-Native-Single-HTML-${{ github.run_id }}
           path: eaglercraft-26.2-vbv-herz.html
           if-no-files-found: error
           retention-days: 14
-          compression-level: 0
-
-      - name: Upload raw browser website too
-        uses: actions/upload-artifact@v4
-        with:
-          name: Eaglercraft-26.2-VBV-Herz-Web-${{ github.run_id }}
-          path: eaglercraft-u2/target_teavm_wasm_gc/build/web/**
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
