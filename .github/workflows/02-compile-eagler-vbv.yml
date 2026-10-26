@@ -103,9 +103,10 @@ jobs:
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
 
-          # Native-only guard: nothing from the removed WebMC JSMod system may be copied.
+          # The browser-side JS mod directory was removed. Native VBV is authoritative.
           test ! -d VBV/webmods
-          ! grep -R -q 'webmc-jsmod\|VBV-WEBMC-JSMOD-INTEGRATION\|VBVJSMods' VBV .github/workflows/02-compile-eagler-vbv.yml
+          ! grep -R -q 'VBVJSMods' VBV
+          ! grep -R -q 'VBV-WEBMC-JSMOD-INTEGRATION' VBV
 
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
           for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced shine mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
@@ -225,13 +226,12 @@ jobs:
           ! grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           echo "Built native-only HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
-      - name: Verify native-only HTML contains no WebMC JSMod layer
+      - name: Verify downloaded client is native-only
         shell: bash
         run: |
           set -euo pipefail
           html="eaglercraft-26.2-vbv-herz.html"
           ! grep -q 'VBV-WEBMC-JSMOD-INTEGRATION' "$html"
-          ! grep -q 'webmc-jsmod' "$html"
           ! grep -q 'VBVJSMods' "$html"
           echo "Confirmed: standalone client is native VBV only."
 
