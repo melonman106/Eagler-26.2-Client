@@ -79,9 +79,10 @@ jobs:
 
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
-          grep -q 'VBVAppleSkin' "$vbv_src/VBVClient.java"
-          grep -q 'VBVJadeHud' "$vbv_src/VBVClient.java"
-          grep -q 'VBVShulkerViewer' "$vbv_src/VBVClient.java"
+          # These features are wired into their actual UI classes, not VBVClient.
+          grep -q 'VBVAppleSkin.render(graphics)' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Hud.java
+          grep -q 'VBVJadeHud.render(graphics)' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Hud.java
+          grep -q 'VBVShulkerViewer.render(graphics' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
 
           compat_src="$vbv_src/fabriccompat"
           for source in FabricCompatClient.java FabricLoader.java ModMetadata.java ModContainer.java ModInitializer.java ClientTickEvents.java ClientLifecycleEvents.java KeyBinding.java KeyBindingHelper.java EnvType.java; do
