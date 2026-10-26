@@ -27,6 +27,19 @@
     } catch (_) {}
   }
 
+  // WebMC/JSMod packages can leave a small DOM control at the browser's
+  // upper-left corner. Eagler's actual HUD is canvas-based, so remove only
+  // fixed-position HTML buttons occupying that corner.
+  function removeStrayTopLeftButtons() {
+    for (const button of document.querySelectorAll("button")) {
+      const rect = button.getBoundingClientRect();
+      const style = getComputedStyle(button);
+      if (style.position === "fixed" && rect.left <= 8 && rect.top <= 8 && rect.width <= 320 && rect.height <= 80) {
+        button.remove();
+      }
+    }
+  }
+
   function makePanel() {
     if (document.getElementById("vbv-mod-menu")) return;
 
@@ -136,6 +149,10 @@
   function start() {
     makePanel();
     registerMetadata();
+    removeStrayTopLeftButtons();
+    const cleanupTimer = setInterval(removeStrayTopLeftButtons, 1000);
+    setTimeout(() => clearInterval(cleanupTimer), 15000);
+
     window.addEventListener("keydown", (e) => {
       if (e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
       if (e.key.toLowerCase() === "m" && document.activeElement?.tagName !== "INPUT") {
