@@ -10,7 +10,7 @@
       "fragment_shader": "vbvclient:post/shine_bloom",
       "inputs": [
         {
-          "sampler_name": "Scene",
+          "sampler_name": "InSampler",
           "target": "minecraft:main",
           "bilinear": true
         }
@@ -22,7 +22,7 @@
       "fragment_shader": "minecraft:post/blit",
       "inputs": [
         {
-          "sampler_name": "In",
+          "sampler_name": "InSampler",
           "target": "bloomed",
           "bilinear": true
         }
