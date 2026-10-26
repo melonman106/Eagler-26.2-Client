@@ -1,6 +1,6 @@
 name: "03 - Retrieve Eaglercraft 26.2 u2 (Single HTML)"
 
-run-name: "03 - Retrieve latest VBV + Herz single HTML"
+run-name: "03 - Retrieve latest native VBV single HTML"
 
 on:
   workflow_dispatch:
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve successful U2 build
+      - name: Resolve successful native VBV build
         id: compile
         env:
           REQUESTED_RUN_ID: ${{ inputs.compile_run_id }}
@@ -39,7 +39,7 @@ jobs:
           fi
           [ -n "$run_id" ] || { echo "::error::No successful workflow 02 run found. Run workflow 02 first."; exit 1; }
 
-          artifact_name="Eaglercraft-26.2-VBV-Herz-Single-HTML-$run_id"
+          artifact_name="Eaglercraft-26.2-VBV-Native-Single-HTML-$run_id"
           artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"$artifact_name\" and .expired == false) | .id" | head -n1)"
           [ -n "$artifact_id" ] || { echo "::error::No unexpired $artifact_name artifact found in workflow run $run_id."; exit 1; }
 
@@ -56,10 +56,17 @@ jobs:
           gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir output
           test -s output/eaglercraft-26.2-vbv-herz.html
 
+      - name: Verify downloaded client is native-only
+        run: |
+          set -euo pipefail
+          ! grep -q 'VBV-WEBMC-JSMOD-INTEGRATION' output/eaglercraft-26.2-vbv-herz.html
+          ! grep -q 'webmc-jsmod' output/eaglercraft-26.2-vbv-herz.html
+          ! grep -q 'VBVJSMods' output/eaglercraft-26.2-vbv-herz.html
+
       - name: Upload a fresh copy of the standalone HTML
         uses: actions/upload-artifact@v4
         with:
-          name: Eaglercraft-26.2-VBV-Herz-Single-HTML-Retrieved-${{ github.run_id }}
+          name: Eaglercraft-26.2-VBV-Native-Single-HTML-Retrieved-${{ github.run_id }}
           path: output/eaglercraft-26.2-vbv-herz.html
           if-no-files-found: error
           retention-days: 14
