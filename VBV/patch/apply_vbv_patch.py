@@ -10,10 +10,6 @@ from urllib.request import Request, urlopen
 
 CLIENT_SIDE = Path(__file__).resolve().parent.parent
 
-# Fix the native Mod Menu icon source rectangle before the pinned patcher copies
-# the Java sources into the generated Eagler workspace. The renderer displays a
-# 32x32 icon but the source image is a complete 64x64 texture; using 32x32 as
-# the source rectangle only showed the upper-left quarter.
 screen = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVModsScreen.java"
 if screen.is_file():
     text = screen.read_text(encoding="utf-8")
@@ -26,20 +22,18 @@ if screen.is_file():
         screen.write_text(fixed, encoding="utf-8")
         print("Fixed VBV Mod Menu icon source rectangle (full 64x64 texture).")
 
-# Use the Unique Dark HUD textures when the Armor HUD is rendered. The pack is
-# imported by the normal resource-pack extraction stage, so these identifiers
-# resolve to the files supplied in ModsPack/Unique Dark - Lite - 1.20.2-26.x.zip.
+# Unique Dark - Lite supplies these under assets/armor_hud/.
 armor = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVArmorHud.java"
 if armor.is_file():
     text = armor.read_text(encoding="utf-8")
     fixed = text.replace(
         'private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:textures/mods/warn.png");',
-        'private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:textures/armor_hud/exclamation_marks.png");',
+        'private static final Identifier WARNING_TEXTURE = Identifier.parse("armor_hud:textures/gui/exclamation_marks.png");',
         1,
     )
     fixed = fixed.replace(
         '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");',
-        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");\n    private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE = Identifier.parse("vbvclient:textures/armor_hud/hotbar_texture.png");',
+        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");\n    private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE = Identifier.parse("armor_hud:textures/gui/hotbar_texture.png");',
         1,
     )
     old_hotbar = '''            case VBVArmorHudConfig.STYLE_HOTBAR -> {
@@ -65,7 +59,6 @@ req = Request(PINNED, headers={"User-Agent": "Eagler-26.2-Client-VBV-Patcher"})
 with urlopen(req, timeout=30) as response:
     source = response.read().decode("utf-8")
 
-# Use the new dedicated Shulker Box Tooltip icon and the MCDW PackIcons asset.
 source = source.replace(
     '"shulkerboxtooltip": "ModMenu.png",',
     '"shulkerboxtooltip": "ShulkerBoxTooltips.jpeg",\n    "mcdw": "MCDW.png",',
