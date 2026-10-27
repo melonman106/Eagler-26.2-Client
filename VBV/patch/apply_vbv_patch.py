@@ -91,8 +91,9 @@ sanitize = CLIENT_SIDE / "patch/sanitize_modpacks.py"
 if sanitize.is_file():
     subprocess.run([sys.executable, str(sanitize), str(REPO_ROOT)], check=True)
 
-# Make the Armor HUD independent of Unique Dark's optional panel texture. The
-# generated client always has the vanilla hud/hotbar sprite available.
+# Keep the Armor HUD warning icons in the pack namespace. The panel texture
+# itself is intentionally Unique Dark Lite's hotbar_texture.png and is verified
+# after the upstream importer extracts ModsPack/*.zip into game resources.
 armor = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVArmorHud.java"
 if armor.is_file():
     text = armor.read_text(encoding="utf-8")
@@ -100,11 +101,6 @@ if armor.is_file():
         'private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:textures/mods/warn.png");',
         'private static final Identifier WARNING_TEXTURE = Identifier.parse("armor_hud:textures/gui/exclamation_marks.png");',
         1,
-    )
-    fixed = __import__("re").sub(
-        r"(?m)^\s*private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE\s*=.*\n",
-        "",
-        fixed,
     )
     if fixed != text:
         armor.write_text(fixed, encoding="utf-8")
