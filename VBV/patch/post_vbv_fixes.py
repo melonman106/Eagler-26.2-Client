@@ -230,6 +230,34 @@ if config.is_file():
     text = text.replace("style = STYLE_NONE;", "style = STYLE_HOTBAR;", 1)
     config.write_text(text, encoding="utf-8")
 
+# The upstream hook is appended to extractItemHotbar, before vanilla hunger icons.
+# Move AppleSkin to the end of extractFood so the overlay is painted on top.
+hud_candidates = list(GAME.rglob("Hud.java"))
+if hud_candidates:
+    hud = hud_candidates[0]
+    hud_text = hud.read_text(encoding="utf-8")
+    apple_call = "com.melonman106.vbvclient.VBVAppleSkin.render("
+    if apple_call in hud_text:
+        hud_text = re.sub(
+            r"(?m)^\\s*com\\.melonman106\\.vbvclient\\.VBVAppleSkin\\.render\\([^;]+;\\s*\\n?",
+            "",
+            hud_text,
+        )
+        food = re.search(
+            r"(?:public|protected|private)\\s+void\\s+extractFood\\s*\\([^)]*\\)\\s*\\{",
+            hud_text,
+        )
+        if not food:
+            raise RuntimeError("Hud.extractFood was not found; cannot layer AppleSkin above hunger icons")
+        brace = hud_text.find("{", food.start())
+        end = matching_brace(hud_text, brace)
+        param = re.search(r"GuiGraphicsExtractor\\s+(\\w+)", food.group(0))
+        if end < 0 or not param:
+            raise RuntimeError("Could not identify Hud.extractFood body/graphics parameter")
+        hud_text = hud_text[:end] + "\\n        com.melonman106.vbvclient.VBVAppleSkin.render(" + param.group(1) + ");\\n    " + hud_text[end:]
+        hud.write_text(hud_text, encoding="utf-8")
+        print("Moved AppleSkin overlay to the end of Hud.extractFood.")
+
 # Optional panorama overlay: preserve the six-face panorama handling and also
 # copy panorama_overlay.png when supplied by the user.
 panorama_src = Path(__file__).resolve().parent.parent / "panorama" / "panorama_overlay.png"
