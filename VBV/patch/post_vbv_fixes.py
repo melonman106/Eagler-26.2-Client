@@ -177,16 +177,29 @@ nav = dest / "VBVNav.java"
 if nav.is_file():
     mc_text = minecraft.read_text(encoding="utf-8")
     screen_methods = []
-    for match in re.finditer(
-        r"(?m)^\s*(?:(?:public|protected|private)\s+)?(?:static\s+)?[\w.$<>?]+\s+(\w+)\s*\(\s*(?:net\.minecraft\.client\.gui\.screens\.)?Screen\s+\w+\s*\)",
-        mc_text,
-    ):
-        if match.group(1) not in {"if", "while", "switch", "catch"}:
-            screen_methods.append(match.group(1))
+    # Eagler's generated Minecraft.java can place modifiers/annotations or
+    # qualified/generic Screen types differently from vanilla source. Match
+    # the method declaration without requiring it to start at column zero.
+    screen_pattern = re.compile(
+        r"\b(?:public|protected|private)\s+(?:(?:static|final|synchronized|native|abstract)\s+)*"
+        r"[\w.$<>?,\[\]\s]+\s+(\w+)\s*\(\s*"
+        r"(?:final\s+)?(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+\w+",
+        re.MULTILINE,
+    )
+    screen_methods.extend(
+        match.group(1) for match in screen_pattern.finditer(mc_text)
+        if match.group(1) not in {"if", "while", "switch", "catch"}
+    )
     if "setScreen" in screen_methods:
         screen_method = "setScreen"
+    elif "setScreenAndShow" in screen_methods:
+        screen_method = "setScreenAndShow"
     elif screen_methods:
         screen_method = screen_methods[0]
+    elif re.search(r"\bsetScreenAndShow\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?Screen\b", mc_text):
+        # Known Eaglercraft naming; accept only when its Screen parameter is
+        # actually present in the generated source.
+        screen_method = "setScreenAndShow"
     else:
         raise RuntimeError(
             "Could not find Minecraft's one-argument Screen navigation method "
