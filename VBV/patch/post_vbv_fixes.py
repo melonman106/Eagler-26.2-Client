@@ -181,7 +181,7 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java"}:
         shutil.copy2(source, target)
 
 # Armor HUD: use bundled textures, keep all four slots visible, and raise the larger widget slightly above the hotbar.
@@ -257,6 +257,61 @@ if hud_candidates:
         hud_text = hud_text[:end] + "\n        com.melonman106.vbvclient.VBVAppleSkin.render(" + param.group(1) + ");\n    " + hud_text[end:]
         hud.write_text(hud_text, encoding="utf-8")
         print("Moved AppleSkin overlay to the end of Hud.extractFood.")
+
+# Native, toggleable first-person animation layer.
+# V toggles the effect; preserve vanilla poses while using/charging items.
+extra = dest / "VBVExtraFeatures.java"
+if extra.is_file():
+    text = extra.read_text(encoding="utf-8")
+    key_anchor = "if (key == 70) fKeyHeld = action == 1;"
+    key_toggle = key_anchor + "\\n        if (key == 86 && action == 1) VBVFirstPersonAnimations.toggle();"
+    if "VBVFirstPersonAnimations.toggle()" not in text:
+        if key_anchor not in text:
+            raise RuntimeError("VBVExtraFeatures.handleKey anchor not found for first-person animation toggle")
+        text = text.replace(key_anchor, key_toggle, 1)
+        extra.write_text(text, encoding="utf-8")
+        print("Added V-key toggle for native first-person animations.")
+
+client = dest / "VBVClient.java"
+if client.is_file():
+    text = client.read_text(encoding="utf-8")
+    mod_id = '"vbv-first-person-animations"'
+    if mod_id not in text:
+        anchor = "        VBVGeneratedPackMods.register();"
+        registration = """        registerMod(new VBVModInfo(
+            "vbv-first-person-animations", "VBV First-Person Animations", "Native Eagler port 1.0.0",
+            "melonman106", "Subtle first-person idle and swing animations. Press V to toggle.",
+            "vbvclient:textures/mods/viabackportvisuals-client.png", false));
+
+"""
+        if anchor not in text:
+            raise RuntimeError("VBVClient registration anchor not found")
+        text = text.replace(anchor, registration + anchor, 1)
+        client.write_text(text, encoding="utf-8")
+        print("Registered VBV First-Person Animations in Mod Menu.")
+
+# Patch the generated renderer after the pinned upstream patch has applied.
+# The transform is inserted inside submitArmWithItem's pushed pose, before vanilla
+# hand/item-specific rendering; the native helper leaves item-use poses untouched.
+renderer_candidates = java_files_named("ItemInHandRenderer.java")
+if renderer_candidates:
+    renderer = renderer_candidates[0]
+    text = renderer.read_text(encoding="utf-8")
+    method = re.search(r"private\\s+void\\s+submitArmWithItem\\s*\\(", text)
+    call = "com.melonman106.vbvclient.VBVFirstPersonAnimations.apply(poseStack, player, frameInterp, attack, hand, itemStack);"
+    if method and call not in text:
+        brace = text.find("{", method.start())
+        end = matching_brace(text, brace)
+        body = text[brace:end]
+        anchor = "         poseStack.pushPose();"
+        if anchor not in body:
+            raise RuntimeError("submitArmWithItem pose-stack anchor not found")
+        body = body.replace(anchor, anchor + "\\n         " + call, 1)
+        text = text[:brace] + body + text[end:]
+        renderer.write_text(text, encoding="utf-8")
+        print("Installed native first-person animation transform in ItemInHandRenderer.")
+    elif not method:
+        raise RuntimeError("ItemInHandRenderer.submitArmWithItem was not found")
 
 # Optional panorama overlay: preserve the six-face panorama handling and also
 # copy panorama_overlay.png when supplied by the user.
