@@ -17,7 +17,7 @@ def java_files_named(name):
 
 
 def matching_brace(text, brace):
-    """Return the closing brace for an opening brace, ignoring Java strings/comments."""
+    """Return the matching closing brace, ignoring Java strings, chars, and comments."""
     depth = 0
     i = brace
     state = "code"
@@ -28,10 +28,12 @@ def matching_brace(text, brace):
         if state == "code":
             if c == '"':
                 state = "string"
-            elif c == '/' and n == '/':
+            elif c == "'":
+                state = "char"
+            elif c == "/" and n == "/":
                 state = "line_comment"
                 i += 1
-            elif c == '/' and n == '*':
+            elif c == "/" and n == "*":
                 state = "block_comment"
                 i += 1
             elif c == "{":
@@ -40,18 +42,19 @@ def matching_brace(text, brace):
                 depth -= 1
                 if depth == 0:
                     return i
-        elif state == "string":
+        elif state in ("string", "char"):
+            quote = '"' if state == "string" else "'"
             if escaped:
                 escaped = False
-            elif c == "\\":
+            elif c == "\\\\":
                 escaped = True
-            elif c == '"':
+            elif c == quote:
                 state = "code"
         elif state == "line_comment":
-            if c == "\n":
+            if c == "\\n":
                 state = "code"
         elif state == "block_comment":
-            if c == '*' and n == '/':
+            if c == "*" and n == "/":
                 state = "code"
                 i += 1
         i += 1
@@ -59,17 +62,52 @@ def matching_brace(text, brace):
 
 
 def find_if_block_containing(text, token_pos):
-    """Find the nearest if-block whose braces contain token_pos."""
-    candidates = list(re.finditer(r"\bif\s*\(", text[:token_pos]))
+    """Only remove an if-block when ShineConfig appears in that if's condition."""
+    candidates = list(re.finditer(r"\\bif\\s*\\(", text[:token_pos]))
     for match in reversed(candidates):
-        brace = text.find("{", match.end(), token_pos + 1)
-        if brace < 0 or brace > token_pos:
+        # Find the closing parenthesis for this if condition while respecting
+        # strings and nested parentheses. The Shine token must be in the
+        # condition itself; never delete an unrelated enclosing if/method.
+        open_paren = text.find("(", match.start(), match.end())
+        depth = 0
+        close_paren = -1
+        state = "code"
+        escaped = False
+        i = open_paren
+        while i < len(text):
+            c = text[i]
+            if state in ("string", "char"):
+                quote = '"' if state == "string" else "'"
+                if escaped:
+                    escaped = False
+                elif c == "\\\\":
+                    escaped = True
+                elif c == quote:
+                    state = "code"
+            else:
+                if c == '"':
+                    state = "string"
+                elif c == "'":
+                    state = "char"
+                elif c == "(":
+                    depth += 1
+                elif c == ")":
+                    depth -= 1
+                    if depth == 0:
+                        close_paren = i
+                        break
+            i += 1
+        if close_paren < 0 or not (match.start() <= token_pos <= close_paren):
+            continue
+        brace = close_paren + 1
+        while brace < len(text) and text[brace].isspace():
+            brace += 1
+        if brace >= len(text) or text[brace] != "{":
             continue
         end = matching_brace(text, brace)
         if end >= token_pos:
             return match.start(), end + 1
     return None
-
 
 def remove_shine_hooks(path):
     """Remove Shine blocks regardless of generated formatting, then validate."""
