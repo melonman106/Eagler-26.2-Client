@@ -165,6 +165,40 @@ for source in SRC.rglob("*.java"):
     # and compatibility class, not a stale hand-picked subset.
     shutil.copy2(source, target)
 
+# Resolve Eaglercraft's renamed Minecraft screen-navigation method from the
+# generated source instead of assuming vanilla's setScreen name.
+nav = dest / "VBVNav.java"
+if nav.is_file():
+    mc_text = minecraft.read_text(encoding="utf-8")
+    screen_methods = []
+    for match in re.finditer(
+        r"(?m)^\\s*(?:(?:public|protected|private)\\s+)?(?:static\\s+)?[\\w.$<>?]+\\s+(\\w+)\\s*\\(\\s*(?:net\\.minecraft\\.client\\.gui\\.screens\\.)?Screen\\s+\\w+\\s*\\)",
+        mc_text,
+    ):
+        if match.group(1) not in {"if", "while", "switch", "catch"}:
+            screen_methods.append(match.group(1))
+    if "setScreen" in screen_methods:
+        screen_method = "setScreen"
+    elif screen_methods:
+        screen_method = screen_methods[0]
+    else:
+        raise RuntimeError(
+            "Could not find Minecraft's one-argument Screen navigation method "
+            "in generated Minecraft.java; refusing to guess a renamed method."
+        )
+    nav_text = nav.read_text(encoding="utf-8")
+    fixed_nav = re.sub(
+        r"Minecraft\\.getInstance\\(\\)\\.\\w+\\(screen\\)",
+        "Minecraft.getInstance()." + screen_method + "(screen)",
+        nav_text,
+        count=1,
+    )
+    if fixed_nav == nav_text and "Minecraft.getInstance()." + screen_method + "(screen)" not in nav_text:
+        raise RuntimeError("Could not patch VBVNav.open() to the generated screen method")
+    if fixed_nav != nav_text:
+        nav.write_text(fixed_nav, encoding="utf-8")
+        print("Patched VBVNav to generated Minecraft screen method:", screen_method)
+
 # Keep Fabric-style START and END tick callbacks on opposite sides of the
 # real Minecraft.tick() body, rather than firing both consecutively at its end.
 minecraft_candidates = java_files_named("Minecraft.java")
