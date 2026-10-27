@@ -176,34 +176,28 @@ minecraft = next((p for p in minecraft_candidates if p.as_posix().endswith("/net
 nav = dest / "VBVNav.java"
 if nav.is_file():
     mc_text = minecraft.read_text(encoding="utf-8")
-    screen_methods = []
-    # Eagler's generated Minecraft.java can place modifiers/annotations or
-    # qualified/generic Screen types differently from vanilla source. Match
-    # the method declaration without requiring it to start at column zero.
-    screen_pattern = re.compile(
-        r"\b(?:public|protected|private)\s+(?:(?:static|final|synchronized|native|abstract)\s+)*"
-        r"[\w.$<>?,\[\]\s]+\s+(\w+)\s*\(\s*"
-        r"(?:final\s+)?(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+\w+",
-        re.MULTILINE,
-    )
-    screen_methods.extend(
-        match.group(1) for match in screen_pattern.finditer(mc_text)
-        if match.group(1) not in {"if", "while", "switch", "catch"}
-    )
-    if "setScreen" in screen_methods:
-        screen_method = "setScreen"
-    elif "setScreenAndShow" in screen_methods:
-        screen_method = "setScreenAndShow"
-    elif screen_methods:
-        screen_method = screen_methods[0]
-    elif re.search(r"\bsetScreenAndShow\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?Screen\b", mc_text):
-        # Known Eaglercraft naming; accept only when its Screen parameter is
-        # actually present in the generated source.
-        screen_method = "setScreenAndShow"
-    else:
+    # Eagler's source may declare this method with a transformed signature,
+    # so detect the known method name and its Screen parameter directly.
+    screen_method = None
+    for candidate in ("setScreen", "setScreenAndShow"):
+        if re.search(
+            r"\b" + re.escape(candidate) + r"\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+\w+",
+            mc_text,
+        ):
+            screen_method = candidate
+            break
+    if screen_method is None:
+        # Fallback: find any one-argument method whose parameter type ends in Screen.
+        match = re.search(
+            r"\b(?:public|protected|private)\s+(?:(?:static|final|synchronized|native|abstract)\s+)*"
+            r"[\w.$<>?,\[\]\s]+\s+(\w+)\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+\w+",
+            mc_text,
+        )
+        if match:
+            screen_method = match.group(1)
+    if screen_method is None:
         raise RuntimeError(
-            "Could not find Minecraft's one-argument Screen navigation method "
-            "in generated Minecraft.java; refusing to guess a renamed method."
+            "Could not find Minecraft's Screen navigation method in generated Minecraft.java."
         )
     nav_text = nav.read_text(encoding="utf-8")
     fixed_nav = re.sub(
