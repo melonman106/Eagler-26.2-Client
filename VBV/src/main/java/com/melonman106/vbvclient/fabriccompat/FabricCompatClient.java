@@ -41,10 +41,11 @@ public final class FabricCompatClient {
     }
 
     public static synchronized void tick() {
-        tick(null);
+        tick(net.minecraft.client.Minecraft.getInstance());
     }
 
-    public static synchronized void tick(net.minecraft.client.Minecraft client) {
+    /** Fire start callbacks at the beginning of the actual client tick. */
+    public static synchronized void startTick(net.minecraft.client.Minecraft client) {
         if (!initialized) initialize();
         if (!started) {
             started = true;
@@ -52,9 +53,20 @@ public final class FabricCompatClient {
             net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.fireStarted(client);
         }
         ClientTickEvents.START_CLIENT_TICK.invoker(ClientTickEvents.StartTick::onStartTick);
-        ClientTickEvents.END_CLIENT_TICK.invoker(ClientTickEvents.EndTick::onEndTick);
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.fireStart(client);
+    }
+
+    /** Fire end callbacks after the actual client tick has completed. */
+    public static synchronized void endTick(net.minecraft.client.Minecraft client) {
+        if (!initialized) initialize();
+        ClientTickEvents.END_CLIENT_TICK.invoker(ClientTickEvents.EndTick::onEndTick);
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.fireEnd(client);
+    }
+
+    /** Convenience bridge for callers without a split start/end hook. */
+    public static synchronized void tick(net.minecraft.client.Minecraft client) {
+        startTick(client);
+        endTick(client);
     }
 
     public static synchronized void stop() {
