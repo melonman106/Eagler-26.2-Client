@@ -54,6 +54,35 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x eaglercraft-u2/gradlew
 
+      - name: Restore verified resource overlay from the U2 Setup kit
+        shell: bash
+        run: |
+          set -euo pipefail
+          setup_jar="$RUNNER_TEMP/Eaglercraft-26.2-u2-Setup.jar"
+          portable_kit="$RUNNER_TEMP/portable-kit.zip"
+          portable_root="$RUNNER_TEMP/portable-kit"
+          overlay_target="legacy-u1-kit/inputs/resource-overlay-normal.zip"
+          expected_setup_sha256="476fd0aca5638ecfb57ff2383256e2275ab7ac879973cf69191b8a535d2e3ec2"
+          expected_overlay_sha256="2ba7e3376891c64f8bf57f3687e05b8dbe1971a75475b6825449e5e5f96d71f3"
+          setup_url="https://github.com/melonman106/Eagler-26.2-Client/releases/download/Cleit/Eaglercraft-26.2-u2-Setup.jar"
+
+          curl --fail --location --retry 3 "$setup_url" -o "$setup_jar"
+          echo "$expected_setup_sha256  $setup_jar" | sha256sum --check
+          unzip -p "$setup_jar" portable-kit.zip > "$portable_kit"
+          test -s "$portable_kit"
+          mkdir -p "$portable_root"
+          unzip -q -o "$portable_kit" -d "$portable_root"
+
+          overlay="$(find "$portable_root" -type f -name 'resource-overlay-normal.zip' -print -quit)"
+          test -n "$overlay" || {
+            echo "::error::The verified portable kit does not contain resource-overlay-normal.zip"
+            exit 1
+          }
+          echo "$expected_overlay_sha256  $overlay" | sha256sum --check
+          mkdir -p "$(dirname "$overlay_target")"
+          cp "$overlay" "$overlay_target"
+          echo "Restored verified resource overlay: $overlay_target"
+
       - name: Inject VBV + Herz and embedded resource-pack mods
         shell: bash
         run: |
