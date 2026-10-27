@@ -23,8 +23,10 @@ def _materialize_eagler_overlay() -> None:
     expected = "2ba7e3376891c64f8bf57f3687e05b8dbe1971a75475b6825449e5e5f96d71f3"
 
     if not overlay.is_file():
-        print(f"[VBV resource bootstrap] overlay not found: {overlay}")
-        return
+        raise SystemExit(
+            "::error::Required resource overlay is missing: "
+            f"{overlay}. Run the workflow's resource-overlay restore step first."
+        )
 
     digest = hashlib.sha256(overlay.read_bytes()).hexdigest()
     if digest != expected:
