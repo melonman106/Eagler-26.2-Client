@@ -30,17 +30,18 @@ public final class VBVAppleSkin {
         float saturation = Math.max(0.0F, Math.min(20.0F, player.getFoodData().getSaturationLevel()));
         int guiWidth = graphics.guiWidth();
         int guiHeight = graphics.guiHeight();
-        int startX = guiWidth / 2 + 10;
         int top = guiHeight - 39;
 
-        // AppleSkin's 256x256 icons atlas uses four 9x9 partial saturation frames
-        // at U=0,9,18,27. The resource is supplied by Unique Dark - Lite when present.
+        // Match the vanilla hunger-bar anchor, but move the saturation overlay
+        // four pixels to the right so it sits centered over the hunger icons.
+        // The overlay is intentionally rendered after extractFood, so it stays
+        // above the vanilla hunger layer.
         for (int i = 0; i < 10; i++) {
             if (i * 2 >= foodLevel) continue;
             float amount = Math.max(0.0F, Math.min(1.0F, (saturation - i * 2.0F) / 2.0F));
             if (amount <= 0.0F) continue;
             int frame = Math.min(3, Math.max(0, (int)Math.ceil(amount * 4.0F) - 1));
-            int iconX = guiWidth / 2 + 91 - i * 8;
+            int iconX = guiWidth / 2 + 95 - i * 8;
             graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top - 1,
                 frame * 9, 0, 9, 9, 256, 256);
         }
