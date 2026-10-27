@@ -27,7 +27,7 @@ public final class VBVExtraFeatures {
         if (minecraft == null) return;
         // Do not trigger feature hotkeys while a menu, chat, or text field is active.
         // Still honour releases so zoom and the F3 modifier cannot remain stuck.
-        if (minecraft.screen != null) {
+        if (minecraft.gui.screen() != null) {
             if (key == 67 && action == 0 && zooming) stopZoom(minecraft);
             if (key == 70 && action == 0) fKeyHeld = false;
             return;
