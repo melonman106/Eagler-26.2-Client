@@ -137,7 +137,7 @@ public final class VBVWorldMap {
                 int right = sz * TERRAIN_SIDE + Math.min(TERRAIN_SIDE - 1, sx + 1);
                 int down = Math.min(TERRAIN_SIDE - 1, sz + 1) * TERRAIN_SIDE + sx;
                 int slope = heights[right] - heights[index] + heights[down] - heights[index];
-                int shade = Math.max(0x65, Math.min(0x125, 0x100 - slope * 3));
+                int shade = Math.max(0x65, Math.min(0xFF, 0x100 - slope * 3));
                 int color = colors[index];
                 int r = ((color >> 16) & 255) * shade / 255;
                 int g = ((color >> 8) & 255) * shade / 255;
@@ -277,11 +277,11 @@ public final class VBVWorldMap {
 
     public static int playerBlockX() {
         Minecraft minecraft = Minecraft.getInstance();
-        return minecraft.player == null ? 0 : (int) minecraft.player.getX();
+        return minecraft.player == null ? 0 : minecraft.player.blockPosition().getX();
     }
 
     public static int playerBlockZ() {
         Minecraft minecraft = Minecraft.getInstance();
-        return minecraft.player == null ? 0 : (int) minecraft.player.getZ();
+        return minecraft.player == null ? 0 : minecraft.player.blockPosition().getZ();
     }
 }
