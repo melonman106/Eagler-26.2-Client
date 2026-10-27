@@ -264,7 +264,7 @@ extra = dest / "VBVExtraFeatures.java"
 if extra.is_file():
     text = extra.read_text(encoding="utf-8")
     key_anchor = "if (key == 70) fKeyHeld = action == 1;"
-    key_toggle = key_anchor + "\\n        if (key == 86 && action == 1) VBVFirstPersonAnimations.toggle();"
+    key_toggle = key_anchor + "\n        if (key == 86 && action == 1) VBVFirstPersonAnimations.toggle();"
     if "VBVFirstPersonAnimations.toggle()" not in text:
         if key_anchor not in text:
             raise RuntimeError("VBVExtraFeatures.handleKey anchor not found for first-person animation toggle")
@@ -297,7 +297,7 @@ renderer_candidates = java_files_named("ItemInHandRenderer.java")
 if renderer_candidates:
     renderer = renderer_candidates[0]
     text = renderer.read_text(encoding="utf-8")
-    method = re.search(r"private\\s+void\\s+submitArmWithItem\\s*\\(", text)
+    method = re.search(r"private\s+void\s+submitArmWithItem\s*\(", text)
     call = "com.melonman106.vbvclient.VBVFirstPersonAnimations.apply(poseStack, player, frameInterp, attack, hand, itemStack);"
     if method and call not in text:
         brace = text.find("{", method.start())
@@ -306,7 +306,7 @@ if renderer_candidates:
         anchor = "         poseStack.pushPose();"
         if anchor not in body:
             raise RuntimeError("submitArmWithItem pose-stack anchor not found")
-        body = body.replace(anchor, anchor + "\\n         " + call, 1)
+        body = body.replace(anchor, anchor + "\n         " + call, 1)
         text = text[:brace] + body + text[end:]
         renderer.write_text(text, encoding="utf-8")
         print("Installed native first-person animation transform in ItemInHandRenderer.")
