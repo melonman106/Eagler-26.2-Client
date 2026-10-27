@@ -28,6 +28,7 @@ public final class VBVArmorHud {
     private static final int OFFHAND_OFFSET = 29;
     private static final int ATTACK_INDICATOR_OFFSET = 23;
     private static final int WARNING_SIZE = 8;
+    private static boolean renderErrorLogged;
 
     private static final EquipmentSlot[] SLOT_IDS = {
         EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
@@ -50,7 +51,11 @@ public final class VBVArmorHud {
         try {
             renderInner(graphics);
         } catch (Throwable t) {
-            // A HUD bug must never take down the client; stop retrying every frame.
+            // Log once, then stop retrying the failing HUD on every frame.
+            if (!renderErrorLogged) {
+                System.err.println("VBV Armor HUD render error: " + t);
+                renderErrorLogged = true;
+            }
             VBVArmorHudConfig.enabled = false;
         }
     }
