@@ -15,7 +15,7 @@ The client no longer uses WebMC, JSMod, converted JavaScript Fabric mods, or a b
 
 The former JS-mod features have native VBV implementations:
 
-- AppleSkin-style food/saturation information, including the themed hunger overlay.
+- AppleSkin-style food/saturation information using the AppleSkin `icons.png` atlas when supplied by the embedded resource pack.
 - Gamma Utils-style gamma control and configurable brightness strength.
 - Jade-style target information and position controls.
 - Zoomify-style hold/toggle zoom with configurable field of view.
@@ -25,10 +25,13 @@ The former JS-mod features have native VBV implementations:
 - Simple HUD Enhanced.
 - Mouse Tweaks.
 - Minimap/world map.
-- Shine lighting/bloom effects.
 - Native resource-pack client mods, including MCDW.
 
-These are registered directly through `VBVClient` and displayed by the native VBV Mods screen. There is no browser fallback that silently loads a converted JavaScript package.
+Shine has been removed because its post-processing path caused unstable rendering in Eagler. These features are registered directly through `VBVClient` and displayed by the native VBV Mods screen. There is no browser fallback that silently loads a converted JavaScript package.
+
+## Resource-pack compatibility
+
+The build keeps the embedded resource-pack assets while protecting Eagler's core font atlas from Java resource-pack font overrides that can turn every character into the unknown-glyph rectangle. AppleSkin's `assets/appleskin/textures/icons.png` is preserved. An optional `VBV/panorama/panorama_overlay.png` is also embedded alongside the six panorama faces when present.
 
 ## Eagler Fabric compatibility layer
 
