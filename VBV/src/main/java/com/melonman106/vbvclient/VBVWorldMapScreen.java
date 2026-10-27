@@ -51,6 +51,8 @@ public final class VBVWorldMapScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Export Backup"), b ->
             VBVWorldMap.exportBackup(VBVWorldMap.worldKey(Minecraft.getInstance())))
             .bounds(230, 8, 112, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Import Backup"), b -> VBVWorldMap.importBackup())
+            .bounds(350, 8, 112, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
             .bounds(width - 108, 8, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("-"), b -> zoom = Math.max(8.0D, zoom / 1.3D))
