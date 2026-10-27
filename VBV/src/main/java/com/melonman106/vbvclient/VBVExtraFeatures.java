@@ -25,7 +25,17 @@ public final class VBVExtraFeatures {
     public static void handleKey(int key, int action) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null) return;
-        if (key == 70) fKeyHeld = action == 1;
+        // Do not trigger feature hotkeys while a menu, chat, or text field is active.
+        // Still honour releases so zoom and the F3 modifier cannot remain stuck.
+        if (minecraft.screen != null) {
+            if (key == 67 && action == 0 && zooming) stopZoom(minecraft);
+            if (key == 70 && action == 0) fKeyHeld = false;
+            return;
+        }
+        if (key == 70) {
+            if (action == 1) fKeyHeld = true;
+            else if (action == 0) fKeyHeld = false;
+        }
         if (key == 71 && action == 1 && gammaFeatureEnabled) toggleGamma(minecraft);
         if (key == 67 && zoomEnabled) {
             if (zoomToggleMode) {
