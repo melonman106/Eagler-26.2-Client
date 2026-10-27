@@ -193,26 +193,26 @@ public final class VBVArmorHud {
         int textureWidth = SIZE + ((items.size() - 1) * STEP);
         switch (VBVArmorHudConfig.style) {
             case VBVArmorHudConfig.STYLE_HOTBAR -> {
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, 0, 0, textureWidth - 3, SIZE, 0xFFFFFFFF);
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, rect[0], rect[1], textureWidth - 3, SIZE, 0xFFFFFFFF);
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, rect[0] + textureWidth - 3, rect[1], 3, SIZE, 0xFFFFFFFF);
             }
             case VBVArmorHudConfig.STYLE_ROUNDED_CORNERS -> {
                 if (items.size() > 1) {
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, 3, SIZE, 0xFFFFFFFF);
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 3, 0, 3, 0, textureWidth - 6, SIZE, 0xFFFFFFFF);
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, SIZE - 3, 1, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, rect[0], rect[1], 3, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 3, 0, rect[0] + 3, rect[1], textureWidth - 6, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, SIZE - 3, 1, rect[0] + textureWidth - 3, rect[1], 3, SIZE, 0xFFFFFFFF);
                 } else {
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, rect[0], rect[1], SIZE, SIZE, 0xFFFFFFFF);
                 }
             }
             case VBVArmorHudConfig.STYLE_ROUNDED -> {
                 if (items.size() > 1) {
                     int border = (SIZE - STEP) / 2;
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE - border, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, rect[0], rect[1], SIZE - border, SIZE, 0xFFFFFFFF);
                     for (int j = 1; j < items.size() - 1; j++) {
-                        g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, border, 1, border + j * STEP, 0, STEP, SIZE, 0xFFFFFFFF);
+                        g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, border, 1, rect[0] + border + j * STEP, rect[1], STEP, SIZE, 0xFFFFFFFF);
                     }
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 1, 1, textureWidth - STEP - border, 0, SIZE - border, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 1, 1, rect[0] + textureWidth - STEP - border, rect[1], SIZE - border, SIZE, 0xFFFFFFFF);
                 } else {
                     g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE, SIZE, 0xFFFFFFFF);
                 }
