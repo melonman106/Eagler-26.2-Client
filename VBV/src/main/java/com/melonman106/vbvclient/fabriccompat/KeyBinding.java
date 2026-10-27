@@ -11,7 +11,7 @@ public final class KeyBinding {
     private boolean down;
     private int presses;
 
-    KeyBinding(String translationKey, String category, int keyCode) {
+    public KeyBinding(String translationKey, String category, int keyCode) {
         if (translationKey == null || translationKey.isBlank()) throw new IllegalArgumentException("Translation key is required");
         this.translationKey = translationKey;
         this.category = category == null ? "key.categories.misc" : category;
