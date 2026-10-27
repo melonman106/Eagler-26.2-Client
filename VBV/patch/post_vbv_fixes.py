@@ -161,7 +161,7 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "KeyBinding.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java"}:
         shutil.copy2(source, target)
 
 # Armor HUD: use the real vanilla hotbar sprite as the panel texture. The
