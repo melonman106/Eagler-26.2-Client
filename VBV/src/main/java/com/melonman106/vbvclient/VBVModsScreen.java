@@ -276,7 +276,7 @@ public final class VBVModsScreen extends Screen {
         try {
             String path = String.valueOf(info.iconPath());
             Identifier icon = path.contains(":") ? Identifier.parse(path) : Identifier.withDefaultNamespace(path);
-            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, size, size, 0, 0, 64, 64, 64, 64);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0, 0, size, size, 64, 64, 64, 64);
         } catch (RuntimeException ignored) {
             // The guaranteed letter badge remains visible.
         }
