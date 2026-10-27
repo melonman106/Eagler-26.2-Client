@@ -92,7 +92,7 @@ public final class VBVExtraFeatures {
     public static int zoomFov() { return zoomFov; }
     public static void toggleZoomEnabled() { zoomEnabled = !zoomEnabled; if (!zoomEnabled && zooming) stopZoom(Minecraft.getInstance()); }
     public static void toggleZoomMode() { zoomToggleMode = !zoomToggleMode; }
-    public static void cycleZoomFov() { zoomFov = zoomFov == 30 ? 20 : zoomFov == 20 ? 10 : 30; if (zooming) Minecraft.getInstance().options.fov().set(zoomFov); }
+    public static void cycleZoomFov() { zoomFov = zoomFov == 30 ? 35 : zoomFov == 35 ? 40 : 30; if (zooming) Minecraft.getInstance().options.fov().set(zoomFov); }
     public static boolean isBetterF3Enabled() { return betterF3Enabled; }
     public static boolean isDebugHudEnabled() { return debugHudEnabled; }
     public static void toggleBetterF3Enabled() { betterF3Enabled = !betterF3Enabled; if (!betterF3Enabled) debugHudEnabled = false; }
