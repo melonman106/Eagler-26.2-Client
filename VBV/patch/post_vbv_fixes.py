@@ -214,24 +214,6 @@ if armor.is_file():
         'private static final Identifier WARNING_TEXTURE = Identifier.parse("armor_hud:textures/gui/exclamation_marks.png");',
         1,
     )
-    # Remove any stale custom texture declaration left by older patch revisions.
-    text = re.sub(
-        r"(?m)^\s*private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE\s*=.*\n",
-        "",
-        text,
-    )
-    old_custom_hotbar = """            case VBVArmorHudConfig.STYLE_HOTBAR -> {
-                int drawWidth = Math.min(textureWidth, 182);
-                g.blit(RenderPipelines.GUI_TEXTURED, UNIQUE_DARK_HOTBAR_TEXTURE,
-                    rect[0], rect[1], drawWidth, SIZE, 0, 0, drawWidth, SIZE, 182, 22);
-            }"""
-    if old_custom_hotbar in text:
-        text = text.replace(old_custom_hotbar, """            case VBVArmorHudConfig.STYLE_HOTBAR -> {
-                int drawWidth = Math.min(textureWidth, 182);
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22,
-                    0, 0, rect[0], rect[1], drawWidth, SIZE, 0xFFFFFFFF);
-            }""", 1)
-
     # blitSprite takes (u, v, x, y, width, height). Anchor panel segments to
     # the calculated widget rectangle instead of the screen origin.
     armor_blits = {
@@ -266,17 +248,16 @@ if config.is_file():
     text = text.replace("style = STYLE_NONE;", "style = STYLE_HOTBAR;", 1)
     config.write_text(text, encoding="utf-8")
 
-# Remove the optional Unique Dark Lite hotbar texture from the generated
-# resource tree. The Armor HUD panel must use Minecraft's vanilla HUD sprite.
-for candidate in RES.rglob("hotbar_texture.png"):
-    if "armor_hud" in candidate.as_posix().lower():
-        candidate.unlink()
-        print("Removed pack-specific Armor HUD panel texture:", candidate)
+# The panel deliberately uses the Unique Dark Lite Armor HUD texture.
+# The pinned pack importer must have extracted this exact asset into game resources.
+armor_texture = RES / "assets/armor_hud/textures/gui/hotbar_texture.png"
 armor_source = dest / "VBVArmorHud.java"
+if not armor_texture.is_file():
+    raise RuntimeError("Unique Dark Lite Armor HUD panel texture is missing: " + str(armor_texture))
 if armor_source.is_file():
     armor_text = armor_source.read_text(encoding="utf-8")
-    if "UNIQUE_DARK_HOTBAR_TEXTURE" in armor_text or "armor_hud:textures/gui/hotbar_texture.png" in armor_text:
-        raise RuntimeError("Armor HUD still references Unique Dark Lite's hotbar_texture.png")
+    if "armor_hud:textures/gui/hotbar_texture.png" not in armor_text:
+        raise RuntimeError("Armor HUD is not configured to use Unique Dark Lite's hotbar_texture.png")
 
 # AppleSkin is intentionally rendered after the vanilla food layer.
 hud_candidates = list(GAME.rglob("Hud.java"))
