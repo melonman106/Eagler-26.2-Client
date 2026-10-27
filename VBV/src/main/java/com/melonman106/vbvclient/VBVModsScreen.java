@@ -30,7 +30,7 @@ public final class VBVModsScreen extends Screen {
     private String searchText = "";
     private boolean ascending = true;
     private int typeFilter = 0;
-    private boolean filtersShown = false;
+    private boolean filtersShown = true;
     private int listScroll = 0;
     private int descScroll = 0;
     private final List<String> descLines = new ArrayList<>();
@@ -86,6 +86,8 @@ public final class VBVModsScreen extends Screen {
             if ("simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
             else if ("ukus-armor-hud".equals(selected.id())) VBVNav.open(new VBVArmorHudConfigScreen(this));
             else if ("vbv-first-person-animations".equals(selected.id())) VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this));
+            else if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade").contains(selected.id()))
+                VBVNav.open(new VBVFeatureConfigScreen(this, selected.id(), selected.name()));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
         addRenderableWidget(configButton);
         addRenderableWidget(Button.builder(Component.literal("World Map"), button -> VBVNav.open(new VBVWorldMapScreen(this)))
@@ -129,7 +131,8 @@ public final class VBVModsScreen extends Screen {
         if (configButton != null) configButton.visible = info != null && (
             "simple-hud-enhanced".equals(info.id())
             || "ukus-armor-hud".equals(info.id())
-            || "vbv-first-person-animations".equals(info.id()));
+            || "vbv-first-person-animations".equals(info.id())
+            || java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade").contains(info.id()));
         rebuildDescription();
     }
 
