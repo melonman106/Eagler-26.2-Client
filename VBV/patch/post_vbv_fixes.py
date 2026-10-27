@@ -161,7 +161,7 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java"}:
         shutil.copy2(source, target)
 
 # Armor HUD: use the real vanilla hotbar sprite as the panel texture. The
@@ -201,6 +201,31 @@ if armor.is_file():
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22,
                     0, 0, rect[0], rect[1], drawWidth, SIZE, 0xFFFFFFFF);
             }""", 1)
+
+    # blitSprite takes (u, v, x, y, width, height). Anchor panel segments to
+    # the calculated widget rectangle instead of the screen origin.
+    armor_blits = {
+        "0, 0, 0, 0, textureWidth - 3, SIZE, 0xFFFFFFFF":
+            "0, 0, rect[0], rect[1], textureWidth - 3, SIZE, 0xFFFFFFFF",
+        "179, 0, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF":
+            "179, 0, rect[0] + textureWidth - 3, rect[1], 3, SIZE, 0xFFFFFFFF",
+        "0, 1, 0, 0, 3, SIZE, 0xFFFFFFFF":
+            "0, 1, rect[0], rect[1], 3, SIZE, 0xFFFFFFFF",
+        "3, 0, 3, 0, textureWidth - 6, SIZE, 0xFFFFFFFF":
+            "3, 0, rect[0] + 3, rect[1], textureWidth - 6, SIZE, 0xFFFFFFFF",
+        "SIZE - 3, 1, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF":
+            "SIZE - 3, 1, rect[0] + textureWidth - 3, rect[1], 3, SIZE, 0xFFFFFFFF",
+        "0, 1, 0, 0, SIZE, SIZE, 0xFFFFFFFF":
+            "0, 1, rect[0], rect[1], SIZE, SIZE, 0xFFFFFFFF",
+        "0, 1, 0, 0, SIZE - border, SIZE, 0xFFFFFFFF":
+            "0, 1, rect[0], rect[1], SIZE - border, SIZE, 0xFFFFFFFF",
+        "border, 1, border + j * STEP, 0, STEP, SIZE, 0xFFFFFFFF":
+            "border, 1, rect[0] + border + j * STEP, rect[1], STEP, SIZE, 0xFFFFFFFF",
+        "1, 1, textureWidth - STEP - border, 0, SIZE - border, SIZE, 0xFFFFFFFF":
+            "1, 1, rect[0] + textureWidth - STEP - border, rect[1], SIZE - border, SIZE, 0xFFFFFFFF",
+    }
+    for old, new in armor_blits.items():
+        text = text.replace(old, new)
     armor.write_text(text, encoding="utf-8")
 
 config = dest / "VBVArmorHudConfig.java"
