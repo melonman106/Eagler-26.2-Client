@@ -85,22 +85,14 @@ def _materialize_eagler_overlay() -> None:
     )
 
 
-# The resource overlay used to be applied indirectly by a local file named
-# zipfile.py. That file shadowed Python's standard-library zipfile module and
-# caused sanitize_modpacks.py to fail on GitHub's runner. Apply it explicitly
-# here instead, then let normal Python imports resolve the real stdlib module.
 _materialize_eagler_overlay()
 
-# Protect the Eagler font atlas before the pinned resource-pack importer runs.
 sanitize = CLIENT_SIDE / "patch/sanitize_modpacks.py"
 if sanitize.is_file():
     subprocess.run([sys.executable, str(sanitize), str(REPO_ROOT)], check=True)
 
-# The Mod Menu source uses 64x64 icon files and intentionally draws the complete
-# texture into a 24x24 UI slot. Do not rewrite the blit dimensions here: the
-# previous rewrite accidentally made the displayed icons 64x64.
-
-# Unique Dark - Lite supplies these under assets/armor_hud/.
+# Make the Armor HUD independent of Unique Dark's optional panel texture. The
+# generated client always has the vanilla hud/hotbar sprite available.
 armor = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVArmorHud.java"
 if armor.is_file():
     text = armor.read_text(encoding="utf-8")
@@ -109,26 +101,14 @@ if armor.is_file():
         'private static final Identifier WARNING_TEXTURE = Identifier.parse("armor_hud:textures/gui/exclamation_marks.png");',
         1,
     )
-    fixed = fixed.replace(
-        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");',
-        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");\n    private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE = Identifier.parse("armor_hud:textures/gui/hotbar_texture.png");',
-        1,
+    fixed = __import__("re").sub(
+        r"(?m)^\s*private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE\s*=.*\n",
+        "",
+        fixed,
     )
-    old_hotbar = '''            case VBVArmorHudConfig.STYLE_HOTBAR -> {
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, 0, 0, textureWidth - 3, SIZE, 0xFFFFFFFF);
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
-            }'''
-    new_hotbar = '''            case VBVArmorHudConfig.STYLE_HOTBAR -> {
-                int drawWidth = Math.min(textureWidth, 182);
-                g.blit(RenderPipelines.GUI_TEXTURED, UNIQUE_DARK_HOTBAR_TEXTURE,
-                    rect[0], rect[1], 0, 0, drawWidth, SIZE, 182, 22);
-            }'''
-    fixed = fixed.replace(old_hotbar, new_hotbar, 1)
     if fixed != text:
         armor.write_text(fixed, encoding="utf-8")
 
-# Use the known-good upstream VBV patch implementation, then apply our local
-# native-client fixes below.
 PATCH_URL = (
     "https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/"
     "284ff62a345779f4773dca86a6881bc7a6df7335/VBV/patch/apply_vbv_patch.py"
