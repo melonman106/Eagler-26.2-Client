@@ -61,8 +61,8 @@ public final class VBVHudEditorScreen extends Screen {
             VBVJadeHud.offsetX = Math.max(-width / 2 + 90, Math.min(width / 2 - 90, VBVJadeHud.offsetX + (int)Math.round(dragX)));
             VBVJadeHud.offsetY = Math.max(-8, Math.min(height - 50, VBVJadeHud.offsetY + (int)Math.round(dragY)));
         } else {
-            VBVMiniMap.offsetX = Math.max(-width + 104, Math.min(width - 104, VBVMiniMap.offsetX + (int)Math.round(dragX)));
-            VBVMiniMap.offsetY = Math.max(-height + 40, Math.min(height - 120, VBVMiniMap.offsetY + (int)Math.round(dragY)));
+            VBVMiniMap.offsetX = Math.max(72 - width, Math.min(8, VBVMiniMap.offsetX + (int)Math.round(dragX)));
+            VBVMiniMap.offsetY = Math.max(-8, Math.min(height - 72, VBVMiniMap.offsetY + (int)Math.round(dragY)));
         }
         return true;
     }
