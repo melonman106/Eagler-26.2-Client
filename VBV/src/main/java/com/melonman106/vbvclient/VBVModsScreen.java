@@ -196,7 +196,12 @@ public final class VBVModsScreen extends Screen {
             for (int k = 0; k < visibleRows(); k++) {
                 int index = listScroll + k; if (index >= shown.size()) break;
                 int top = LIST_TOP + 4 + k * ROW_HEIGHT - 2;
-                if (my >= top && my < top + ROW_HEIGHT) { select(shown.get(index)); return true; }
+                if (my >= top && my < top + ROW_HEIGHT) {
+                    VBVModInfo info = shown.get(index);
+                    if (doubleClick) VBVNav.open(new VBVModDetailsScreen(this, info));
+                    else select(info);
+                    return true;
+                }
             }
         }
         return false;
