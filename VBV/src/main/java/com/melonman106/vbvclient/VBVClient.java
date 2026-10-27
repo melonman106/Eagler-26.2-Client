@@ -17,7 +17,7 @@ public final class VBVClient {
 
         registerMod(new VBVModInfo(
             MOD_ID, "ViaBackportVisuals Client", VERSION, "melonman106",
-            "Native client-side mod suite for Eaglercraft 26.2 u1.",
+            "Native client-side mod suite for Eaglercraft 26.2 u2.",
             "vbvclient:textures/mods/viabackportvisuals-client.png", false));
 
         registerMod(new VBVModInfo(
@@ -76,6 +76,11 @@ public final class VBVClient {
             "MisterPeModder / native Eagler port",
             "Hold Shift while hovering a shulker box in an inventory to preview its 27 contents slots.",
             "vbvclient:textures/mods/shulkerboxtooltip.png", false));
+
+        registerMod(new VBVModInfo(
+            "vbv-first-person-animations", "VBV First-Person Animations", "Native Eagler port 1.0.0",
+            "melonman106", "Natural attack swing animation with visible arm movement. Configure with the Mod Menu Config button.",
+            "vbvclient:textures/mods/viabackportvisuals-client.png", false));
 
         VBVGeneratedPackMods.register();
         HerzVBVBridge.initialize();
