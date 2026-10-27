@@ -34,6 +34,7 @@ public final class VBVArmorHud {
         EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
     private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");
+    private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE = Identifier.parse("armor_hud:textures/gui/hotbar_texture.png");
     private static final Identifier HOTBAR_OFFHAND_LEFT_SPRITE = Identifier.withDefaultNamespace("hud/hotbar_offhand_left");
     private static final Identifier[] EMPTY_SLOT_SPRITES = {
         Identifier.withDefaultNamespace("container/slot/helmet"),
@@ -194,8 +195,9 @@ public final class VBVArmorHud {
         int textureWidth = SIZE + ((items.size() - 1) * STEP);
         switch (VBVArmorHudConfig.style) {
             case VBVArmorHudConfig.STYLE_HOTBAR -> {
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, rect[0], rect[1], textureWidth - 3, SIZE, 0xFFFFFFFF);
-                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, rect[0] + textureWidth - 3, rect[1], 3, SIZE, 0xFFFFFFFF);
+                int drawWidth = Math.min(textureWidth, 182);
+                g.blit(RenderPipelines.GUI_TEXTURED, UNIQUE_DARK_HOTBAR_TEXTURE,
+                    rect[0], rect[1], drawWidth, SIZE, 0, 0, drawWidth, SIZE, 182, 22);
             }
             case VBVArmorHudConfig.STYLE_ROUNDED_CORNERS -> {
                 if (items.size() > 1) {
