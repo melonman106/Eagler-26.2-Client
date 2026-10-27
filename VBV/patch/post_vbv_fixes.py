@@ -175,8 +175,14 @@ if armor.is_file():
         "private static final int SIZE = 22;": "private static final int SIZE = 24;",
         "private static final int HOTBAR_OFFSET = 98;": "private static final int HOTBAR_OFFSET = 100;",
         "if (!(minecraft.getCameraEntity() instanceof Player player)) return;": "Player player = minecraft.player;\n        if (player == null) return;",
-        "VBVArmorHudConfig.enabled = false;": "System.err.println(\"VBV Armor HUD render error: \" + t);",
+        "VBVArmorHudConfig.enabled = false;": "if (!renderErrorLogged) { System.err.println(\"VBV Armor HUD render error: \" + t); renderErrorLogged = true; }\\n            VBVArmorHudConfig.enabled = false;",
     }
+    if "private static boolean renderErrorLogged;" not in text:
+        text = text.replace(
+            "private static final int WARNING_SIZE = 8;",
+            "private static final int WARNING_SIZE = 8;\\n    private static boolean renderErrorLogged;",
+            1,
+        )
     for old, new in replacements.items():
         text = text.replace(old, new, 1)
     text = text.replace(
