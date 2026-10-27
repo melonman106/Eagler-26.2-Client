@@ -51,7 +51,7 @@ def matching_brace(text, brace):
             elif c == quote:
                 state = "code"
         elif state == "line_comment":
-            if c == "\\n":
+            if c == "\n":
                 state = "code"
         elif state == "block_comment":
             if c == "*" and n == "/":
