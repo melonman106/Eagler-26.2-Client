@@ -102,7 +102,7 @@ jobs:
           find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort
 
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
-          for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced shine mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
+          for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
             test -s "$icon_root/$icon.png" || {
               echo "::error::Required VBV mod icon was not installed: $icon_root/$icon.png"
               exit 1
