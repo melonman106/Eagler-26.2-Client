@@ -46,7 +46,7 @@ def matching_brace(text, brace):
             quote = '"' if state == "string" else "'"
             if escaped:
                 escaped = False
-            elif c == "\\\\":
+            elif c == "\\":
                 escaped = True
             elif c == quote:
                 state = "code"
@@ -63,7 +63,7 @@ def matching_brace(text, brace):
 
 def find_if_block_containing(text, token_pos):
     """Only remove an if-block when ShineConfig appears in that if's condition."""
-    candidates = list(re.finditer(r"\\bif\\s*\\(", text[:token_pos]))
+    candidates = list(re.finditer(r"\bif\s*\(", text[:token_pos]))
     for match in reversed(candidates):
         # Find the closing parenthesis for this if condition while respecting
         # strings and nested parentheses. The Shine token must be in the
@@ -80,7 +80,7 @@ def find_if_block_containing(text, token_pos):
                 quote = '"' if state == "string" else "'"
                 if escaped:
                     escaped = False
-                elif c == "\\\\":
+                elif c == "\\":
                     escaped = True
                 elif c == quote:
                     state = "code"
