@@ -35,13 +35,13 @@ public final class VBVHudEditorScreen extends Screen {
     }
 
     private String editLabel() { return "Edit: " + (editJade ? "Jade overlay" : "Minimap"); }
-    private int mapX() { return editJade ? width / 2 - 90 + VBVJadeHud.offsetX : width - 96 - 8 + VBVMiniMap.offsetX; }
+    private int mapX() { return editJade ? width / 2 - 90 + VBVJadeHud.offsetX : width - 64 - 8 + VBVMiniMap.offsetX; }
     private int mapY() { return 8 + (editJade ? VBVJadeHud.offsetY : VBVMiniMap.offsetY); }
 
     @Override public boolean mouseClicked(MouseButtonEvent click, boolean doubleClick) {
         if (super.mouseClicked(click, doubleClick)) return true;
-        int w = editJade ? 180 : 100;
-        int h = editJade ? 46 : 100;
+        int w = editJade ? 180 : 64;
+        int h = editJade ? 46 : 64;
         if (click.x() >= mapX() - 4 && click.x() <= mapX() + w
             && click.y() >= mapY() - 4 && click.y() <= mapY() + h) {
             dragging = true;
@@ -58,8 +58,8 @@ public final class VBVHudEditorScreen extends Screen {
     @Override public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
         if (!dragging) return super.mouseDragged(event, dragX, dragY);
         if (editJade) {
-            VBVJadeHud.offsetX += (int)Math.round(dragX);
-            VBVJadeHud.offsetY = Math.max(0, Math.min(height - 60, VBVJadeHud.offsetY + (int)Math.round(dragY)));
+            VBVJadeHud.offsetX = Math.max(-width / 2 + 90, Math.min(width / 2 - 90, VBVJadeHud.offsetX + (int)Math.round(dragX)));
+            VBVJadeHud.offsetY = Math.max(-8, Math.min(height - 50, VBVJadeHud.offsetY + (int)Math.round(dragY)));
         } else {
             VBVMiniMap.offsetX = Math.max(-width + 104, Math.min(width - 104, VBVMiniMap.offsetX + (int)Math.round(dragX)));
             VBVMiniMap.offsetY = Math.max(-height + 40, Math.min(height - 120, VBVMiniMap.offsetY + (int)Math.round(dragY)));
@@ -78,15 +78,15 @@ public final class VBVHudEditorScreen extends Screen {
             graphics.text(font, "Stone", x + 8, y + 5, 0xFFFFFFFF, true);
             graphics.text(font, "XYZ: 120, 64, -32", x + 8, y + 18, 0xFFCCCCCC, false);
         } else {
-            graphics.fill(x - 3, y - 3, x + 99, y + 99, 0xCC111111);
-            graphics.fill(x - 1, y - 1, x + 97, y + 97, 0xFFB0B0B0);
-            for (int py = 0; py < 96; py += 4) for (int px = 0; px < 96; px += 4) {
+            graphics.fill(x - 3, y - 3, x + 67, y + 67, 0xCC111111);
+            graphics.fill(x - 1, y - 1, x + 65, y + 65, 0xFFB0B0B0);
+            for (int py = 0; py < 64; py += 4) for (int px = 0; px < 64; px += 4) {
                 int r = 45 + (px * 3 + py) % 70, g = 75 + (py * 2 + px) % 100, b = 35 + (px + py * 3) % 50;
                 graphics.fill(x + px, y + py, x + px + 4, y + py + 4, 0xFF000000 | (r << 16) | (g << 8) | b);
             }
-            graphics.fill(x + 45, y + 45, x + 52, y + 52, 0xFFFFFFFF);
-            graphics.fill(x + 47, y + 47, x + 50, y + 50, 0xFF3B83E8);
-            graphics.text(font, "N", x + 45, y + 3, 0xFFFFFFFF, true);
+            graphics.fill(x + 29, y + 29, x + 36, y + 36, 0xFFFFFFFF);
+            graphics.fill(x + 31, y + 31, x + 34, y + 34, 0xFF3B83E8);
+            graphics.text(font, "N", x + 29, y + 3, 0xFFFFFFFF, true);
         }
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
