@@ -32,18 +32,16 @@ public final class VBVAppleSkin {
         int guiHeight = graphics.guiHeight();
         int top = guiHeight - 39;
 
-        // Match the vanilla hunger-bar anchor, but move the saturation overlay
-        // four pixels to the right so it sits centered over the hunger icons.
-        // Keep the overlay just slightly smaller than the original 9x9 icons.
-        // The overlay is rendered after extractFood, so it stays above the vanilla hunger layer.
+        // One hunger icon is 8 pixels wide. The previous position was one full
+        // hunger-icon too far right, so align the overlay 8 pixels left.
         for (int i = 0; i < 10; i++) {
             if (i * 2 >= foodLevel) continue;
             float amount = Math.max(0.0F, Math.min(1.0F, (saturation - i * 2.0F) / 2.0F));
             if (amount <= 0.0F) continue;
             int frame = Math.min(3, Math.max(0, (int)Math.ceil(amount * 4.0F) - 1));
-            int iconX = guiWidth / 2 + 95 - i * 8;
-            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top,
-                frame * 9, 0, 8, 8, 256, 256);
+            int iconX = guiWidth / 2 + 87 - i * 8;
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top - 1,
+                frame * 9, 0, 9, 9, 256, 256);
         }
 
         if (showText) {
