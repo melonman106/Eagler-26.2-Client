@@ -165,6 +165,12 @@ for source in SRC.rglob("*.java"):
     # and compatibility class, not a stale hand-picked subset.
     shutil.copy2(source, target)
 
+# Keep Fabric-style START and END tick callbacks on opposite sides of the
+# real Minecraft.tick() body, rather than firing both consecutively at its end.
+minecraft_candidates = java_files_named("Minecraft.java")
+if not minecraft_candidates:
+    raise RuntimeError("Minecraft.java not found; cannot split Fabric client tick callbacks")
+minecraft = next((p for p in minecraft_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")), minecraft_candidates[0])
 # Resolve Eaglercraft's renamed Minecraft screen-navigation method from the
 # generated source instead of assuming vanilla's setScreen name.
 nav = dest / "VBVNav.java"
@@ -199,12 +205,6 @@ if nav.is_file():
         nav.write_text(fixed_nav, encoding="utf-8")
         print("Patched VBVNav to generated Minecraft screen method:", screen_method)
 
-# Keep Fabric-style START and END tick callbacks on opposite sides of the
-# real Minecraft.tick() body, rather than firing both consecutively at its end.
-minecraft_candidates = java_files_named("Minecraft.java")
-if not minecraft_candidates:
-    raise RuntimeError("Minecraft.java not found; cannot split Fabric client tick callbacks")
-minecraft = next((p for p in minecraft_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")), minecraft_candidates[0])
 mc_text = minecraft.read_text(encoding="utf-8")
 start_call = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.startTick(this);"
 end_call = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.endTick(this);"
