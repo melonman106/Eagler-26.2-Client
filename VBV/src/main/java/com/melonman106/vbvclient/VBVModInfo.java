@@ -10,6 +10,6 @@ public record VBVModInfo(
     boolean resourcePackMod
 ) {
     public VBVModInfo(String id, String name, String version, String authors, String description) {
-        this(id, name, version, authors, description, "minecraft:misc/unknown_pack", false);
+        this(id, name, version, authors, description, "minecraft:textures/misc/unknown_pack.png", false);
     }
 }
