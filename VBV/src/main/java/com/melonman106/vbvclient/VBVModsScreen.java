@@ -68,7 +68,6 @@ public final class VBVModsScreen extends Screen {
         searchBox.setValue(searchText);
         searchBox.setResponder(text -> { searchText = text; listScroll = 0; refilter(); });
         addRenderableWidget(searchBox);
-        setInitialFocus(searchBox);
         int sortWidth = font.width("Sort: Z-A") + 28;
         int typeWidth = font.width("Show: Packs") + 20;
         int filtersWidth = sortWidth + typeWidth + 2;
@@ -83,7 +82,9 @@ public final class VBVModsScreen extends Screen {
         addRenderableWidget(sortButton);
         addRenderableWidget(typeButton);
         configButton = Button.builder(Component.literal("Config"), button -> {
-            if (selected != null && "simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
+            if (selected == null) return;
+            if ("simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
+            else if ("vbv-first-person-animations".equals(selected.id())) VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
         addRenderableWidget(configButton);
         addRenderableWidget(Button.builder(Component.literal("World Map"), button -> VBVNav.open(new VBVWorldMapScreen(this)))
@@ -124,7 +125,7 @@ public final class VBVModsScreen extends Screen {
 
     private void select(VBVModInfo info) {
         selected = info; descScroll = 0;
-        if (configButton != null) configButton.visible = info != null && "simple-hud-enhanced".equals(info.id());
+        if (configButton != null) configButton.visible = info != null && ("simple-hud-enhanced".equals(info.id()) || "vbv-first-person-animations".equals(info.id()));
         rebuildDescription();
     }
 
