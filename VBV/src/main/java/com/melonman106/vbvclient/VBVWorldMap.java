@@ -34,6 +34,7 @@ public final class VBVWorldMap {
     private static long lastChunk = Long.MIN_VALUE;
     private static String lastWorld = "";
     private static int nearbyScanTicks;
+    private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
 
@@ -258,6 +259,28 @@ public final class VBVWorldMap {
     }
 
     private static void saveWorld(String world) {
+        String data = serializeWorld(world);
+        String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        storageWriteFailed = !writeStorage(storageKey, data);
+        if (storageWriteFailed) {
+            System.err.println("[VBV World Map] Browser storage write failed; use Export Backup on the map screen.");
+        }
+    }
+
+    /** Exports the current in-memory map even when browser storage is full. */
+    public static void exportBackup(String world) {
+        loadWorld(world);
+        String safeName = world.replaceAll("[^A-Za-z0-9._-]", "_");
+        downloadBackup("VBV-WorldMap-" + safeName + ".vbvmap.txt",
+            "VBV-WORLDMAP-BACKUP-v1\nWORLD:" +
+            Base64.getUrlEncoder().withoutPadding().encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8)) +
+            "\n" + serializeWorld(world));
+    }
+
+    public static boolean storageWriteFailed() { return storageWriteFailed; }
+
+    private static String serializeWorld(String world) {
         StringBuilder output = new StringBuilder();
         Set<Long> explored = exploredSet(world, false);
         Map<Long, int[]> terrain = TERRAIN.getOrDefault(world, Collections.emptyMap());
@@ -282,12 +305,11 @@ public final class VBVWorldMap {
                 .append(Base64.getUrlEncoder().withoutPadding().encodeToString(waypoint.name().getBytes(java.nio.charset.StandardCharsets.UTF_8))).append(':')
                 .append(waypoint.x()).append(':').append(waypoint.y()).append(':').append(waypoint.z()).append('\n');
         }
-        String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
-            .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        if (!writeStorage(storageKey, output.toString())) {
-            System.err.println("[VBV World Map] Browser storage write failed; map data may not persist.");
-        }
+        return output.toString();
     }
+
+    @JSBody(params = {"filename", "content"}, script = "try { var blob = new Blob([content], {type: 'text/plain;charset=utf-8'}); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = filename; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove(); window.setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); } catch (e) { console.error('[VBV World Map] Backup download failed', e); }")
+    private static native void downloadBackup(String filename, String content);
 
     @JSBody(params = {"key"}, script = "try { return window.localStorage.getItem(key) || ''; } catch (e) { return ''; }")
     private static native String readStorage(String key);
