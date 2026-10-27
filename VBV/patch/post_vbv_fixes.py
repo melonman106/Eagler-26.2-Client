@@ -178,7 +178,7 @@ if nav.is_file():
     mc_text = minecraft.read_text(encoding="utf-8")
     screen_methods = []
     for match in re.finditer(
-        r"(?m)^\\s*(?:(?:public|protected|private)\\s+)?(?:static\\s+)?[\\w.$<>?]+\\s+(\\w+)\\s*\\(\\s*(?:net\\.minecraft\\.client\\.gui\\.screens\\.)?Screen\\s+\\w+\\s*\\)",
+        r"(?m)^\s*(?:(?:public|protected|private)\s+)?(?:static\s+)?[\w.$<>?]+\s+(\w+)\s*\(\s*(?:net\.minecraft\.client\.gui\.screens\.)?Screen\s+\w+\s*\)",
         mc_text,
     ):
         if match.group(1) not in {"if", "while", "switch", "catch"}:
@@ -194,7 +194,7 @@ if nav.is_file():
         )
     nav_text = nav.read_text(encoding="utf-8")
     fixed_nav = re.sub(
-        r"Minecraft\\.getInstance\\(\\)\\.\\w+\\(screen\\)",
+        r"Minecraft\.getInstance\(\)\.\w+\(screen\)",
         "Minecraft.getInstance()." + screen_method + "(screen)",
         nav_text,
         count=1,
