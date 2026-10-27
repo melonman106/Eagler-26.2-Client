@@ -161,7 +161,7 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java", "FabricCompatClient.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVWorldMapScreen.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java", "FabricCompatClient.java"}:
         shutil.copy2(source, target)
 
 # Keep Fabric-style START and END tick callbacks on opposite sides of the
@@ -264,6 +264,18 @@ if config.is_file():
     text = text.replace("offsetY = 0;", "offsetY = 8;", 1)
     text = text.replace("style = STYLE_NONE;", "style = STYLE_HOTBAR;", 1)
     config.write_text(text, encoding="utf-8")
+
+# Remove the optional Unique Dark Lite hotbar texture from the generated
+# resource tree. The Armor HUD panel must use Minecraft's vanilla HUD sprite.
+for candidate in RES.rglob("hotbar_texture.png"):
+    if "armor_hud" in candidate.as_posix().lower():
+        candidate.unlink()
+        print("Removed pack-specific Armor HUD panel texture:", candidate)
+armor_source = dest / "VBVArmorHud.java"
+if armor_source.is_file():
+    armor_text = armor_source.read_text(encoding="utf-8")
+    if "UNIQUE_DARK_HOTBAR_TEXTURE" in armor_text or "armor_hud:textures/gui/hotbar_texture.png" in armor_text:
+        raise RuntimeError("Armor HUD still references Unique Dark Lite's hotbar_texture.png")
 
 # AppleSkin is intentionally rendered after the vanilla food layer.
 hud_candidates = list(GAME.rglob("Hud.java"))
