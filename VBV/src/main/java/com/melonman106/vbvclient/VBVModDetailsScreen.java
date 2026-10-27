@@ -35,14 +35,6 @@ public final class VBVModDetailsScreen extends Screen {
         label(info.resourcePackMod() ? "Type: Resource-pack client mod" : "Type: Native client mod");
         label("pack.png: " + info.iconPath());
 
-        if ("shine".equals(info.id())) {
-            addRenderableWidget(Button.builder(
-                Component.literal("Config"),
-                button -> VBVNav.open(new ShineConfigScreen(this))
-            ).bounds(width / 2 - 50, labelY + 4, 100, 20).build());
-            labelY += 28;
-        }
-
         if ("simple-hud-enhanced".equals(info.id())) {
             addRenderableWidget(Button.builder(
                 Component.literal("Config"),
@@ -77,9 +69,7 @@ public final class VBVModDetailsScreen extends Screen {
             text = text.substring(cut).trim();
         }
 
-        addRenderableWidget(Button.builder(
-            Component.literal("Back"),
-            button -> VBVNav.open(parent)
-        ).bounds(width / 2 - 50, height - 30, 100, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Back"), button -> VBVNav.open(parent))
+            .bounds(width / 2 - 50, height - 30, 100, 20).build());
     }
 }
