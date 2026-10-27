@@ -51,11 +51,7 @@ public final class VBVArmorHud {
         try {
             renderInner(graphics);
         } catch (Throwable t) {
-            // Log once, then stop retrying the failing HUD on every frame.
-            if (!renderErrorLogged) {
-                System.err.println("VBV Armor HUD render error: " + t);
-                renderErrorLogged = true;
-            }
+            // A HUD bug must never take down the client; stop retrying every frame.
             VBVArmorHudConfig.enabled = false;
         }
     }
