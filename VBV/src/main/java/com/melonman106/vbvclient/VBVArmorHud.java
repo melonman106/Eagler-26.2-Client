@@ -215,7 +215,7 @@ public final class VBVArmorHud {
                     }
                     g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 1, 1, rect[0] + textureWidth - STEP - border, rect[1], SIZE - border, SIZE, 0xFFFFFFFF);
                 } else {
-                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, 0, 0, SIZE, SIZE, 0xFFFFFFFF);
+                    g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_OFFHAND_LEFT_SPRITE, 29, 24, 0, 1, rect[0], rect[1], SIZE, SIZE, 0xFFFFFFFF);
                 }
             }
             case VBVArmorHudConfig.STYLE_NONE -> { }
