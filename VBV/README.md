@@ -22,7 +22,7 @@ Existing native VBV mod metadata is exposed through the compatibility registry. 
 
 ## Compatibility limits
 
-This is a **porting shim, not a drop-in Fabric runtime**. It does not load mod JARs, parse `fabric.mod.json`, resolve dependencies, apply Mixins, transform bytecode, or implement the full Fabric API. Keybindings must be connected to an actual browser keyboard hook before they can receive input. APIs that rely on unsupported Minecraft internals must still be adapted manually.
+This is a **porting shim, not a drop-in Fabric runtime**. It does not load mod JARs, parse `fabric.mod.json`, resolve dependencies, apply Mixins, transform bytecode, or implement the full Fabric API. The build patch connects registered keybindings to browser keydown/keyup events. Mod-specific inventory behavior still needs explicit integration, and APIs that rely on unsupported Minecraft internals must be adapted manually.
 
 The intended workflow is to port one small mod feature at a time, add only the API surface it needs, and verify it through the Eaglercraft 26.2 u2 GitHub Actions compile.
 
