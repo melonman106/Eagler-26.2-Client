@@ -255,7 +255,7 @@ public final class VBVModsScreen extends Screen {
     private void drawIcon(GuiGraphicsExtractor graphics, VBVModInfo info, int x, int y, int size) {
         try {
             String path = String.valueOf(info.iconPath()); Identifier icon = path.contains(":") ? Identifier.parse(path) : Identifier.withDefaultNamespace(path);
-            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0.0F, 0.0F, size, size, 64, 64); return;
+            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, size, size, 0, 0, 64, 64, 64, 64); return;
         } catch (RuntimeException ignored) { }
         int h = String.valueOf(info.id()).hashCode(), r = 70 + (h & 0x7F), g = 70 + ((h >> 7) & 0x7F), b = 70 + ((h >> 14) & 0x7F);
         graphics.fill(x, y, x + size, y + size, 0xFF000000 | (r << 16) | (g << 8) | b);
