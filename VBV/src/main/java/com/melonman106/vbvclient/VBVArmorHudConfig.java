@@ -59,10 +59,10 @@ public final class VBVArmorHudConfig {
         anchor = ANCHOR_HOTBAR;
         side = SIDE_LEFT;
         offsetX = 0;
-        offsetY = 0;
+        offsetY = 8;
         style = STYLE_HOTBAR;
         orientation = ORIENT_HORIZONTAL;
-        widgetShown = SHOWN_NOT_EMPTY;
+        widgetShown = SHOWN_ALWAYS;
         offhandBehavior = OFFHAND_ADHERE;
         durabilityDisplay = DURA_BAR;
         offHandDurability = true;
