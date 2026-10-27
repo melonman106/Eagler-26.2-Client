@@ -62,7 +62,7 @@ jobs:
           portable_kit="$RUNNER_TEMP/portable-kit.zip"
           portable_root="$RUNNER_TEMP/portable-kit"
           overlay_target="legacy-u1-kit/inputs/resource-overlay-normal.zip"
-          expected_setup_sha256="476fd0aca5638ecfb57ff2383256e2275ab7ac879973cf69191b8a535d2e3ec2"
+          expected_setup_sha256="d8e7240fba804249eae5706a6641b3fbd783a4c09923d31d4ee4c6386a273587"
           expected_overlay_sha256="2ba7e3376891c64f8bf57f3687e05b8dbe1971a75475b6825449e5e5f96d71f3"
           setup_url="https://github.com/melonman106/Eagler-26.2-Client/releases/download/Cleit/Eaglercraft-26.2-u2-Setup.jar"
 
