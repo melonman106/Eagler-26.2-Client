@@ -161,8 +161,31 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java", "FabricCompatClient.java"}:
         shutil.copy2(source, target)
+
+# Keep Fabric-style START and END tick callbacks on opposite sides of the
+# real Minecraft.tick() body, rather than firing both consecutively at its end.
+minecraft_candidates = java_files_named("Minecraft.java")
+if not minecraft_candidates:
+    raise RuntimeError("Minecraft.java not found; cannot split Fabric client tick callbacks")
+minecraft = next((p for p in minecraft_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")), minecraft_candidates[0])
+mc_text = minecraft.read_text(encoding="utf-8")
+start_call = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.startTick(this);"
+end_call = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.endTick(this);"
+legacy_call = "com.melonman106.vbvclient.fabriccompat.FabricCompatClient.tick(this);"
+if legacy_call in mc_text:
+    mc_text = mc_text.replace(legacy_call, end_call, 1)
+elif end_call not in mc_text:
+    raise RuntimeError("Fabric client tick hook was not found in Minecraft.java")
+if start_call not in mc_text:
+    tick_match = re.search(r"(?:public|protected|private)\\s+void\\s+tick\\s*\\(\\s*\\)\\s*\\{", mc_text)
+    if not tick_match:
+        raise RuntimeError("Minecraft.tick() was not found for Fabric START callback")
+    brace = mc_text.find("{", tick_match.start())
+    mc_text = mc_text[:brace + 1] + "\\n        " + start_call + mc_text[brace + 1:]
+minecraft.write_text(mc_text, encoding="utf-8")
+print("Split Fabric START/END callbacks around Minecraft.tick().")
 
 # Armor HUD: use the real vanilla hotbar sprite as the panel texture. The
 # previous custom armor_hud texture path was pack-dependent and produced the
