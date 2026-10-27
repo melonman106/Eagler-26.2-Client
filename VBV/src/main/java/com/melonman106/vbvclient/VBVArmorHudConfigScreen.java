@@ -21,7 +21,8 @@ public final class VBVArmorHudConfigScreen extends Screen {
         this.parent = parent;
     }
 
-    private int left() { return width / 2 - 205; }
+    private int columnWidth() { return Math.max(120, Math.min(200, (width - 20) / 2)); }
+    private int left() { return width / 2 - columnWidth() - 5; }
     private int right() { return width / 2 + 5; }
     private int rowY(int row) { return 20 + row * 21; }
 
@@ -85,11 +86,11 @@ public final class VBVArmorHudConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(label.get()), b -> {
             action.run();
             b.setMessage(Component.literal(label.get()));
-        }).bounds(x, rowY(row), 200, 20).build());
+        }).bounds(x, rowY(row), columnWidth(), 20).build());
     }
 
     private EditBox box(int x, int y, int value) {
-        EditBox box = new EditBox(font, x, y, 100, 20, Component.literal("value"));
+        EditBox box = new EditBox(font, x, y, Math.max(40, columnWidth() - 100), 20, Component.literal("value"));
         box.setValue(Integer.toString(value));
         addRenderableWidget(box);
         return box;
