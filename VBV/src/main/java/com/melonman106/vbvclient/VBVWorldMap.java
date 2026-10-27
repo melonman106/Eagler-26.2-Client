@@ -311,6 +311,14 @@ public final class VBVWorldMap {
     @JSBody(params = {"filename", "content"}, script = "try { var blob = new Blob([content], {type: 'text/plain;charset=utf-8'}); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = filename; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove(); window.setTimeout(function(){ URL.revokeObjectURL(url); }, 1500); } catch (e) { console.error('[VBV World Map] Backup download failed', e); }")
     private static native void downloadBackup(String filename, String content);
 
+    /** Opens a browser file picker and restores a previously exported backup. */
+    public static void importBackup() {
+        importBackupFromFile();
+    }
+
+    @JSBody(script = "try { var input = document.createElement('input'); input.type = 'file'; input.accept = '.txt,.vbvmap'; input.onchange = function(){ var file = input.files && input.files[0]; if (!file) return; var reader = new FileReader(); reader.onload = function(){ try { var text = String(reader.result || ''); var lines = text.split(/\\r?\\n/); if (lines[0] !== 'VBV-WORLDMAP-BACKUP-v1' || !lines[1] || lines[1].indexOf('WORLD:') !== 0) throw new Error('This is not a VBV World Map backup'); var token = lines[1].substring(6); var payload = lines.slice(2).join('\\n'); window.localStorage.setItem('vbv.worldmap.v1.' + token, payload); window.alert('World map backup imported. Reload the Eaglercraft page to load it.'); } catch (e) { window.alert('Import failed. Browser storage may be full or blocked. If it is full, clear this site\'s storage, reload, then import the backup again. Details: ' + e); } }; reader.readAsText(file); }; input.click(); } catch (e) { window.alert('Could not open the backup file picker: ' + e); }")
+    private static native void importBackupFromFile();
+
     @JSBody(params = {"key"}, script = "try { return window.localStorage.getItem(key) || ''; } catch (e) { return ''; }")
     private static native String readStorage(String key);
 
