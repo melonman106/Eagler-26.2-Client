@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Remove resource-pack assets that are incompatible with the native Eagler UI."""
 from pathlib import Path
+import os
 import shutil
 import sys
 import tempfile
@@ -18,7 +19,7 @@ if not MODS.is_dir():
 # assets/appleskin/textures/icons.png) while protecting the core font.
 for source in sorted(MODS.glob("*.zip")):
     fd, temp_name = tempfile.mkstemp(prefix=source.stem + "-", suffix=".zip", dir=source.parent)
-    Path(temp_name).unlink(missing_ok=True)
+    os.close(fd)
     temp = Path(temp_name)
     changed = False
     try:
