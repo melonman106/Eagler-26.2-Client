@@ -202,11 +202,9 @@ if armor.is_file():
         'private static final Identifier WARNING_TEXTURE = Identifier.parse("armor_hud:textures/gui/exclamation_marks.png");',
         1,
     )
-    text = text.replace(
-        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");',
-        '    private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE = Identifier.parse("armor_hud:textures/gui/hotbar_texture.png");',
-        1,
-    )
+    # Keep the vanilla HOTBAR_SPRITE declaration intact. The Armor HUD source
+    # already declares UNIQUE_DARK_HOTBAR_TEXTURE; replacing HOTBAR_SPRITE here
+    # caused both a duplicate declaration and a missing symbol in generated Java.
     old_hotbar = """            case VBVArmorHudConfig.STYLE_HOTBAR -> {
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, 0, 0, textureWidth - 3, SIZE, 0xFFFFFFFF);
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
