@@ -3,13 +3,17 @@ package com.melonman106.vbvclient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 
-/** Native AppleSkin-style saturation overlay drawn on the hunger bar. */
+/** Native AppleSkin-style saturation overlay using the AppleSkin icons atlas. */
 public final class VBVAppleSkin {
     private static boolean enabled = true;
     private static boolean showText = false;
+    private static final Identifier ICONS = Identifier.parse("appleskin:textures/icons.png");
     static int x = 4;
     static int y = 4;
+
     private VBVAppleSkin() {}
     public static boolean isEnabled() { return enabled; }
     public static void toggleEnabled() { enabled = !enabled; }
@@ -28,21 +32,22 @@ public final class VBVAppleSkin {
         int guiHeight = graphics.guiHeight();
         int startX = guiWidth / 2 + 10;
         int top = guiHeight - 39;
-        // AppleSkin-style saturation indicator: slim segmented amber ticks above
-        // each hunger icon, not opaque yellow rectangles covering the food texture.
+
+        // AppleSkin's 256x256 icons atlas uses four 9x9 partial saturation frames
+        // at U=0,9,18,27. The resource is supplied by Unique Dark - Lite when present.
         for (int i = 0; i < 10; i++) {
-            int iconX = startX + 80 - i * 8;
+            if (i * 2 >= foodLevel) continue;
             float amount = Math.max(0.0F, Math.min(1.0F, (saturation - i * 2.0F) / 2.0F));
-            if (amount <= 0.0F || i * 2 >= foodLevel) continue;
-            int left = iconX + 1;
-            int right = left + Math.max(1, Math.round(6.0F * amount));
-            // Two-pixel shadowed indicator remains legible over bright backgrounds.
-            graphics.fill(left, top - 2, iconX + 7, top, 0xB0000000);
-            graphics.fill(left, top - 2, Math.min(iconX + 7, right), top - 1, 0xFFFFD65A);
-            graphics.fill(left, top - 1, Math.min(iconX + 7, right), top, 0xFFB77A22);
+            if (amount <= 0.0F) continue;
+            int frame = Math.min(3, Math.max(0, (int)Math.ceil(amount * 4.0F) - 1));
+            int iconX = startX + 80 - i * 8;
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top - 1,
+                frame * 9, 0, 9, 9, 256, 256);
         }
+
         if (showText) {
-            String line = String.format(java.util.Locale.ROOT, "Food: %d/20  Saturation: %.1f", foodLevel, saturation);
+            String line = String.format(java.util.Locale.ROOT,
+                "Food: %d/20  Saturation: %.1f", foodLevel, saturation);
             graphics.text(minecraft.font, line, x, y, 0xFFFFFFFF, true);
         }
     }
