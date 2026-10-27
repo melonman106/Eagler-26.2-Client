@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Stable VBV patch runner.
-
-The full patcher is pinned to the last known-good implementation so a bad
-large-file edit cannot silently remove the game/source injection stages.
-Small local compatibility fixes are applied in memory before execution.
-"""
+"""Stable VBV patch runner with local compatibility fixes."""
 from pathlib import Path
 from urllib.request import Request, urlopen
+import subprocess
+import sys
 
 CLIENT_SIDE = Path(__file__).resolve().parent.parent
+
+# Protect the Eagler font atlas before the pinned resource-pack importer runs.
+sanitize = CLIENT_SIDE / "patch/sanitize_modpacks.py"
+if sanitize.is_file():
+    subprocess.run([sys.executable, str(sanitize), str(CLIENT_SIDE.parent)], check=True)
 
 screen = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVModsScreen.java"
 if screen.is_file():
@@ -66,11 +68,14 @@ source = source.replace(
 )
 source = source.replace(
     '        if not icon.is_file():\n            fallback = CLIENT_SIDE / "pack.png"',
-    '        if not icon.is_file():\n'
-    '            explicit_icon = PACK_ICON_DIR / f"{mod_id}.png"\n'
-    '            stem_icon = PACK_ICON_DIR / f"{zippath.stem}.png"\n'
-    '            fallback = explicit_icon if explicit_icon.is_file() else stem_icon if stem_icon.is_file() else CLIENT_SIDE / "pack.png"',
+    '        if not icon.is_file():\n            explicit_icon = PACK_ICON_DIR / f"{mod_id}.png"\n            stem_icon = PACK_ICON_DIR / f"{zippath.stem}.png"\n            fallback = explicit_icon if explicit_icon.is_file() else stem_icon if stem_icon.is_file() else CLIENT_SIDE / "pack.png"',
     1,
 )
 
 exec(compile(source, str(Path(__file__).resolve()), "exec"), globals(), globals())
+
+# The pinned script is retained for the stable native injection pipeline, but
+# its old Shine implementation is deliberately removed after it finishes.
+post = CLIENT_SIDE / "patch/post_vbv_fixes.py"
+if post.is_file():
+    subprocess.run([sys.executable, str(post), str(CLIENT_SIDE.parent)], check=True)
