@@ -48,6 +48,9 @@ public final class VBVWorldMapScreen extends Screen {
             .bounds(8, 8, 120, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Waypoints"), b -> VBVNav.open(new VBVWaypointsScreen(this)))
             .bounds(134, 8, 90, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Export Backup"), b ->
+            VBVWorldMap.exportBackup(VBVWorldMap.worldKey(Minecraft.getInstance())))
+            .bounds(230, 8, 112, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
             .bounds(width - 108, 8, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("-"), b -> zoom = Math.max(8.0D, zoom / 1.3D))
@@ -118,6 +121,10 @@ public final class VBVWorldMapScreen extends Screen {
         graphics.text(minecraft.font, "Explored chunks: " + explored.size(), 8, height - 48, 0xFFFFFFFF, true);
         graphics.text(minecraft.font, "Zoom: " + String.format(java.util.Locale.ROOT, "%.1fx", zoom), 8, height - 60, 0xFFCCCCCC, true);
         graphics.text(minecraft.font, "16×16 terrain detail · explored chunks only", 8, 32, 0xFFCCCCCC, true);
+        if (VBVWorldMap.storageWriteFailed()) {
+            graphics.fill(4, 50, Math.min(width - 4, 360), 72, 0xE0A02020);
+            graphics.text(minecraft.font, "Browser storage is full or blocked. Click Export Backup!", 9, 56, 0xFFFFFFFF, true);
+        }
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }
