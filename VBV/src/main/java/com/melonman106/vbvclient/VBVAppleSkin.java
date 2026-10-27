@@ -40,7 +40,7 @@ public final class VBVAppleSkin {
             float amount = Math.max(0.0F, Math.min(1.0F, (saturation - i * 2.0F) / 2.0F));
             if (amount <= 0.0F) continue;
             int frame = Math.min(3, Math.max(0, (int)Math.ceil(amount * 4.0F) - 1));
-            int iconX = startX + 80 - i * 8;
+            int iconX = guiWidth / 2 + 91 - i * 8;
             graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top - 1,
                 frame * 9, 0, 9, 9, 256, 256);
         }
