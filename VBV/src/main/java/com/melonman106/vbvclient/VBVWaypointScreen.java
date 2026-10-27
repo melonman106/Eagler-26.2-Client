@@ -40,7 +40,7 @@ public final class VBVWaypointScreen extends Screen {
         String id = name.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_-]+", "-") + "-" + System.nanoTime();
         VBVWorldMap.addWaypoint(
             VBVWorldMap.worldKey(minecraft),
-            new VBVWaypoint(id, name, (int) minecraft.player.getX(), (int) minecraft.player.getY(), (int) minecraft.player.getZ())
+            new VBVWaypoint(id, name, minecraft.player.blockPosition().getX(), minecraft.player.blockPosition().getY(), minecraft.player.blockPosition().getZ())
         );
         VBVNav.open(parent);
     }
