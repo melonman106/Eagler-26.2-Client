@@ -181,7 +181,7 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java"}:
         shutil.copy2(source, target)
 
 # Armor HUD: use bundled textures, keep all four slots visible, and raise the larger widget slightly above the hotbar.
@@ -258,20 +258,6 @@ if hud_candidates:
         hud.write_text(hud_text, encoding="utf-8")
         print("Moved AppleSkin overlay to the end of Hud.extractFood.")
 
-# Native, toggleable first-person animation layer.
-# V toggles the effect; preserve vanilla poses while using/charging items.
-extra = dest / "VBVExtraFeatures.java"
-if extra.is_file():
-    text = extra.read_text(encoding="utf-8")
-    key_anchor = "if (key == 70) fKeyHeld = action == 1;"
-    key_toggle = key_anchor + "\n        if (key == 86 && action == 1) VBVFirstPersonAnimations.toggle();"
-    if "VBVFirstPersonAnimations.toggle()" not in text:
-        if key_anchor not in text:
-            raise RuntimeError("VBVExtraFeatures.handleKey anchor not found for first-person animation toggle")
-        text = text.replace(key_anchor, key_toggle, 1)
-        extra.write_text(text, encoding="utf-8")
-        print("Added V-key toggle for native first-person animations.")
-
 client = dest / "VBVClient.java"
 if client.is_file():
     text = client.read_text(encoding="utf-8")
@@ -280,7 +266,7 @@ if client.is_file():
         anchor = "        VBVGeneratedPackMods.register();"
         registration = """        registerMod(new VBVModInfo(
             "vbv-first-person-animations", "VBV First-Person Animations", "Native Eagler port 1.0.0",
-            "melonman106", "Subtle first-person idle and swing animations. Press V to toggle.",
+            "melonman106", "Subtle first-person idle and swing animations. Configure with the Mod Menu Config button.",
             "vbvclient:textures/mods/viabackportvisuals-client.png", false));
 
 """
