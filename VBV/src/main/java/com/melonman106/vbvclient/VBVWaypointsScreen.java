@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 
 public final class VBVWaypointsScreen extends Screen {
     private final Screen parent;
+    private int scroll;
 
     public VBVWaypointsScreen(Screen parent) {
         super(Component.literal("Waypoints"));
@@ -27,19 +28,34 @@ public final class VBVWaypointsScreen extends Screen {
         List<VBVWaypoint> list = new ArrayList<>(VBVWorldMap.waypoints(world).values());
         list.sort(Comparator.comparing(VBVWaypoint::name, String.CASE_INSENSITIVE_ORDER));
 
-        int y = 44;
-        for (VBVWaypoint waypoint : list) {
-            final VBVWaypoint selected = waypoint;
+        int visible = Math.max(1, (height - 105) / 26);
+        scroll = Math.max(0, Math.min(scroll, Math.max(0, list.size() - visible)));
+        int end = Math.min(list.size(), scroll + visible);
+        for (int i = scroll; i < end; i++) {
+            VBVWaypoint selected = list.get(i);
+            int y = 44 + (i - scroll) * 26;
             addRenderableWidget(Button.builder(
                 Component.literal(selected.name() + "  [" + selected.x() + ", " + selected.y() + ", " + selected.z() + "]"),
                 button -> VBVNav.open(new VBVWaypointDetailsScreen(this, selected))
-            ).bounds(12, y, Math.min(width - 24, 520), 22).build());
-            y += 26;
-            if (y > height - 55) break;
+            ).bounds(12, y, Math.max(1, Math.min(width - 24, 520)), 22).build());
         }
 
         addRenderableWidget(Button.builder(Component.literal("Back"), button -> VBVNav.open(parent))
             .bounds(width / 2 - 50, height - 30, 100, 20).build());
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (scrollY == 0 || mouseY < 40 || mouseY > height - 36) return false;
+        Minecraft minecraft = Minecraft.getInstance();
+        List<VBVWaypoint> list = new ArrayList<>(VBVWorldMap.waypoints(VBVWorldMap.worldKey(minecraft)).values());
+        int visible = Math.max(1, (height - 105) / 26);
+        int next = Math.max(0, Math.min(Math.max(0, list.size() - visible), scroll + (scrollY < 0 ? 1 : -1)));
+        if (next == scroll) return false;
+        scroll = next;
+        clearWidgets();
+        init();
+        return true;
     }
 
     @Override
