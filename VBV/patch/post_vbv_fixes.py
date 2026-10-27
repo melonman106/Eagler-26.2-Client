@@ -161,7 +161,7 @@ dest = GAME / "com/melonman106/vbvclient"
 for source in SRC.rglob("*.java"):
     target = dest / source.relative_to(SRC)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVWorldMapScreen.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java", "FabricCompatClient.java"}:
+    if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java", "VBVExtraFeatures.java", "VBVFirstPersonAnimations.java", "VBVFirstPersonAnimationsConfigScreen.java", "VBVSimpleHud.java", "VBVWorldMap.java", "VBVWaypointScreen.java", "VBVModDetailsScreen.java", "VBVModInfo.java", "VBVWaypointsScreen.java", "VBVWorldMapScreen.java", "VBVHudEditorScreen.java", "VBVFeatureConfigScreen.java", "VBVMiniMap.java", "VBVMouseTweaks.java", "VBVJadeHud.java", "VBVArmorHud.java", "VBVArmorHudConfigScreen.java", "KeyBinding.java", "FabricCompatClient.java"}:
         shutil.copy2(source, target)
 
 # Keep Fabric-style START and END tick callbacks on opposite sides of the
