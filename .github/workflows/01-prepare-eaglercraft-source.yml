@@ -61,7 +61,7 @@ jobs:
           if [ -z "$setup_jar" ]; then
             setup_jar="build-inputs/downloads/Eaglercraft-26.2-u2-Setup.jar"
             setup_url="https://github.com/melonman106/Eagler-26.2-Client/releases/download/Cleit/Eaglercraft-26.2-u2-Setup.jar"
-            expected_setup_sha256="476fd0aca5638ecfb57ff2383256e2275ab7ac879973cf69191b8a535d2e3ec2"
+            expected_setup_sha256="d8e7240fba804249eae5706a6641b3fbd783a4c09923d31d4ee4c6386a273587"
             curl --fail --location --retry 3 "$setup_url" -o "$setup_jar"
             echo "$expected_setup_sha256  $setup_jar" | sha256sum --check
           else
