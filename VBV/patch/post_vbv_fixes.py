@@ -184,27 +184,50 @@ for source in SRC.rglob("*.java"):
     if source.name in {"VBVClient.java", "VBVModsScreen.java", "VBVAppleSkin.java", "VBVArmorHudConfig.java"}:
         shutil.copy2(source, target)
 
-# Armor HUD: smaller icons, wider spacing, reliable local-player lookup, and a
-# safe default without the vanilla sprite-slicing frame that was failing in Eagler.
+# Armor HUD: use bundled textures, keep all four slots visible, and raise the larger widget slightly above the hotbar.
 armor = dest / "VBVArmorHud.java"
 if armor.is_file():
     text = armor.read_text(encoding="utf-8")
     replacements = {
-        "private static final int STEP = 20;": "private static final int STEP = 24;",
-        "private static final int SIZE = 22;": "private static final int SIZE = 18;",
+        "private static final int STEP = 20;": "private static final int STEP = 26;",
+        "private static final int SIZE = 22;": "private static final int SIZE = 24;",
         "private static final int HOTBAR_OFFSET = 98;": "private static final int HOTBAR_OFFSET = 100;",
         "if (!(minecraft.getCameraEntity() instanceof Player player)) return;": "Player player = minecraft.player;\n        if (player == null) return;",
         "VBVArmorHudConfig.enabled = false;": "System.err.println(\"VBV Armor HUD render error: \" + t);",
     }
     for old, new in replacements.items():
         text = text.replace(old, new, 1)
+    text = text.replace(
+        'private static final Identifier WARNING_TEXTURE = Identifier.parse("vbvclient:textures/mods/warn.png");',
+        'private static final Identifier WARNING_TEXTURE = Identifier.parse("armor_hud:textures/gui/exclamation_marks.png");',
+        1,
+    )
+    text = text.replace(
+        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");',
+        '    private static final Identifier HOTBAR_SPRITE = Identifier.withDefaultNamespace("hud/hotbar");\\n    private static final Identifier UNIQUE_DARK_HOTBAR_TEXTURE = Identifier.parse("armor_hud:textures/gui/hotbar_texture.png");',
+        1,
+    )
+    old_hotbar = """            case VBVArmorHudConfig.STYLE_HOTBAR -> {
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 0, 0, 0, 0, textureWidth - 3, SIZE, 0xFFFFFFFF);
+                g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR_SPRITE, 182, 22, 179, 0, textureWidth - 3, 0, 3, SIZE, 0xFFFFFFFF);
+            }"""
+    new_hotbar = """            case VBVArmorHudConfig.STYLE_HOTBAR -> {
+                int drawWidth = Math.min(textureWidth, 182);
+                g.blit(RenderPipelines.GUI_TEXTURED, UNIQUE_DARK_HOTBAR_TEXTURE,
+                    rect[0], rect[1], drawWidth, SIZE, 0, 0, drawWidth, SIZE, 182, 22);
+            }"""
+    if old_hotbar in text:
+        text = text.replace(old_hotbar, new_hotbar, 1)
+    else:
+        print("Armor HUD hotbar rendering block was already changed or not found.")
     armor.write_text(text, encoding="utf-8")
 
 config = dest / "VBVArmorHudConfig.java"
 if config.is_file():
-    text = config.read_text(encoding="utf-8").replace(
-        "style = STYLE_HOTBAR;", "style = STYLE_NONE;", 1
-    )
+    text = config.read_text(encoding="utf-8")
+    text = text.replace("widgetShown = SHOWN_NOT_EMPTY;", "widgetShown = SHOWN_ALWAYS;", 1)
+    text = text.replace("offsetY = 0;", "offsetY = 8;", 1)
+    text = text.replace("style = STYLE_NONE;", "style = STYLE_HOTBAR;", 1)
     config.write_text(text, encoding="utf-8")
 
 # Optional panorama overlay: preserve the six-face panorama handling and also
