@@ -9,74 +9,129 @@ ROOT = Path(sys.argv[1]).resolve()
 SRC = Path(__file__).resolve().parent.parent / "src/main/java/com/melonman106/vbvclient"
 GAME = ROOT / "game/src/main/java"
 RES = ROOT / "game/src/main/resources"
+SHINE_TOKEN = "com.melonman106.vbvclient.ShineConfig"
 
 
 def java_files_named(name):
     return list(GAME.rglob(name))
 
 
-def remove_brace_block(text, needle):
-    start = text.find(needle)
-    if start < 0:
-        return text, False
-    brace = text.find("{", start)
-    if brace < 0:
-        return text, False
+def matching_brace(text, brace):
+    """Return the closing brace for an opening brace, ignoring Java strings/comments."""
     depth = 0
-    in_string = False
-    escaped = False
     i = brace
+    state = "code"
+    escaped = False
     while i < len(text):
         c = text[i]
-        if in_string:
-            if escaped:
-                escaped = False
-            elif c == "\\":
-                escaped = True
-            elif c == '"':
-                in_string = False
-        else:
+        n = text[i + 1] if i + 1 < len(text) else ""
+        if state == "code":
             if c == '"':
-                in_string = True
+                state = "string"
+            elif c == '/' and n == '/':
+                state = "line_comment"
+                i += 1
+            elif c == '/' and n == '*':
+                state = "block_comment"
+                i += 1
             elif c == "{":
                 depth += 1
             elif c == "}":
                 depth -= 1
                 if depth == 0:
-                    end = i + 1
-                    if end < len(text) and text[end] == "\n":
-                        end += 1
-                    return text[:start] + text[end:], True
+                    return i
+        elif state == "string":
+            if escaped:
+                escaped = False
+            elif c == "\\":
+                escaped = True
+            elif c == '"':
+                state = "code"
+        elif state == "line_comment":
+            if c == "\n":
+                state = "code"
+        elif state == "block_comment":
+            if c == '*' and n == '/':
+                state = "code"
+                i += 1
         i += 1
-    return text, False
+    return -1
+
+
+def find_if_block_containing(text, token_pos):
+    """Find the nearest if-block whose braces contain token_pos."""
+    candidates = list(re.finditer(r"\bif\s*\(", text[:token_pos]))
+    for match in reversed(candidates):
+        brace = text.find("{", match.end(), token_pos + 1)
+        if brace < 0 or brace > token_pos:
+            continue
+        end = matching_brace(text, brace)
+        if end >= token_pos:
+            return match.start(), end + 1
+    return None
+
+
+def remove_shine_hooks(path):
+    """Remove Shine blocks regardless of generated formatting, then validate."""
+    text = path.read_text(encoding="utf-8")
+    original = text
+
+    # Remove imports first.
+    text = re.sub(
+        r"(?m)^\s*import\s+com\.melonman106\.vbvclient\.ShineConfig\s*;\s*\n?",
+        "",
+        text,
+    )
+
+    # The pinned patch has used several formatting variants. Locate every
+    # ShineConfig reference and remove its enclosing if block by brace matching.
+    # This handles conditions split over multiple lines, which the old exact
+    # string matcher missed.
+    while SHINE_TOKEN in text:
+        token_pos = text.find(SHINE_TOKEN)
+        block = find_if_block_containing(text, token_pos)
+        if block is not None:
+            start, end = block
+            line_start = text.rfind("\n", 0, start) + 1
+            line_end = text.find("\n", end)
+            if line_end < 0:
+                line_end = len(text)
+            else:
+                line_end += 1
+            text = text[:line_start] + text[line_end:]
+            continue
+
+        # If a future patch emits a standalone Shine expression instead of an
+        # if block, remove the whole Java statement containing the reference.
+        line_start = text.rfind("\n", 0, token_pos) + 1
+        line_end = text.find("\n", token_pos)
+        if line_end < 0:
+            line_end = len(text)
+        else:
+            line_end += 1
+        text = text[:line_start] + text[line_end:]
+
+    # Remove the variable declaration left by Shine bloom hooks if present.
+    text = re.sub(r"(?m)^\s*private\s+boolean\s+vbvShineBloomFailed\s*;\s*\n", "", text)
+
+    if text != original:
+        path.write_text(text, encoding="utf-8")
+        print("Removed generated Shine hooks from", path)
+
 
 # The pinned patch still installs Shine lighting/bloom. Remove every generated
 # Shine hook and its resources so the unstable post-processing path is absent.
-for path in java_files_named("LightmapRenderStateExtractor.java"):
-    text = path.read_text(encoding="utf-8")
-    changed = False
-    for needle in (
-        "if (com.melonman106.vbvclient.ShineConfig.enabled())",
-        "if (com.melonman106.vbvclient.ShineConfig.disabledShading())",
-    ):
-        while needle in text:
-            text, did = remove_brace_block(text, needle)
-            changed |= did
-    if changed:
-        path.write_text(text, encoding="utf-8")
-        print("Removed Shine lightmap hooks from", path)
+for path in GAME.rglob("*.java"):
+    if SHINE_TOKEN in path.read_text(encoding="utf-8"):
+        remove_shine_hooks(path)
 
-for path in java_files_named("GameRenderer.java"):
-    text = path.read_text(encoding="utf-8")
-    changed = False
-    while "if (com.melonman106.vbvclient.ShineConfig.bloom()" in text:
-        text, did = remove_brace_block(text, "if (com.melonman106.vbvclient.ShineConfig.bloom()")
-        changed |= did
-    text2 = re.sub(r"\s*private boolean vbvShineBloomFailed;\n", "\n", text)
-    changed |= text2 != text
-    if changed:
-        path.write_text(text2, encoding="utf-8")
-        print("Removed Shine post-processing hook from", path)
+# Hard validation: the build must never reach javac with a ShineConfig reference.
+remaining = []
+for path in GAME.rglob("*.java"):
+    if SHINE_TOKEN in path.read_text(encoding="utf-8"):
+        remaining.append(str(path))
+if remaining:
+    raise RuntimeError("ShineConfig references remain after cleanup:\n" + "\n".join(remaining))
 
 for path in RES.rglob("*"):
     if path.is_file() and ("shine_bloom" in path.name or "vbvclient/post_effect" in str(path) or "vbvclient/shaders/post" in str(path)):
