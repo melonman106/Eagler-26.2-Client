@@ -239,22 +239,22 @@ if hud_candidates:
     apple_call = "com.melonman106.vbvclient.VBVAppleSkin.render("
     if apple_call in hud_text:
         hud_text = re.sub(
-            r"(?m)^\\s*com\\.melonman106\\.vbvclient\\.VBVAppleSkin\\.render\\([^;]+;\\s*\\n?",
+            r"(?m)^\s*com\.melonman106\.vbvclient\.VBVAppleSkin\.render\([^;]+;\s*\n?",
             "",
             hud_text,
         )
         food = re.search(
-            r"(?:public|protected|private)\\s+void\\s+extractFood\\s*\\([^)]*\\)\\s*\\{",
+            r"(?:public|protected|private)\s+void\s+extractFood\s*\([^)]*\)\s*\{",
             hud_text,
         )
         if not food:
             raise RuntimeError("Hud.extractFood was not found; cannot layer AppleSkin above hunger icons")
         brace = hud_text.find("{", food.start())
         end = matching_brace(hud_text, brace)
-        param = re.search(r"GuiGraphicsExtractor\\s+(\\w+)", food.group(0))
+        param = re.search(r"GuiGraphicsExtractor\s+(\w+)", food.group(0))
         if end < 0 or not param:
             raise RuntimeError("Could not identify Hud.extractFood body/graphics parameter")
-        hud_text = hud_text[:end] + "\\n        com.melonman106.vbvclient.VBVAppleSkin.render(" + param.group(1) + ");\\n    " + hud_text[end:]
+        hud_text = hud_text[:end] + "\n        com.melonman106.vbvclient.VBVAppleSkin.render(" + param.group(1) + ");\n    " + hud_text[end:]
         hud.write_text(hud_text, encoding="utf-8")
         print("Moved AppleSkin overlay to the end of Hud.extractFood.")
 
