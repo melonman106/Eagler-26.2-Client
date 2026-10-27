@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "target": "Eaglercraft 26.2 u1",
+  "target": "Eaglercraft 26.2 u2",
   "modId": "viabackportvisuals-client",
   "version": "1.0.0-26.2",
   "sourceRoots": ["src/main/java"],
