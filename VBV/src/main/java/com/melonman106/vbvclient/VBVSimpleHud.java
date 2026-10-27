@@ -22,14 +22,14 @@ public final class VBVSimpleHud {
         graphics.fill(x - 3, y - 3, x + 190, y + lines * line + 1, 0x66000000);
 
         if (VBVSimpleHudConfig.fps) y = text(graphics, "FPS: " + minecraft.getFps(), x, y, line);
-        if (VBVSimpleHudConfig.coordinates) y = text(graphics, "XYZ: " + (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ(), x, y, line);
+        if (VBVSimpleHudConfig.coordinates) y = text(graphics, "XYZ: " + player.blockPosition().getX() + " " + player.blockPosition().getY() + " " + player.blockPosition().getZ(), x, y, line);
         if (VBVSimpleHudConfig.speed) {
             double speed = player.getDeltaMovement().horizontalDistance() * 20.0D;
             y = text(graphics, String.format(java.util.Locale.ROOT, "Speed: %.2f m/s", speed), x, y, line);
         }
         if (VBVSimpleHudConfig.lightLevel) y = text(graphics, "Light: " + minecraft.level.getMaxLocalRawBrightness(player.blockPosition()), x, y, line);
         if (VBVSimpleHudConfig.gameTime) {
-            long ticks = minecraft.level.getGameTime() % 24000L;
+            long ticks = minecraft.level.getOverworldClockTime() % 24000L;
             long hours = (ticks / 1000L + 6L) % 24L;
             long minutes = (ticks % 1000L) * 60L / 1000L;
             y = text(graphics, String.format(java.util.Locale.ROOT, "Game time: %02d:%02d", hours, minutes), x, y, line);
