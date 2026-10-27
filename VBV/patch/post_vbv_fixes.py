@@ -179,11 +179,11 @@ if legacy_call in mc_text:
 elif end_call not in mc_text:
     raise RuntimeError("Fabric client tick hook was not found in Minecraft.java")
 if start_call not in mc_text:
-    tick_match = re.search(r"(?:public|protected|private)\\s+void\\s+tick\\s*\\(\\s*\\)\\s*\\{", mc_text)
+    tick_match = re.search(r"(?:public|protected|private)\s+void\s+tick\s*\(\s*\)\s*\{", mc_text)
     if not tick_match:
         raise RuntimeError("Minecraft.tick() was not found for Fabric START callback")
     brace = mc_text.find("{", tick_match.start())
-    mc_text = mc_text[:brace + 1] + "\\n        " + start_call + mc_text[brace + 1:]
+    mc_text = mc_text[:brace + 1] + "\n        " + start_call + mc_text[brace + 1:]
 minecraft.write_text(mc_text, encoding="utf-8")
 print("Split Fabric START/END callbacks around Minecraft.tick().")
 
