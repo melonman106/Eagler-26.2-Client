@@ -84,6 +84,7 @@ public final class VBVModsScreen extends Screen {
         configButton = Button.builder(Component.literal("Config"), button -> {
             if (selected == null) return;
             if ("simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
+            else if ("ukus-armor-hud".equals(selected.id())) VBVNav.open(new VBVArmorHudConfigScreen(this));
             else if ("vbv-first-person-animations".equals(selected.id())) VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
         addRenderableWidget(configButton);
@@ -125,7 +126,10 @@ public final class VBVModsScreen extends Screen {
 
     private void select(VBVModInfo info) {
         selected = info; descScroll = 0;
-        if (configButton != null) configButton.visible = info != null && ("simple-hud-enhanced".equals(info.id()) || "vbv-first-person-animations".equals(info.id()));
+        if (configButton != null) configButton.visible = info != null && (
+            "simple-hud-enhanced".equals(info.id())
+            || "ukus-armor-hud".equals(info.id())
+            || "vbv-first-person-animations".equals(info.id()));
         rebuildDescription();
     }
 
@@ -253,15 +257,26 @@ public final class VBVModsScreen extends Screen {
         if (total <= visible) return; int track = bottom - top, thumb = Math.max(32, track * visible / total), range = total - visible, thumbY = top + (track - thumb) * scroll / range;
         graphics.fill(x, top, x + 6, bottom, 0xFF000000); graphics.fill(x, thumbY, x + 6, thumbY + thumb, 0xFF808080); graphics.fill(x, thumbY, x + 5, thumbY + thumb - 1, 0xFFC0C0C0);
     }
+
+    /**
+     * Draw the real 64x64 mod icon when the resource is available. A deterministic
+     * letter badge is drawn underneath first so a missing/bad resource can never
+     * leave the Mod Menu with an empty icon slot.
+     */
     private void drawIcon(GuiGraphicsExtractor graphics, VBVModInfo info, int x, int y, int size) {
-        try {
-            String path = String.valueOf(info.iconPath()); Identifier icon = path.contains(":") ? Identifier.parse(path) : Identifier.withDefaultNamespace(path);
-            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, size, size, 0, 0, 64, 64, 64, 64); return;
-        } catch (RuntimeException ignored) { }
-        int h = String.valueOf(info.id()).hashCode(), r = 70 + (h & 0x7F), g = 70 + ((h >> 7) & 0x7F), b = 70 + ((h >> 14) & 0x7F);
+        int h = String.valueOf(info.id()).hashCode();
+        int r = 60 + (h & 0x9F), g = 60 + ((h >> 8) & 0x9F), b = 60 + ((h >> 16) & 0x9F);
         graphics.fill(x, y, x + size, y + size, 0xFF000000 | (r << 16) | (g << 8) | b);
-        String name = String.valueOf(info.name()), letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
+        String name = String.valueOf(info.name());
+        String letter = name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase(Locale.ROOT);
         graphics.text(font, letter, x + (size - font.width(letter)) / 2, y + (size - font.lineHeight) / 2 + 1, 0xFFFFFFFF, true);
+        try {
+            String path = String.valueOf(info.iconPath());
+            Identifier icon = path.contains(":") ? Identifier.parse(path) : Identifier.withDefaultNamespace(path);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, size, size, 0, 0, 64, 64, 64, 64);
+        } catch (RuntimeException ignored) {
+            // The guaranteed letter badge remains visible.
+        }
     }
     private void drawBadges(GuiGraphicsExtractor graphics, VBVModInfo info, int startX, int y, int maxX) {
         int x = startX; x = drawBadge(graphics, x, y, maxX, "Client", 0xFF2B4B7C, 0xFF0E2A55);
