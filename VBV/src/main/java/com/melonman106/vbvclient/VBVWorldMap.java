@@ -266,7 +266,16 @@ public final class VBVWorldMap {
     public static String worldKey(Minecraft minecraft) {
         if (minecraft.level == null) return "unknown";
         String levelName = minecraft.level.dimension().toString();
-        String server = minecraft.getCurrentServer() == null ? "singleplayer" : minecraft.getCurrentServer().ip;
+        String server;
+        if (minecraft.getCurrentServer() != null) {
+            server = "server|" + minecraft.getCurrentServer().ip;
+        } else {
+            // Dimension alone is not a world identity: separate local saves even
+            // when each is in the same dimension.
+            var localServer = minecraft.getSingleplayerServer();
+            String worldName = localServer == null ? "singleplayer" : localServer.getWorldData().getLevelName();
+            server = "singleplayer|" + worldName;
+        }
         return server + "|" + levelName;
     }
 
