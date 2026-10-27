@@ -12,17 +12,9 @@ sanitize = CLIENT_SIDE / "patch/sanitize_modpacks.py"
 if sanitize.is_file():
     subprocess.run([sys.executable, str(sanitize), str(CLIENT_SIDE.parent)], check=True)
 
-screen = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVModsScreen.java"
-if screen.is_file():
-    text = screen.read_text(encoding="utf-8")
-    fixed = text.replace(
-        "graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0.0F, 0.0F,\n                size, size, 64, 64);",
-        "graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0.0F, 0.0F,\n                64, 64, 64, 64);",
-        1,
-    )
-    if fixed != text:
-        screen.write_text(fixed, encoding="utf-8")
-        print("Fixed VBV Mod Menu icon source rectangle (full 64x64 texture).")
+# The Mod Menu source uses 64x64 icon files and intentionally draws the complete
+# texture into a 24x24 UI slot. Do not rewrite the blit dimensions here: the
+# previous rewrite accidentally made the displayed icons 64x64.
 
 # Unique Dark - Lite supplies these under assets/armor_hud/.
 armor = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVArmorHud.java"
