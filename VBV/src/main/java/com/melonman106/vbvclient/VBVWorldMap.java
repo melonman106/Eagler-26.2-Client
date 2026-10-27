@@ -80,12 +80,26 @@ public final class VBVWorldMap {
                     }
                 }
             }
+            pruneUnexploredTerrain(world, chunkX, chunkZ);
         }
     }
 
     private static boolean hasTerrain(String world, long key) {
         Map<Long, int[]> map = TERRAIN.get(world);
         return map != null && map.containsKey(key);
+    }
+
+    /** Keep minimap-only terrain bounded; explored chunks are retained for the world map. */
+    private static void pruneUnexploredTerrain(String world, int playerChunkX, int playerChunkZ) {
+        Map<Long, int[]> terrain = TERRAIN.get(world);
+        if (terrain == null) return;
+        Set<Long> explored = exploredSet(world, false);
+        int keepRadius = MINIMAP_CACHE_RADIUS + 2;
+        terrain.keySet().removeIf(key -> {
+            if (explored.contains(key)) return false;
+            return Math.abs(chunkX(key) - playerChunkX) > keepRadius
+                || Math.abs(chunkZ(key) - playerChunkZ) > keepRadius;
+        });
     }
 
     private static void captureTerrainIfLoaded(Minecraft minecraft, String world, long key, int chunkX, int chunkZ) {
@@ -207,10 +221,23 @@ public final class VBVWorldMap {
                     if (separator < 0) continue;
                     long chunk = Long.parseLong(line.substring(2, separator));
                     byte[] bytes = Base64.getDecoder().decode(line.substring(separator + 1));
-                    if (bytes.length != TERRAIN_SAMPLES * Integer.BYTES) continue;
                     ByteBuffer buffer = ByteBuffer.wrap(bytes);
                     int[] colors = new int[TERRAIN_SAMPLES];
-                    for (int i = 0; i < colors.length; i++) colors[i] = buffer.getInt();
+                    if (bytes.length == TERRAIN_SAMPLES * Integer.BYTES) {
+                        // Backward compatibility with the original full-ARGB storage format.
+                        for (int i = 0; i < colors.length; i++) colors[i] = buffer.getInt();
+                    } else if (bytes.length == TERRAIN_SAMPLES * Short.BYTES) {
+                        // New saves use RGB565 to halve localStorage usage.
+                        for (int i = 0; i < colors.length; i++) {
+                            int rgb = buffer.getShort() & 0xFFFF;
+                            int r = ((rgb >> 11) & 31) * 255 / 31;
+                            int g = ((rgb >> 5) & 63) * 255 / 63;
+                            int b = (rgb & 31) * 255 / 31;
+                            colors[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                        }
+                    } else {
+                        continue;
+                    }
                     terrain.put(chunk, colors);
                 } else if (line.startsWith("W:")) {
                     String[] parts = line.substring(2).split(":", 5);
@@ -238,8 +265,13 @@ public final class VBVWorldMap {
             output.append("E:").append(chunk).append('\n');
             int[] colors = terrain.get(chunk);
             if (colors != null && colors.length == TERRAIN_SAMPLES) {
-                ByteBuffer buffer = ByteBuffer.allocate(colors.length * Integer.BYTES);
-                for (int color : colors) buffer.putInt(color);
+                ByteBuffer buffer = ByteBuffer.allocate(colors.length * Short.BYTES);
+                for (int color : colors) {
+                    int r = (color >> 19) & 31;
+                    int g = (color >> 10) & 63;
+                    int b = (color >> 3) & 31;
+                    buffer.putShort((short)((r << 11) | (g << 5) | b));
+                }
                 output.append("T:").append(chunk).append(':')
                     .append(Base64.getEncoder().encodeToString(buffer.array())).append('\n');
             }
