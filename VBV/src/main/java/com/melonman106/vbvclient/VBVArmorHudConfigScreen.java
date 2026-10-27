@@ -70,6 +70,12 @@ public final class VBVArmorHudConfigScreen extends Screen {
         }).bounds(width / 2 + 5, height - 28, 95, 20).build());
     }
 
+    @Override
+    public void onClose() {
+        applyBoxes();
+        VBVNav.open(parent);
+    }
+
     private static String onOff(boolean value) {
         return value ? "ON" : "OFF";
     }
