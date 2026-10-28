@@ -241,12 +241,11 @@ jobs:
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
 
-          # Keep standalone startup below the memory ceiling of the school Chromebook.
-          # Remote multiplayer does not require the integrated dedicated-server worker.
-          # The mesh worker is optional and can otherwise duplicate large Wasm buffers.
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html")
+          import os
+
+          path = Path(os.environ["GITHUB_WORKSPACE"]) / "eaglercraft-26.2-vbv-herz.html"
           text = path.read_text(encoding="utf-8")
           old = 'serverWorker: window.location.search.indexOf("singlethread") < 0,\n\t\t\t\tmeshWorkers: window.location.search.indexOf("singlethread") < 0\n\t\t\t\t\t&& window.location.search.indexOf("nomesh") < 0,'
           new = 'serverWorker: false,\n\t\t\t\tmeshWorkers: false,'
