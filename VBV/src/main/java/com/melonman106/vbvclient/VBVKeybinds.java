@@ -28,12 +28,14 @@ public final class VBVKeybinds {
 
         if (event.key() == KEY_V) {
             VBVClient.init();
+            HerzVBVBridge.initialize();
             VBVNav.open(new VBVModsScreen(null));
             return true;
         }
 
         if (event.key() == KEY_M) {
             VBVClient.init();
+            HerzVBVBridge.initialize();
             VBVNav.open(new VBVWorldMapScreen(null));
             return true;
         }
