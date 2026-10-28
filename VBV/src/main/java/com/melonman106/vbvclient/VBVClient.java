@@ -83,7 +83,6 @@ public final class VBVClient {
             "vbvclient:textures/mods/viabackportvisuals-client.png", false));
 
         VBVGeneratedPackMods.register();
-        HerzVBVBridge.initialize();
     }
 
     public static void registerMod(VBVModInfo info) {
