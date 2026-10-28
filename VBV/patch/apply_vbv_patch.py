@@ -125,3 +125,7 @@ finally:
 post = CLIENT_SIDE / "patch/post_vbv_fixes.py"
 if post.is_file():
     subprocess.run([sys.executable, str(post), *sys.argv[1:]], check=True)
+
+runtime_patch = CLIENT_SIDE / "patch/patch_wasm_runtime.py"
+if runtime_patch.is_file():
+    subprocess.run([sys.executable, str(runtime_patch), *sys.argv[1:]], check=True)
