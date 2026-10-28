@@ -57,7 +57,7 @@ jobs:
           gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir output
           test -s output/eaglercraft-26.2-vbv-herz.html
 
-      - name: Fix standalone Eagler runtime bootstrap
+      - name: Verify standalone Eagler runtime bootstrap
         shell: bash
         run: |
           set -euo pipefail
@@ -67,62 +67,22 @@ jobs:
 
           path = Path("output/eaglercraft-26.2-vbv-herz.html")
           text = path.read_text(encoding="utf-8")
-
-          # Disable both optional worker execution paths. The client then uses
-          # the normal main-thread runtime, which is the intended low-memory
-          # configuration for this standalone Chromebook build.
-          text = re.sub(
-              r'(?m)^\s*serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0,',
-              'serverWorker: false,',
-              text,
+          required = (
+              "eag-inline-wasm-br",
+              "eag-inline-mesh-wasm-br",
+              "eag-inline-server-wasm-br",
+              "eag-inline-assets",
+              "eag-inline-sounds",
           )
-          text = re.sub(
-              r'(?m)^\s*meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*\n\s*&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0,',
-              'meshWorkers: false,',
-              text,
-          )
-
-          # Remove the actual worker preload elements, regardless of attribute
-          # order. The worker names may still occur in the client's JS code;
-          # those references are harmless when both worker options are false.
-          text, preload_count = re.subn(
-              r'(?is)<link\b(?=[^>]*\bhref\s*=\s*["\'][^"\']*(?:mesh-worker|server-worker)\.wasm[^"\']*["\'])[^>]*>\s*',
-              '',
-              text,
-          )
-
-          # The generated payloads are script elements. Match the element by
-          # its ID rather than assuming a particular attribute ordering/tag.
-          worker_ids = ("eag-inline-mesh-wasm-br", "eag-inline-server-wasm-br")
-          payload_count = 0
-          for worker_id in worker_ids:
-              pattern = rf'(?is)<script\b[^>]*\bid\s*=\s*["\']{re.escape(worker_id)}["\'][^>]*>.*?</script>\s*'
-              text, count = re.subn(pattern, '', text, count=1)
-              payload_count += count
-
-          if 'serverWorker: false' not in text:
-              raise SystemExit('serverWorker=false was not installed')
-          if 'meshWorkers: false' not in text:
-              raise SystemExit('meshWorkers=false was not installed')
-
-          # Do NOT search for the ID as a plain substring: the client JS can
-          # legitimately contain getElementById("eag-inline-mesh-wasm-br") even
-          # after the payload element itself has been removed.
-          for worker_id in worker_ids:
-              element_re = rf'(?is)<script\b[^>]*\bid\s*=\s*["\']{re.escape(worker_id)}["\'][^>]*>'
-              if re.search(element_re, text):
-                  raise SystemExit(f'{worker_id} payload element was not removed')
-
-          if 'eag-inline-wasm-br' not in text:
-              raise SystemExit('main WASM payload is missing')
-          if 'eag-inline-assets' not in text:
-              raise SystemExit('assets payload is missing')
-          if 'eag-inline-sounds' not in text:
-              raise SystemExit('sounds payload is missing')
-
-          path.write_text(text, encoding="utf-8")
-          print(f"Removed worker preloads: {preload_count}; worker payload elements: {payload_count}")
-          print(f"Fixed HTML size: {path.stat().st_size} bytes")
+          for payload in required:
+              pattern = r'<script\\b[^>]*\\bid=["\\']' + re.escape(payload) + r'["\\']'
+              if not re.search(pattern, text, re.I):
+                  raise SystemExit("Required inline runtime payload is missing: " + payload)
+          if re.search(r'(?m)^\\s*serverWorker:\\s*false\\s*,', text):
+              raise SystemExit("serverWorker was disabled; refusing to publish altered runtime")
+          if re.search(r'(?m)^\\s*meshWorkers:\\s*false\\s*,', text):
+              raise SystemExit("meshWorkers was disabled; refusing to publish altered runtime")
+          print("Verified intact standalone runtime payloads:", path.stat().st_size, "bytes")
           PY
 
       - name: Verify fixed downloaded client is native-only
