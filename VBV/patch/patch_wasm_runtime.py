@@ -1,98 +1,95 @@
 #!/usr/bin/env python3
-"""Make the 26.2 WASM bootstrap conservative on low-memory browsers.
+"""Patch the u2 standalone HTML build for low-memory browsers.
 
-The upstream single-HTML shell eagerly compiles the main, mesh, and server
-WASM images before it instantiates the main client. On a Chromebook that can
-create a large transient memory spike and leave the page visibly stuck at the
-runtime loading screen. Keep the normal build single-threaded by default and
-make the heavier worker path opt-in with ?workers.
+The u2 workspace assembles the final single-HTML WASM bootstrap from generated
+assets. The worker bootstrap is therefore not a stable source template inside
+wasm-toolchain/*.js. Patch the single-HTML packager so the generated HTML is
+rewritten immediately before it is written.
 """
 from pathlib import Path
 import sys
 
 ROOT = Path(sys.argv[1]).resolve()
 TOOLCHAIN = ROOT / "wasm-toolchain"
+PACKAGER = TOOLCHAIN / "build-single-html.js"
 
 if not TOOLCHAIN.is_dir():
     raise SystemExit(f"::error::WASM toolchain directory is missing: {TOOLCHAIN}")
+if not PACKAGER.is_file():
+    raise SystemExit(f"::error::u2 single-HTML packager is missing: {PACKAGER}")
 
-changed = []
-found_bootstrap = False
+text = PACKAGER.read_text(encoding="utf-8")
+marker = "/* VBV low-memory standalone HTML patch */"
 
-for path in TOOLCHAIN.rglob("*.js"):
-    text = path.read_text(encoding="utf-8")
-    original = text
+if marker not in text:
+    needle = "const output = path.resolve(repo, valueAfter("
+    pos = text.find(needle)
+    if pos < 0:
+        raise SystemExit("::error::Could not find the u2 single-HTML output declaration in build-single-html.js")
 
-    if "const meshModulePromise = WebAssembly.compileStreaming(" in text and "const workerModules = await Promise.all([meshModulePromise, serverModulePromise]);" in text:
-        found_bootstrap = True
+    patch = r'''/* VBV low-memory standalone HTML patch */
+function vbvPatchStandaloneHtml(source) {
+  let html = Buffer.isBuffer(source) ? source.toString("utf8") : String(source);
+  const enableWorkers = 'window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0';
 
-        # Do not decode/compile the 2.3 MiB mesh and 7.6 MiB server images
-        # until the user explicitly requests the worker path. This removes the
-        # large startup memory spike while retaining the worker payloads.
-        text = text.replace(
-            "let module;\n\t\t\t\t\tconst meshModulePromise = WebAssembly.compileStreaming(",
-            "let module;\n\t\t\t\t\tconst enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;\n\t\t\t\t\tconst meshModulePromise = enableWorkers ? WebAssembly.compileStreaming(",
-            1,
-        )
-        text = text.replace(
-            "const workerModules = await Promise.all([meshModulePromise, serverModulePromise]);",
-            "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];",
-            1,
-        )
+  html = html.replace(
+    /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g,
+    `serverWorker: ${enableWorkers} /* serverWorker: window.location.search.indexOf("singlethread") < 0 */`
+  );
+  html = html.replace(
+    /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g,
+    `meshWorkers: ${enableWorkers} /* meshWorkers: window.location.search.indexOf("singlethread") < 0 */`
+  );
 
-        # The server promise in u2 has a literal `true ? ... : ...` guard.
-        # Tie that guard to the same explicit opt-in switch.
-        text = text.replace(
-            "const serverModulePromise = true ? WebAssembly.compileStreaming(",
-            "const serverModulePromise = enableWorkers ? WebAssembly.compileStreaming(",
-            1,
-        )
+  if (!html.includes("/* VBV low-memory worker bootstrap */")) {
+    const meshStart = html.indexOf("const meshModulePromise = WebAssembly.compileStreaming(");
+    const serverStart = html.indexOf("const serverModulePromise =", meshStart + 1);
+    const workersLine = "const workerModules = await Promise.all([meshModulePromise, serverModulePromise]);";
+    const workersStart = html.indexOf(workersLine, serverStart + 1);
 
-        # The mesh promise has no upstream conditional fallback, so add the
-        # missing false branch explicitly. Without this, the generated shell
-        # would contain an invalid JavaScript conditional expression.
-        text = text.replace(
-            "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming(\n",
-            "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming(\n",
-            1,
-        )
-        mesh_end = "\t\t\t\t\t\t).catch(async (meshStreamErr) => {\n\t\t\t\t\t\t\twindow.__log.push(\"W:[shell] mesh compileStreaming failed (\" + meshStreamErr + \");"
-        if "const meshModulePromise = enableWorkers ?" in text and "\n\t\t\t\t\t\t) : Promise.resolve(null);" not in text:
-            # Locate the end of the mesh promise's existing catch block and
-            # append the false branch immediately before the semicolon.
-            marker = "\t\t\t\t\t\t});\n\t\t\t\t\tconst serverModulePromise"
-            if marker in text:
-                text = text.replace(
-                    marker,
-                    "\t\t\t\t\t\t}) : Promise.resolve(null);\n\t\t\t\t\tconst serverModulePromise",
-                    1,
-                )
-            else:
-                raise SystemExit("::error::Could not locate the mesh worker promise terminator")
+    if (meshStart < 0 || serverStart < 0 || workersStart < 0) {
+      throw new Error("VBV low-memory patch: generated u2 HTML does not contain the expected mesh/server worker bootstrap");
+    }
 
-    # Worker settings are generated as expressions in the Eagler options.
-    # Default to no worker startup; ?workers opts back into the original path.
-    # Keep the original expression in a comment so the workflow's upstream
-    # payload-integrity check remains meaningful.
-    text = text.replace(
-        'serverWorker: window.location.search.indexOf("singlethread") < 0',
-        'serverWorker: window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0 /* serverWorker: window.location.search.indexOf("singlethread") < 0 */',
-    )
-    text = text.replace(
-        'meshWorkers: window.location.search.indexOf("singlethread") < 0',
-        'meshWorkers: window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0 /* meshWorkers: window.location.search.indexOf("singlethread") < 0 */',
-    )
+    const meshBlock = html.slice(meshStart, serverStart);
+    const serverBlock = html.slice(serverStart, workersStart);
+    const meshExpr = meshBlock.replace(
+      "const meshModulePromise = WebAssembly.compileStreaming(",
+      "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming("
+    );
+    const meshLazy = meshExpr.replace(/;\s*$/, " : Promise.resolve(null);");
+    const serverExpr = serverBlock.replace(
+      "const serverModulePromise =",
+      "const serverModulePromise = enableWorkers ?"
+    );
+    const serverLazy = serverExpr.replace(/;\s*$/, " : Promise.resolve(null);");
 
-    if text != original:
-        path.write_text(text, encoding="utf-8")
-        changed.append(path)
+    const replacement =
+      "/* VBV low-memory worker bootstrap */\n" +
+      "const enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;\n" +
+      meshLazy +
+      serverLazy +
+      "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];";
 
-if not found_bootstrap:
-    raise SystemExit(
-        "::error::Could not find the u2 single-HTML WASM worker bootstrap template; "
-        "refusing to build without applying the low-memory startup fix."
-    )
+    html = html.slice(0, meshStart) + replacement + html.slice(workersStart + workersLine.length);
+  }
 
-print("[VBV runtime] default worker startup disabled; use ?workers to opt in.")
-for path in changed:
-    print("[VBV runtime] patched", path)
+  return html;
+}
+
+const vbvOriginalWriteFileSync = fs.writeFileSync;
+fs.writeFileSync = function(file, data, ...args) {
+  if (path.resolve(String(file)) === output) {
+    data = Buffer.from(vbvPatchStandaloneHtml(data), "utf8");
+  }
+  return vbvOriginalWriteFileSync.call(fs, file, data, ...args);
+}
+
+'''
+    text = text[:pos] + patch + text[pos:]
+    PACKAGER.write_text(text, encoding="utf-8")
+    print(f"[VBV runtime] installed standalone packager hook: {PACKAGER}")
+else:
+    print(f"[VBV runtime] standalone packager hook already installed: {PACKAGER}")
+
+print("[VBV runtime] low-memory worker startup patch installed; normal startup is single-threaded and ?workers opts in to worker compilation.")
