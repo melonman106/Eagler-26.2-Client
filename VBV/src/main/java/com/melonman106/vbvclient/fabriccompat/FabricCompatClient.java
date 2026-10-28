@@ -38,6 +38,10 @@ public final class FabricCompatClient {
         for (net.fabricmc.api.ModInitializer entrypoint : pendingInitializers) {
             invokeInitializer(entrypoint);
         }
+
+        // Initialize Herz only after the compatibility registry is populated.
+        // This avoids the VBVClient -> Herz -> FabricCompatClient bootstrap cycle.
+        com.melonman106.vbvclient.HerzVBVBridge.initialize();
     }
 
     public static synchronized void tick() {
