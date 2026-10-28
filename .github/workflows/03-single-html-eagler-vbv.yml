@@ -53,10 +53,73 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          mkdir -p output
           gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir output
           test -s output/eaglercraft-26.2-vbv-herz.html
 
-      - name: Verify downloaded client is native-only
+      - name: Fix standalone Eagler runtime bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("output/eaglercraft-26.2-vbv-herz.html")
+          text = path.read_text(encoding="utf-8")
+
+          # Disable the optional worker execution paths. The standalone client
+          # uses the main-thread runtime for browser multiplayer; leaving these
+          # workers enabled can make low-memory Chromium builds fail during boot.
+          text = re.sub(
+              r'(?m)^\s*serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0,',
+              'serverWorker: false,',
+              text,
+          )
+          text = re.sub(
+              r'(?m)^\s*meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*\n\s*&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0,',
+              'meshWorkers: false,',
+              text,
+          )
+
+          # The previous expression incorrectly used literal \* characters and
+          # therefore never matched the generated HTML. Match the actual HTML
+          # elements/attributes instead, including attributes in either order.
+          text, preload_count = re.subn(
+              r'(?is)<link\b(?=[^>]*\bhref\s*=\s*["\'][^"\']*(?:mesh-worker|server-worker)\.wasm[^"\']*["\'])[^>]*>\s*',
+              '',
+              text,
+          )
+
+          # Remove the actual inline payload elements regardless of whether the
+          # generator emits div/script/template tags around their contents.
+          text, payload_count = re.subn(
+              r'(?is)<([a-z][a-z0-9:-]*)\b[^>]*\bid\s*=\s*["\']eag-inline-(?:mesh-wasm-br|server-wasm-br)["\'][^>]*>.*?</\1>\s*',
+              '',
+              text,
+          )
+
+          if 'serverWorker: false' not in text:
+              raise SystemExit('serverWorker=false was not installed')
+          if 'meshWorkers: false' not in text:
+              raise SystemExit('meshWorkers=false was not installed')
+          if 'eag-inline-mesh-wasm-br' in text:
+              raise SystemExit('mesh worker payload was not removed')
+          if 'eag-inline-server-wasm-br' in text:
+              raise SystemExit('server worker payload was not removed')
+          if 'eag-inline-wasm-br' not in text:
+              raise SystemExit('main WASM payload is missing')
+          if 'eag-inline-assets' not in text:
+              raise SystemExit('assets payload is missing')
+          if 'eag-inline-sounds' not in text:
+              raise SystemExit('sounds payload is missing')
+
+          path.write_text(text, encoding="utf-8")
+          print(f"Removed worker preloads: {preload_count}; worker payload blocks: {payload_count}")
+          print(f"Fixed HTML size: {path.stat().st_size} bytes")
+          PY
+
+      - name: Verify fixed downloaded client is native-only
         run: |
           set -euo pipefail
           if grep -q 'VBV-WEBMC-JSMOD-INTEGRATION' output/eaglercraft-26.2-vbv-herz.html; then
@@ -75,8 +138,8 @@ jobs:
       - name: Upload a fresh copy of the standalone HTML
         uses: actions/upload-artifact@v4
         with:
-          name: Eaglercraft-26.2-VBV-Native-Single-HTML-Retrieved-${{ github.run_id }}
-          path: output/eaglercraft-26.2-vbv-herz.html
+          name: Eaglercraft-26.2-VBV-Native-Single-HTML-Fixed-${{ github.run_id }}
+          path: ${{ github.workspace }}/output/eaglercraft-26.2-vbv-herz.html
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
