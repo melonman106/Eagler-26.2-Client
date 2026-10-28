@@ -48,6 +48,28 @@ for path in TOOLCHAIN.rglob("*.js"):
             1,
         )
 
+        # The mesh promise has no upstream conditional fallback, so add the
+        # missing false branch explicitly. Without this, the generated shell
+        # would contain an invalid JavaScript conditional expression.
+        text = text.replace(
+            "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming(\n",
+            "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming(\n",
+            1,
+        )
+        mesh_end = "\t\t\t\t\t\t).catch(async (meshStreamErr) => {\n\t\t\t\t\t\t\twindow.__log.push(\"W:[shell] mesh compileStreaming failed (\" + meshStreamErr + \");"
+        if "const meshModulePromise = enableWorkers ?" in text and "\n\t\t\t\t\t\t) : Promise.resolve(null);" not in text:
+            # Locate the end of the mesh promise's existing catch block and
+            # append the false branch immediately before the semicolon.
+            marker = "\t\t\t\t\t\t});\n\t\t\t\t\tconst serverModulePromise"
+            if marker in text:
+                text = text.replace(
+                    marker,
+                    "\t\t\t\t\t\t}) : Promise.resolve(null);\n\t\t\t\t\tconst serverModulePromise",
+                    1,
+                )
+            else:
+                raise SystemExit("::error::Could not locate the mesh worker promise terminator")
+
     # Worker settings are generated as expressions in the Eagler options.
     # Default to no worker startup; ?workers opts back into the original path.
     # Keep the original expression in a comment so the workflow's upstream
