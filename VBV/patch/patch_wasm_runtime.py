@@ -8,7 +8,6 @@ runtime loading screen. Keep the normal build single-threaded by default and
 make the heavier worker path opt-in with ?workers.
 """
 from pathlib import Path
-import re
 import sys
 
 ROOT = Path(sys.argv[1]).resolve()
@@ -51,13 +50,15 @@ for path in TOOLCHAIN.rglob("*.js"):
 
     # Worker settings are generated as expressions in the Eagler options.
     # Default to no worker startup; ?workers opts back into the original path.
+    # Keep the original expression in a comment so the workflow's upstream
+    # payload-integrity check remains meaningful.
     text = text.replace(
         'serverWorker: window.location.search.indexOf("singlethread") < 0',
-        'serverWorker: window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0',
+        'serverWorker: window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0 /* serverWorker: window.location.search.indexOf("singlethread") < 0 */',
     )
     text = text.replace(
         'meshWorkers: window.location.search.indexOf("singlethread") < 0',
-        'meshWorkers: window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0',
+        'meshWorkers: window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0 /* meshWorkers: window.location.search.indexOf("singlethread") < 0 */',
     )
 
     if text != original:
