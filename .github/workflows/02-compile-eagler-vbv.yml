@@ -97,8 +97,9 @@ jobs:
               exit 1
             }
           done
-          grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
+          ! grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
+          grep -q 'HerzVBVBridge.initialize' "$vbv_src/fabriccompat/FabricCompatClient.java"
           compat_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/fabriccompat"
           for source in FabricCompatClient.java FabricLoader.java ModMetadata.java ModContainer.java ModInitializer.java ClientTickEvents.java ClientLifecycleEvents.java KeyBinding.java KeyBindingHelper.java EnvType.java; do
             test -s "$compat_src/$source" || {
