@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  U2_REPO: "https://github.com/CynTheSolveroftheabsolutefabric/Eaglercraft-26.2-u2-workspace.git"
+  U2_REPO: "https://github.com/kingjoeishere/Eaglercraft-26.2-u2-workspace.git"
   U2_COMMIT: "f0dafd1e3c1fb39006735ffc0bc6fd879fa98de3"
 
 jobs:
@@ -65,19 +65,14 @@ jobs:
           expected_setup_sha256="d8e7240fba804249eae5706a6641b3fbd783a4c09923d31d4ee4c6386a273587"
           expected_overlay_sha256="2ba7e3376891c64f8bf57f3687e05b8dbe1971a75475b6825449e5e5f96d71f3"
           setup_url="https://github.com/melonman106/Eagler-26.2-Client/releases/download/Cleit/Eaglercraft-26.2-u2-Setup.jar"
-
           curl --fail --location --retry 3 "$setup_url" -o "$setup_jar"
           echo "$expected_setup_sha256  $setup_jar" | sha256sum --check
           unzip -p "$setup_jar" portable-kit.zip > "$portable_kit"
           test -s "$portable_kit"
           mkdir -p "$portable_root"
           unzip -q -o "$portable_kit" -d "$portable_root"
-
           overlay="$(find "$portable_root" -type f -name 'resource-overlay-normal.zip' -print -quit)"
-          test -n "$overlay" || {
-            echo "::error::The verified portable kit does not contain resource-overlay-normal.zip"
-            exit 1
-          }
+          test -n "$overlay" || { echo "::error::The verified portable kit does not contain resource-overlay-normal.zip"; exit 1; }
           echo "$expected_overlay_sha256  $overlay" | sha256sum --check
           mkdir -p "$(dirname "$overlay_target")"
           cp "$overlay" "$overlay_target"
@@ -89,23 +84,16 @@ jobs:
           set -euo pipefail
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
-
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
           for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
-            test -f "$vbv_src/$source" || {
-              echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"
-              exit 1
-            }
+            test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           ! grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/fabriccompat/FabricCompatClient.java"
           compat_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/fabriccompat"
           for source in FabricCompatClient.java FabricLoader.java ModMetadata.java ModContainer.java ModInitializer.java ClientTickEvents.java ClientLifecycleEvents.java KeyBinding.java KeyBindingHelper.java EnvType.java; do
-            test -s "$compat_src/$source" || {
-              echo "::error::Required Fabric compatibility source is missing: $compat_src/$source"
-              exit 1
-            }
+            test -s "$compat_src/$source" || { echo "::error::Required Fabric compatibility source is missing: $compat_src/$source"; exit 1; }
           done
           grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
           grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
@@ -124,30 +112,20 @@ jobs:
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
           grep -q 'VBVFirstPersonAnimations.toggle()' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimationsConfigScreen.java
           grep -q 'VBVFirstPersonAnimations.apply(poseStack, player, frameInterp, attack, hand, itemStack)' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java
-
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
-          find eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods -maxdepth 2 -type f -print | sort
-
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
           for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
-            test -s "$icon_root/$icon.png" || {
-              echo "::error::Required VBV mod icon was not installed: $icon_root/$icon.png"
-              exit 1
-            }
+            test -s "$icon_root/$icon.png" || { echo "::error::Required VBV mod icon was not installed: $icon_root/$icon.png"; exit 1; }
           done
-          find "$icon_root" -maxdepth 1 -type f -name '*.png' -print | sort
-
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageOps
           icon_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods")
           pack_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods")
           files = {path for path in icon_root.glob("*.png") if path.name != "warn.png"} if icon_root.exists() else set()
-          if pack_root.exists():
-              files.update(path for path in pack_root.rglob("*.png") if path.name == "pack.png")
+          if pack_root.exists(): files.update(path for path in pack_root.rglob("*.png") if path.name == "pack.png")
           for path in sorted(files):
-              with Image.open(path) as source:
-                  image = source.convert("RGBA")
+              with Image.open(path) as source: image = source.convert("RGBA")
               image = ImageOps.contain(image, (64, 64), method=Image.Resampling.LANCZOS)
               canvas = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
               canvas.alpha_composite(image, ((64 - image.width) // 2, (64 - image.height) // 2))
@@ -192,10 +170,8 @@ jobs:
             fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
           }
           const music = withMusic ? fs.readFileSync(musicSource) : null;'''
-          if old_source in text:
-              text = text.replace(old_source, new_source, 1)
-          elif 'if (withMusic && !fs.existsSync(musicSource))' not in text:
-              raise SystemExit("Expected music-source check was not found")
+          if old_source in text: text = text.replace(old_source, new_source, 1)
+          elif 'if (withMusic && !fs.existsSync(musicSource))' not in text: raise SystemExit("Expected music-source check was not found")
           old_export = '''if (withoutMusic && !liteBuild) {
             const musicPack = spawnSync(process.execPath, [
               path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
@@ -220,10 +196,8 @@ jobs:
           } else if (liteBuild) {
             console.log("[single-html] Lite mode: optional music pack export skipped");
           }'''
-          if old_export in text:
-              text = text.replace(old_export, new_export, 1)
-          elif 'fs.existsSync(musicSource)' not in text:
-              raise SystemExit("Expected optional music export block was not found")
+          if old_export in text: text = text.replace(old_export, new_export, 1)
+          elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
           path.write_text(text, encoding="utf-8")
           PY
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
@@ -241,10 +215,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          # Preserve the upstream worker settings and matching inline WASM
-          # payloads; disabling or stripping them can stall runtime bootstrap.
           grep -q 'serverWorker: window.location.search.indexOf("singlethread") < 0' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'meshWorkers: window.location.search.indexOf("singlethread") < 0' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
@@ -252,10 +223,7 @@ jobs:
           grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-assets' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-sounds' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
-            echo "::error::Lean build unexpectedly embedded music.epk"
-            exit 1
-          fi
+          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then echo "::error::Lean build unexpectedly embedded music.epk"; exit 1; fi
           echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
       - name: Upload standalone HTML client
