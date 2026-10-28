@@ -75,12 +75,11 @@ jobs:
               "eag-inline-sounds",
           )
           for payload in required:
-              pattern = r'<script\\b[^>]*\\bid=["\\']' + re.escape(payload) + r'["\\']'
-              if not re.search(pattern, text, re.I):
+              if ('id="' + payload + '"' not in text and "id='" + payload + "'" not in text):
                   raise SystemExit("Required inline runtime payload is missing: " + payload)
-          if re.search(r'(?m)^\\s*serverWorker:\\s*false\\s*,', text):
+          if "serverWorker: false" in text:
               raise SystemExit("serverWorker was disabled; refusing to publish altered runtime")
-          if re.search(r'(?m)^\\s*meshWorkers:\\s*false\\s*,', text):
+          if "meshWorkers: false" in text:
               raise SystemExit("meshWorkers was disabled; refusing to publish altered runtime")
           print("Verified intact standalone runtime payloads:", path.stat().st_size, "bytes")
           PY
