@@ -1,0 +1,108 @@
+name: "04 - Fix standalone Eagler runtime"
+
+run-name: "04 - Fix standalone Eagler runtime"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Find latest successful native standalone build
+        id: run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id="$(gh run list --repo "${{ github.repository }}" --workflow "02-compile-eagler-vbv.yml" --status success --limit 20 --json databaseId --jq '.[0].databaseId')"
+          [ -n "$run_id" ] || { echo "::error::No successful workflow 02 run found."; exit 1; }
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "Using workflow 02 run: $run_id"
+
+      - name: Download standalone HTML artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id="${{ steps.run.outputs.run_id }}"
+          artifact_name="Eaglercraft-26.2-VBV-Herz-Single-HTML-$run_id"
+          artifact_id="$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/artifacts?per_page=100" --jq ".artifacts[] | select(.name == \"$artifact_name\" and .expired == false) | .id" | head -n1)"
+          [ -n "$artifact_id" ] || { echo "::error::No unexpired $artifact_name artifact found."; exit 1; }
+          mkdir -p input
+          gh api "repos/${{ github.repository }}/actions/artifacts/$artifact_id/zip" > input/artifact.zip
+          unzip -q input/artifact.zip -d input/client
+          html="$(find input/client -type f -name 'eaglercraft-26.2-vbv-herz.html' -print -quit)"
+          [ -n "$html" ] || { echo "::error::Standalone HTML was not found in artifact."; exit 1; }
+          cp "$html" ./eaglercraft-26.2-vbv-herz.html
+          test -s ./eaglercraft-26.2-vbv-herz.html
+
+      - name: Remove unused worker payloads from standalone client
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("eaglercraft-26.2-vbv-herz.html")
+          text = path.read_text(encoding="utf-8")
+
+          # Never start the integrated server or mesh workers in the standalone
+          # browser client. They are not needed for multiplayer and can consume
+          # hundreds of MB of transient browser memory during boot.
+          text, n1 = re.subn(
+              r'^\s*<link[^>]+(?:mesh-worker\.wasm|server-worker\.wasm)[^>]*>\s*\n?',
+              '', text, flags=re.MULTILINE
+          )
+          text, n2 = re.subn(
+              r'<[^>]*id=["\']eag-inline-(?:mesh-wasm-br|server-wasm-br)["\'][^>]*>.*?</[^>]+>\s*',
+              '', text, flags=re.DOTALL
+          )
+
+          text = text.replace(
+              'serverWorker: window.location.search.indexOf("singlethread") < 0,',
+              'serverWorker: false,'
+          )
+          text = text.replace(
+              'meshWorkers: window.location.search.indexOf("singlethread") < 0\n\t\t\t\t\t&& window.location.search.indexOf("nomesh") < 0,',
+              'meshWorkers: false,'
+          )
+
+          if 'serverWorker: false' not in text:
+              raise SystemExit('serverWorker=false was not installed')
+          if 'meshWorkers: false' not in text:
+              raise SystemExit('meshWorkers=false was not installed')
+          if 'eag-inline-mesh-wasm-br' in text:
+              raise SystemExit('mesh worker payload was not removed')
+          if 'eag-inline-server-wasm-br' in text:
+              raise SystemExit('server worker payload was not removed')
+
+          path.write_text(text, encoding="utf-8")
+          print(f"Removed worker preloads: {n1}; worker payload blocks: {n2}")
+          print(f"Fixed HTML size: {path.stat().st_size} bytes")
+          PY
+
+          test -s eaglercraft-26.2-vbv-herz.html
+          grep -q 'serverWorker: false' eaglercraft-26.2-vbv-herz.html
+          grep -q 'meshWorkers: false' eaglercraft-26.2-vbv-herz.html
+          ! grep -q 'eag-inline-mesh-wasm-br' eaglercraft-26.2-vbv-herz.html
+          ! grep -q 'eag-inline-server-wasm-br' eaglercraft-26.2-vbv-herz.html
+          grep -q 'eag-inline-wasm-br' eaglercraft-26.2-vbv-herz.html
+          grep -q 'eag-inline-assets' eaglercraft-26.2-vbv-herz.html
+          grep -q 'eag-inline-sounds' eaglercraft-26.2-vbv-herz.html
+
+      - name: Upload fixed standalone HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-Fixed-Runtime-${{ github.run_id }}
+          path: ${{ github.workspace }}/eaglercraft-26.2-vbv-herz.html
+          if-no-files-found: error
+          retention-days: 14
