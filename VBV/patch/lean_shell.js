@@ -4,10 +4,10 @@
  * Turns a standalone Eaglercraft 26.2 single-file client into a "lean" client
  * for low-memory devices (school Chromebooks): multiplayer only.
  *
- * The normal VBV runtime patch may already have rewritten the worker options
- * to use an explicit runtime expression and left the original expression in
- * a comment. This script accepts both the upstream u2 shell and that patched
- * form, then makes the final lean shell unconditionally single-threaded.
+ * The normal VBV runtime patch rewrites the worker options to use the local
+ * `enableWorkers` expression. This script accepts both the original upstream
+ * u2 shell and that patched form, then makes the final lean shell
+ * unconditionally single-threaded.
  *
  * usage: node lean_shell.js <in.html> <out.html>
  */
@@ -27,13 +27,16 @@ function die(message) {
 let html = fs.readFileSync(input, "utf8");
 const originalLength = html.length;
 
-// Accept the original u2 options as well as the VBV runtime-patched form.
-// The runtime patch intentionally leaves the upstream expression in a
-// comment, so the old "expression immediately followed by comma" regex was
-// too strict and caused this step to fail with "loader changed?".
+// Original upstream u2 expressions.
 const SERVER_FLAG = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
 const MESH_FLAG =
   /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?(?:\/\*[\s\S]*?\*\/\s*)?,/;
+
+// Current VBV runtime-patched expressions. The original upstream expressions
+// are retained in comments, but the actual option value is `enableWorkers`.
+const SERVER_ENABLE_FLAG = /serverWorker:\s*enableWorkers\b\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
+const MESH_ENABLE_FLAG = /meshWorkers:\s*enableWorkers\b\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
+
 const PAYLOAD_RE = /<script\b[^>]*\bid=["']eag-inline-(?:mesh-wasm-br|server-wasm-br)["'][^>]*>[\s\S]*?<\/script>\s*/g;
 const MESH_PROMISE = /(const\s+meshModulePromise\s*=\s*)/;
 const SERVER_PROMISE = /(const\s+serverModulePromise\s*=\s*)/;
@@ -50,33 +53,41 @@ if (alreadyLean) {
   process.exit(0);
 }
 
-// 1. flags. A build may contain either the untouched upstream expression or
-// the VBV runtime-patched expression with a trailing explanatory comment.
+// 1. Force both worker options off. Accept either the untouched upstream
+// expression or the current VBV `enableWorkers` expression.
 if (SERVER_FLAG.test(html)) {
   html = html.replace(SERVER_FLAG, "serverWorker: false,");
+} else if (SERVER_ENABLE_FLAG.test(html)) {
+  html = html.replace(SERVER_ENABLE_FLAG, "serverWorker: false,");
 } else if (!/serverWorker:\s*false\s*,/.test(html)) {
   die("serverWorker option not found in the page shell (loader changed?)");
 }
+
 if (MESH_FLAG.test(html)) {
   html = html.replace(MESH_FLAG, "meshWorkers: false,");
+} else if (MESH_ENABLE_FLAG.test(html)) {
+  html = html.replace(MESH_ENABLE_FLAG, "meshWorkers: false,");
 } else if (!/meshWorkers:\s*false\s*,/.test(html)) {
   die("meshWorkers option not found in the page shell (loader changed?)");
 }
 
-// 2. shell must skip the worker modules when they are disabled.
+// 2. The shell must skip the worker modules when disabled. If the runtime
+// patch already installed the guard, leave it intact; otherwise install it.
 if (!MESH_PROMISE.test(html)) die("shell 'meshModulePromise' not found (loader changed?)");
 if (!SERVER_PROMISE.test(html)) die("shell 'serverModulePromise' not found (loader changed?)");
-html = html
-  .replace(MESH_PROMISE, "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.meshWorkers === false) ? Promise.resolve(null) : ")
-  .replace(SERVER_PROMISE, "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.serverWorker === false) ? Promise.resolve(null) : ");
+if (!html.includes("eaglercraftXOpts && window.eaglercraftXOpts.meshWorkers === false")) {
+  html = html
+    .replace(MESH_PROMISE, "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.meshWorkers === false) ? Promise.resolve(null) : ")
+    .replace(SERVER_PROMISE, "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.serverWorker === false) ? Promise.resolve(null) : ");
+}
 
-// 3. remove worker payloads only after the shell no longer tries to compile
-// them when disabled.
+// 3. Remove worker payloads only after the shell has been changed so it will
+// not attempt to decode or compile them when disabled.
 let removed = 0;
 html = html.replace(PAYLOAD_RE, () => { removed++; return ""; });
 if (removed !== 2) die("expected to remove 2 worker payloads, removed " + removed);
 
-// 4. server bootstrap blob (optional optimisation).
+// 4. Remove the server bootstrap blob (optional optimisation).
 const blobStart = html.indexOf(BLOB_START);
 const blobEnd = blobStart < 0 ? -1 : html.indexOf(BLOB_END, blobStart);
 let blobRemoved = false;
