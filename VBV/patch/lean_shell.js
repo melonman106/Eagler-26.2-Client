@@ -4,25 +4,10 @@
  * Turns a standalone Eaglercraft 26.2 single-file client into a "lean" client
  * for low-memory devices (school Chromebooks): multiplayer only.
  *
- * Why this exists
- *   The u2 page shell compiles ALL THREE embedded WebAssembly modules at boot
- *   (client, mesh worker, integrated-server worker) no matter what
- *   serverWorker / meshWorkers are set to. Flipping those two flags alone (or
- *   deleting the worker payloads, as workflow 04 used to) therefore does not
- *   save memory; deleting the payloads without changing the shell even makes
- *   the shell's compile-once path throw and fall back to compiling the 103 MB
- *   client module a second time.
- *
- *   This script changes the shell so it skips the worker modules whenever
- *   they are disabled, and only then removes their payloads:
- *     1. serverWorker / meshWorkers  -> false
- *     2. shell: do not decode/compile the mesh / server wasm when disabled
- *     3. remove the mesh + server brotli payloads (~13 MB of the file)
- *     4. remove the server-worker bootstrap Blob (holds a second copy of
- *        assets.epk as text)
- *
- * Every step is anchored. If the page shell no longer looks the way this
- * script expects it exits non-zero WITHOUT writing a half-patched file.
+ * The normal VBV runtime patch may already have rewritten the worker options
+ * to use an explicit runtime expression and left the original expression in
+ * a comment. This script accepts both the upstream u2 shell and that patched
+ * form, then makes the final lean shell unconditionally single-threaded.
  *
  * usage: node lean_shell.js <in.html> <out.html>
  */
@@ -42,9 +27,13 @@ function die(message) {
 let html = fs.readFileSync(input, "utf8");
 const originalLength = html.length;
 
-const SERVER_FLAG = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*,/;
+// Accept the original u2 options as well as the VBV runtime-patched form.
+// The runtime patch intentionally leaves the upstream expression in a
+// comment, so the old "expression immediately followed by comma" regex was
+// too strict and caused this step to fail with "loader changed?".
+const SERVER_FLAG = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
 const MESH_FLAG =
-  /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*,/;
+  /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?(?:\/\*[\s\S]*?\*\/\s*)?,/;
 const PAYLOAD_RE = /<script\b[^>]*\bid=["']eag-inline-(?:mesh-wasm-br|server-wasm-br)["'][^>]*>[\s\S]*?<\/script>\s*/g;
 const MESH_PROMISE = /(const\s+meshModulePromise\s*=\s*)/;
 const SERVER_PROMISE = /(const\s+serverModulePromise\s*=\s*)/;
@@ -61,7 +50,8 @@ if (alreadyLean) {
   process.exit(0);
 }
 
-// 1. flags (a build may already have them flipped to false by an earlier step)
+// 1. flags. A build may contain either the untouched upstream expression or
+// the VBV runtime-patched expression with a trailing explanatory comment.
 if (SERVER_FLAG.test(html)) {
   html = html.replace(SERVER_FLAG, "serverWorker: false,");
 } else if (!/serverWorker:\s*false\s*,/.test(html)) {
@@ -73,19 +63,20 @@ if (MESH_FLAG.test(html)) {
   die("meshWorkers option not found in the page shell (loader changed?)");
 }
 
-// 2. shell must skip the worker modules when they are disabled
+// 2. shell must skip the worker modules when they are disabled.
 if (!MESH_PROMISE.test(html)) die("shell 'meshModulePromise' not found (loader changed?)");
 if (!SERVER_PROMISE.test(html)) die("shell 'serverModulePromise' not found (loader changed?)");
 html = html
   .replace(MESH_PROMISE, "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.meshWorkers === false) ? Promise.resolve(null) : ")
   .replace(SERVER_PROMISE, "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.serverWorker === false) ? Promise.resolve(null) : ");
 
-// 3. remove payloads
+// 3. remove worker payloads only after the shell no longer tries to compile
+// them when disabled.
 let removed = 0;
 html = html.replace(PAYLOAD_RE, () => { removed++; return ""; });
 if (removed !== 2) die("expected to remove 2 worker payloads, removed " + removed);
 
-// 4. server bootstrap blob (optional optimisation)
+// 4. server bootstrap blob (optional optimisation).
 const blobStart = html.indexOf(BLOB_START);
 const blobEnd = blobStart < 0 ? -1 : html.indexOf(BLOB_END, blobStart);
 let blobRemoved = false;
@@ -96,7 +87,7 @@ if (blobStart >= 0 && blobEnd >= 0) {
   console.warn("[lean-shell] WARNING: server bootstrap blob markers not found; leaving it in place");
 }
 
-// verification of the result
+// Verification of the result.
 for (const id of ["eag-inline-wasm-br", "eag-inline-assets", "eag-inline-sounds", "eag-inline-decoder"]) {
   if (!html.includes('id="' + id + '"') && !html.includes("id='" + id + "'")) die("required payload missing after patch: " + id);
 }
