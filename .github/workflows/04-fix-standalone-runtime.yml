@@ -1,12 +1,11 @@
-name: "05 - Fix standalone Eagler runtime"
+name: "04 - Fix standalone Eagler runtime"
 
-run-name: "05 - Lean low-memory client + diagnostics from latest build"
+run-name: "04 - Lean low-memory client + visible runtime console"
 
-# Takes the newest successful workflow-02 single HTML and makes two files from it:
-#   *-lean.html       multiplayer-only client that really skips the two worker wasm images
-#                     (see VBV/patch/lean_shell.js for why flipping flags alone does not work)
-#   *-lean-diag.html  the same file plus an on-screen diagnostics panel with a "Copy report" button
-# No rebuild is needed; this finishes in a couple of minutes.
+# Takes the newest successful workflow-02 single HTML and makes two files:
+#   *-lean.html       multiplayer-only client with both worker WASM payloads removed
+#   *-lean-diag.html  the same lean client with the always-visible VBV runtime console
+# No rebuild is needed.
 
 on:
   workflow_dispatch:
@@ -57,7 +56,7 @@ jobs:
           test -s ./eaglercraft-26.2-vbv-herz.html
           echo "Downloaded: $(stat -c%s ./eaglercraft-26.2-vbv-herz.html) bytes"
 
-      - name: Make the lean low-memory client and the diagnostics copy
+      - name: Make the lean low-memory client and visible console copy
         shell: bash
         run: |
           set -euo pipefail
@@ -66,16 +65,29 @@ jobs:
           node VBV/patch/inject_error_overlay.js dist/eaglercraft-26.2-vbv-herz-lean.html dist/eaglercraft-26.2-vbv-herz-lean-diag.html
 
           lean=dist/eaglercraft-26.2-vbv-herz-lean.html
+          diag=dist/eaglercraft-26.2-vbv-herz-lean-diag.html
+
           grep -q 'serverWorker: false' "$lean"
           grep -q 'meshWorkers: false' "$lean"
           grep -q 'eaglercraftXOpts.meshWorkers === false' "$lean"
+          grep -q 'eaglercraftXOpts.serverWorker === false' "$lean"
           ! grep -q 'eag-inline-mesh-wasm-br' "$lean"
           ! grep -q 'eag-inline-server-wasm-br' "$lean"
           grep -q 'eag-inline-wasm-br' "$lean"
           grep -q 'eag-inline-assets' "$lean"
           grep -q 'eag-inline-sounds' "$lean"
-          grep -q 'vbv-diag-script' dist/eaglercraft-26.2-vbv-herz-lean-diag.html
-          ls -l dist
+
+          # The diagnostics artifact must contain an executable, immediately
+          # visible console, not merely a string mentioning diagnostics.
+          grep -q 'id="vbv-diag-script"' "$diag"
+          grep -q 'window.__vbvDiagReady = true' "$diag"
+          grep -q 'VBV runtime console (tap to collapse)' "$diag"
+          grep -q 'refresh();' "$diag"
+          grep -q 'Copy report' "$diag"
+
+          echo "Lean HTML: $(stat -c%s "$lean") bytes"
+          echo "Console HTML: $(stat -c%s "$diag") bytes"
+          ls -lh dist
 
       - name: Upload lean client and diagnostics copy
         uses: actions/upload-artifact@v4
