@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 "use strict";
 /*
- * Turns a standalone Eaglercraft 26.2 single-file client into a "lean" client
- * for low-memory devices: multiplayer only, with both worker WASM payloads
- * removed after the shell is changed to skip those modules.
+ * Turns a standalone Eaglercraft 26.2 single-file client into a lean
+ * single-threaded client for low-memory devices.
  *
- * Accepts the original u2 shell and the VBV runtime-patched shell.
+ * The VBV build already makes worker WASM lazy behind `enableWorkers`.
+ * The safest lean transformation is therefore to force that existing flag to
+ * false, disable the public worker options, and remove the worker payloads.
+ * We deliberately do NOT rewrite the Promise expressions themselves: that
+ * avoids creating nested ternaries in generated JavaScript and prevents the
+ * syntax error that occurred in the previous lean build.
  *
  * usage: node lean_shell.js <in.html> <out.html>
  */
@@ -25,98 +29,68 @@ function die(message) {
 let html = fs.readFileSync(input, "utf8");
 const originalLength = html.length;
 
-// Original upstream u2 expressions.
 const SERVER_FLAG = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
-const MESH_FLAG = /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?(?:\/\*[\s\S]*?\*\/\s*)?,/;
-
-// Current VBV runtime patch inlines the worker gate into each option and may
-// leave the original expression in a trailing comment. These regexes are
-// deliberately regex literals (not String.raw) so the escaping is exact.
+const MESH_FLAG = /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:\/\*[\s\S]*?\*\/\s*)?(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?,/;
 const SERVER_INLINE_FLAG = /serverWorker:\s*window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
 const MESH_INLINE_FLAG = /meshWorkers:\s*window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:\/\*[\s\S]*?\*\/\s*)?(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?,/;
 const SERVER_VARIABLE_FLAG = /serverWorker:\s*enableWorkers\b(?:\s*\/\*[\s\S]*?\*\/\s*)?,/;
 const MESH_VARIABLE_FLAG = /meshWorkers:\s*enableWorkers\b(?:\s*\/\*[\s\S]*?\*\/\s*)?(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?,/;
 
+const ENABLE_WORKERS = /const\s+enableWorkers\s*=\s*window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*;/;
+const ENABLE_WORKERS_FALSE = /const\s+enableWorkers\s*=\s*false\s*;/;
+const WORKER_MODULES = /const\s+workerModules\s*=\s*enableWorkers\s*\?\s*await\s+Promise\.all\(\[meshModulePromise,\s*serverModulePromise\]\)\s*:\s*\[null,\s*null\]\s*;/;
+
 const PAYLOAD_RE = /<script\b[^>]*\bid=["']eag-inline-(?:mesh-wasm-br|server-wasm-br)["'][^>]*>[\s\S]*?<\/script>\s*/g;
-const MESH_PROMISE = /(const\s+meshModulePromise\s*=\s*)/;
-const SERVER_PROMISE = /(const\s+serverModulePromise\s*=\s*)/;
 const BLOB_START = "  window.__eaglerWasmServerWorkerBootstrapURL = URL.createObjectURL(new Blob([";
 const BLOB_END = '  ], { type: "text/javascript" }));';
 
-const alreadyLean =
-  /serverWorker:\s*false\s*,/.test(html) &&
-  /meshWorkers:\s*false\s*,/.test(html) &&
-  !/id=["']eag-inline-(?:mesh|server)-wasm-br["']/.test(html);
-if (alreadyLean) {
-  console.log("[lean-shell] input is already lean; copying unchanged");
-  fs.writeFileSync(output, html);
-  process.exit(0);
+// 1. Disable the public worker options.
+if (SERVER_FLAG.test(html)) html = html.replace(SERVER_FLAG, "serverWorker: false,");
+else if (SERVER_INLINE_FLAG.test(html)) html = html.replace(SERVER_INLINE_FLAG, "serverWorker: false,");
+else if (SERVER_VARIABLE_FLAG.test(html)) html = html.replace(SERVER_VARIABLE_FLAG, "serverWorker: false,");
+else if (!/serverWorker:\s*false\s*,/.test(html)) die("serverWorker option not found in the page shell (loader changed?)");
+
+if (MESH_FLAG.test(html)) html = html.replace(MESH_FLAG, "meshWorkers: false,");
+else if (MESH_INLINE_FLAG.test(html)) html = html.replace(MESH_INLINE_FLAG, "meshWorkers: false,");
+else if (MESH_VARIABLE_FLAG.test(html)) html = html.replace(MESH_VARIABLE_FLAG, "meshWorkers: false,");
+else if (!/meshWorkers:\s*false\s*,/.test(html)) die("meshWorkers option not found in the page shell (loader changed?)");
+
+// 2. Force the existing VBV worker gate itself off. This is deliberately a
+// simple declaration replacement, not a rewrite of the Promise expressions.
+if (ENABLE_WORKERS.test(html)) {
+  html = html.replace(ENABLE_WORKERS, "const enableWorkers = false;");
+} else if (!ENABLE_WORKERS_FALSE.test(html)) {
+  die("enableWorkers declaration not found in the generated shell");
 }
 
-// 1. Force both worker options off. Accept untouched upstream expressions,
-// the older enableWorkers form, and the current inlined condition.
-if (SERVER_FLAG.test(html)) {
-  html = html.replace(SERVER_FLAG, "serverWorker: false,");
-} else if (SERVER_INLINE_FLAG.test(html)) {
-  html = html.replace(SERVER_INLINE_FLAG, "serverWorker: false,");
-} else if (SERVER_VARIABLE_FLAG.test(html)) {
-  html = html.replace(SERVER_VARIABLE_FLAG, "serverWorker: false,");
-} else if (!/serverWorker:\s*false\s*,/.test(html)) {
-  die("serverWorker option not found in the page shell (loader changed?)");
+if (!WORKER_MODULES.test(html)) {
+  die("workerModules declaration not found in the generated shell");
 }
 
-if (MESH_FLAG.test(html)) {
-  html = html.replace(MESH_FLAG, "meshWorkers: false,");
-} else if (MESH_INLINE_FLAG.test(html)) {
-  html = html.replace(MESH_INLINE_FLAG, "meshWorkers: false,");
-} else if (MESH_VARIABLE_FLAG.test(html)) {
-  html = html.replace(MESH_VARIABLE_FLAG, "meshWorkers: false,");
-} else if (!/meshWorkers:\s*false\s*,/.test(html)) {
-  die("meshWorkers option not found in the page shell (loader changed?)");
-}
-
-// 2. The shell must skip the worker modules when disabled. If the runtime
-// patch already installed the guards, leave them intact; otherwise install.
-if (!MESH_PROMISE.test(html)) die("shell 'meshModulePromise' not found (loader changed?)");
-if (!SERVER_PROMISE.test(html)) die("shell 'serverModulePromise' not found (loader changed?)");
-if (!html.includes("eaglercraftXOpts && window.eaglercraftXOpts.meshWorkers === false")) {
-  html = html.replace(
-    MESH_PROMISE,
-    "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.meshWorkers === false) ? Promise.resolve(null) : "
-  );
-}
-if (!html.includes("eaglercraftXOpts && window.eaglercraftXOpts.serverWorker === false")) {
-  html = html.replace(
-    SERVER_PROMISE,
-    "$1(window.eaglercraftXOpts && window.eaglercraftXOpts.serverWorker === false) ? Promise.resolve(null) : "
-  );
-}
-
-// 3. Remove worker payloads only after the shell has been changed so it will
-// not attempt to decode or compile them when disabled.
+// 3. Remove the worker WASM payloads. With enableWorkers=false the existing
+// VBV bootstrap will resolve [null, null] without compiling these payloads.
 let removed = 0;
 html = html.replace(PAYLOAD_RE, () => { removed++; return ""; });
 if (removed !== 2) die("expected to remove 2 worker payloads, removed " + removed);
 
-// 4. Remove the server bootstrap blob (optional optimisation).
+// 4. Remove the optional server worker bootstrap blob.
 const blobStart = html.indexOf(BLOB_START);
 const blobEnd = blobStart < 0 ? -1 : html.indexOf(BLOB_END, blobStart);
 let blobRemoved = false;
 if (blobStart >= 0 && blobEnd >= 0) {
   html = html.slice(0, blobStart) + "  window.__eaglerWasmServerWorkerBootstrapURL = null;" + html.slice(blobEnd + BLOB_END.length);
   blobRemoved = true;
-} else {
-  console.warn("[lean-shell] WARNING: server bootstrap blob markers not found; leaving it in place");
 }
 
-// Verification of the result.
+// 5. Fail closed and verify the actual final text.
 for (const id of ["eag-inline-wasm-br", "eag-inline-assets", "eag-inline-sounds", "eag-inline-decoder"]) {
   if (!html.includes('id="' + id + '"') && !html.includes("id='" + id + "'")) die("required payload missing after patch: " + id);
 }
 if (/id=["']eag-inline-(?:mesh|server)-wasm-br["']/.test(html)) die("worker payload still present after patch");
-if (!/serverWorker:\s*false\s*,/.test(html) || !/meshWorkers:\s*false\s*,/.test(html)) die("flags were not installed");
-if (!html.includes("eaglercraftXOpts.meshWorkers === false")) die("mesh shell guard was not installed");
-if (!html.includes("eaglercraftXOpts.serverWorker === false")) die("server shell guard was not installed");
+if (!/serverWorker:\s*false\s*,/.test(html)) die("serverWorker was not disabled");
+if (!/meshWorkers:\s*false\s*,/.test(html)) die("meshWorkers was not disabled");
+if (!ENABLE_WORKERS_FALSE.test(html)) die("enableWorkers was not forced false");
+if (!WORKER_MODULES.test(html)) die("workerModules declaration was changed unexpectedly");
 
 fs.writeFileSync(output, html);
 console.log("[lean-shell] " + input + " -> " + output);
