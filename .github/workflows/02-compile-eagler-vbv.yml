@@ -226,6 +226,20 @@ jobs:
           if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then echo "::error::Lean build unexpectedly embedded music.epk"; exit 1; fi
           echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
 
+      - name: Inject visible runtime console into the main standalone HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp eaglercraft-26.2-vbv-herz.html eaglercraft-26.2-vbv-herz-pre-console.html
+          node VBV/patch/inject_error_overlay.js eaglercraft-26.2-vbv-herz-pre-console.html eaglercraft-26.2-vbv-herz.html
+          test -s eaglercraft-26.2-vbv-herz.html
+          grep -q 'id="vbv-diag-script"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'window.__vbvDiagReady = true' eaglercraft-26.2-vbv-herz.html
+          grep -q 'VBV runtime console (tap to collapse)' eaglercraft-26.2-vbv-herz.html
+          grep -q 'refresh();' eaglercraft-26.2-vbv-herz.html
+          rm -f eaglercraft-26.2-vbv-herz-pre-console.html
+          echo "Visible runtime console embedded: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
+
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
