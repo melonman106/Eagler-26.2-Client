@@ -72,20 +72,28 @@ jobs:
           grep -q 'eag-inline-assets' "$lean"
           grep -q 'eag-inline-sounds' "$lean"
 
-          # Syntax-check the generated inline module scripts before upload.
+          # Only executable JavaScript blocks are syntax-checked. The large
+          # application/octet-stream script tags are binary payload containers.
           python3 - "$lean" <<'PY'
           import re, subprocess, sys
           from pathlib import Path
           text = Path(sys.argv[1]).read_text(encoding="utf-8")
-          scripts = re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', text, re.I)
-          for i, script in enumerate(scripts):
-              if not script.strip(): continue
+          blocks = re.findall(r'<script([^>]*)>([\s\S]*?)</script>', text, re.I)
+          checked = 0
+          for i, (attrs, script) in enumerate(blocks):
+              typ = re.search(r'\btype=["\']([^"\']+)["\']', attrs, re.I)
+              typ = typ.group(1).lower() if typ else "text/javascript"
+              if typ not in ("text/javascript", "application/javascript", "module", "text/ecmascript"):
+                  continue
+              if not script.strip():
+                  continue
               p = subprocess.run(["node", "--check"], input=script, text=True, capture_output=True)
+              checked += 1
               if p.returncode:
-                  print(f"::error::Generated inline script {i} has invalid JavaScript")
+                  print(f"::error::Generated JavaScript block {i} has invalid syntax")
                   print(p.stderr)
                   raise SystemExit(1)
-          print(f"Checked {len(scripts)} inline script blocks")
+          print(f"Checked {checked} executable JavaScript blocks")
           PY
 
           grep -q 'id="vbv-diag-script"' "$diag"
