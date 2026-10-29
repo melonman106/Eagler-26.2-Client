@@ -63,25 +63,39 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path("output/eaglercraft-26.2-vbv-herz.html")
           text = path.read_text(encoding="utf-8")
+
           required = (
               "eag-inline-wasm-br",
               "eag-inline-mesh-wasm-br",
               "eag-inline-server-wasm-br",
               "eag-inline-assets",
               "eag-inline-sounds",
+              "/* VBV low-memory worker bootstrap */",
+              'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;',
+              "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];",
+              "[VBV runtime] standalone bootstrap loaded",
           )
-          for payload in required:
-              if ('id="' + payload + '"' not in text and "id='" + payload + "'" not in text):
-                  raise SystemExit("Required inline runtime payload is missing: " + payload)
+          for token in required:
+              if token not in text:
+                  raise SystemExit("Required standalone runtime marker is missing: " + token)
+
           if "serverWorker: false" in text:
               raise SystemExit("serverWorker was disabled; refusing to publish altered runtime")
           if "meshWorkers: false" in text:
               raise SystemExit("meshWorkers was disabled; refusing to publish altered runtime")
-          print("Verified intact standalone runtime payloads:", path.stat().st_size, "bytes")
+          if 'serverWorker: window.location.search.indexOf("singlethread") < 0' not in text:
+              raise SystemExit("Expected upstream serverWorker option was not found; refusing to publish unknown runtime")
+          if 'meshWorkers: window.location.search.indexOf("singlethread") < 0' not in text:
+              raise SystemExit("Expected upstream meshWorkers option was not found; refusing to publish unknown runtime")
+          if "eag-inline-music" in text:
+              raise SystemExit("Lean standalone build unexpectedly contains embedded music")
+
+          print("Verified patched standalone runtime:", path.stat().st_size, "bytes")
+          print("Normal worker mode: single-threaded")
+          print("Optional worker mode: ?workers")
           PY
 
       - name: Verify fixed downloaded client is native-only
