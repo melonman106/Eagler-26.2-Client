@@ -1,6 +1,12 @@
-name: "04 - Fix standalone Eagler runtime"
+name: "05 - Fix standalone Eagler runtime"
 
-run-name: "04 - Fix standalone Eagler runtime"
+run-name: "05 - Lean low-memory client + diagnostics from latest build"
+
+# Takes the newest successful workflow-02 single HTML and makes two files from it:
+#   *-lean.html       multiplayer-only client that really skips the two worker wasm images
+#                     (see VBV/patch/lean_shell.js for why flipping flags alone does not work)
+#   *-lean-diag.html  the same file plus an on-screen diagnostics panel with a "Copy report" button
+# No rebuild is needed; this finishes in a couple of minutes.
 
 on:
   workflow_dispatch:
@@ -12,8 +18,14 @@ permissions:
 jobs:
   fix:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
+      - name: Checkout patch scripts
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
       - name: Find latest successful native standalone build
         id: run
         shell: bash
@@ -43,66 +55,33 @@ jobs:
           [ -n "$html" ] || { echo "::error::Standalone HTML was not found in artifact."; exit 1; }
           cp "$html" ./eaglercraft-26.2-vbv-herz.html
           test -s ./eaglercraft-26.2-vbv-herz.html
+          echo "Downloaded: $(stat -c%s ./eaglercraft-26.2-vbv-herz.html) bytes"
 
-      - name: Remove unused worker payloads from standalone client
+      - name: Make the lean low-memory client and the diagnostics copy
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
+          mkdir -p dist
+          node VBV/patch/lean_shell.js eaglercraft-26.2-vbv-herz.html dist/eaglercraft-26.2-vbv-herz-lean.html
+          node VBV/patch/inject_error_overlay.js dist/eaglercraft-26.2-vbv-herz-lean.html dist/eaglercraft-26.2-vbv-herz-lean-diag.html
 
-          path = Path("eaglercraft-26.2-vbv-herz.html")
-          text = path.read_text(encoding="utf-8")
+          lean=dist/eaglercraft-26.2-vbv-herz-lean.html
+          grep -q 'serverWorker: false' "$lean"
+          grep -q 'meshWorkers: false' "$lean"
+          grep -q 'eaglercraftXOpts.meshWorkers === false' "$lean"
+          ! grep -q 'eag-inline-mesh-wasm-br' "$lean"
+          ! grep -q 'eag-inline-server-wasm-br' "$lean"
+          grep -q 'eag-inline-wasm-br' "$lean"
+          grep -q 'eag-inline-assets' "$lean"
+          grep -q 'eag-inline-sounds' "$lean"
+          grep -q 'vbv-diag-script' dist/eaglercraft-26.2-vbv-herz-lean-diag.html
+          ls -l dist
 
-          # Never start the integrated server or mesh workers in the standalone
-          # browser client. They are not needed for multiplayer and can consume
-          # hundreds of MB of transient browser memory during boot.
-          text, n1 = re.subn(
-              r'^\s*<link[^>]+(?:mesh-worker\.wasm|server-worker\.wasm)[^>]*>\s*\n?',
-              '', text, flags=re.MULTILINE
-          )
-          text, n2 = re.subn(
-              r'<[^>]*id=["\']eag-inline-(?:mesh-wasm-br|server-wasm-br)["\'][^>]*>.*?</[^>]+>\s*',
-              '', text, flags=re.DOTALL
-          )
-
-          text = text.replace(
-              'serverWorker: window.location.search.indexOf("singlethread") < 0,',
-              'serverWorker: false,'
-          )
-          text = text.replace(
-              'meshWorkers: window.location.search.indexOf("singlethread") < 0\n\t\t\t\t\t&& window.location.search.indexOf("nomesh") < 0,',
-              'meshWorkers: false,'
-          )
-
-          if 'serverWorker: false' not in text:
-              raise SystemExit('serverWorker=false was not installed')
-          if 'meshWorkers: false' not in text:
-              raise SystemExit('meshWorkers=false was not installed')
-          if 'eag-inline-mesh-wasm-br' in text:
-              raise SystemExit('mesh worker payload was not removed')
-          if 'eag-inline-server-wasm-br' in text:
-              raise SystemExit('server worker payload was not removed')
-
-          path.write_text(text, encoding="utf-8")
-          print(f"Removed worker preloads: {n1}; worker payload blocks: {n2}")
-          print(f"Fixed HTML size: {path.stat().st_size} bytes")
-          PY
-
-          test -s eaglercraft-26.2-vbv-herz.html
-          grep -q 'serverWorker: false' eaglercraft-26.2-vbv-herz.html
-          grep -q 'meshWorkers: false' eaglercraft-26.2-vbv-herz.html
-          ! grep -q 'eag-inline-mesh-wasm-br' eaglercraft-26.2-vbv-herz.html
-          ! grep -q 'eag-inline-server-wasm-br' eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-wasm-br' eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-assets' eaglercraft-26.2-vbv-herz.html
-          grep -q 'eag-inline-sounds' eaglercraft-26.2-vbv-herz.html
-
-      - name: Upload fixed standalone HTML
+      - name: Upload lean client and diagnostics copy
         uses: actions/upload-artifact@v4
         with:
-          name: Eaglercraft-26.2-VBV-Herz-Fixed-Runtime-${{ github.run_id }}
-          path: ${{ github.workspace }}/eaglercraft-26.2-vbv-herz.html
+          name: Eaglercraft-26.2-VBV-Herz-Lean-${{ github.run_id }}
+          path: dist/*.html
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
+          compression-level: 0
