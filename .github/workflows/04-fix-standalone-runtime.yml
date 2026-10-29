@@ -1,11 +1,5 @@
 name: "04 - Fix standalone Eagler runtime"
-
 run-name: "04 - Lean low-memory client + visible runtime console"
-
-# Takes the newest successful workflow-02 single HTML and makes two files:
-#   *-lean.html       multiplayer-only client with both worker WASM payloads removed
-#   *-lean-diag.html  the same lean client with the always-visible VBV runtime console
-# No rebuild is needed.
 
 on:
   workflow_dispatch:
@@ -54,7 +48,6 @@ jobs:
           [ -n "$html" ] || { echo "::error::Standalone HTML was not found in artifact."; exit 1; }
           cp "$html" ./eaglercraft-26.2-vbv-herz.html
           test -s ./eaglercraft-26.2-vbv-herz.html
-          echo "Downloaded: $(stat -c%s ./eaglercraft-26.2-vbv-herz.html) bytes"
 
       - name: Make the lean low-memory client and visible console copy
         shell: bash
@@ -69,8 +62,8 @@ jobs:
 
           grep -q 'serverWorker: false' "$lean"
           grep -q 'meshWorkers: false' "$lean"
-          grep -q 'eaglercraftXOpts.meshWorkers === false' "$lean"
-          grep -q 'eaglercraftXOpts.serverWorker === false' "$lean"
+          grep -q 'const enableWorkers = false;' "$lean"
+          grep -q 'const workerModules = enableWorkers ? await Promise.all' "$lean"
           ! grep -q 'eag-inline-mesh-wasm-br' "$lean"
           ! grep -q 'eag-inline-server-wasm-br' "$lean"
           grep -q 'eag-inline-wasm-br' "$lean"
