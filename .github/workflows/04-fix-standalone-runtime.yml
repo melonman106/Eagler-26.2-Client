@@ -63,20 +63,36 @@ jobs:
           grep -q 'serverWorker: false' "$lean"
           grep -q 'meshWorkers: false' "$lean"
           grep -q 'const enableWorkers = false;' "$lean"
-          grep -q 'const workerModules = enableWorkers ? await Promise.all' "$lean"
+          grep -q 'const meshModulePromise = Promise.resolve(null);' "$lean"
+          grep -q 'const serverModulePromise = Promise.resolve(null);' "$lean"
+          grep -q 'const workerModules = \[null, null\];' "$lean"
           ! grep -q 'eag-inline-mesh-wasm-br' "$lean"
           ! grep -q 'eag-inline-server-wasm-br' "$lean"
           grep -q 'eag-inline-wasm-br' "$lean"
           grep -q 'eag-inline-assets' "$lean"
           grep -q 'eag-inline-sounds' "$lean"
 
-          # The diagnostics artifact must contain an executable, immediately
-          # visible console, not merely a string mentioning diagnostics.
+          # Syntax-check the generated inline module scripts before upload.
+          python3 - "$lean" <<'PY'
+          import re, subprocess, sys
+          from pathlib import Path
+          text = Path(sys.argv[1]).read_text(encoding="utf-8")
+          scripts = re.findall(r'<script(?:\s[^>]*)?>([\s\S]*?)</script>', text, re.I)
+          for i, script in enumerate(scripts):
+              if not script.strip(): continue
+              p = subprocess.run(["node", "--check"], input=script, text=True, capture_output=True)
+              if p.returncode:
+                  print(f"::error::Generated inline script {i} has invalid JavaScript")
+                  print(p.stderr)
+                  raise SystemExit(1)
+          print(f"Checked {len(scripts)} inline script blocks")
+          PY
+
           grep -q 'id="vbv-diag-script"' "$diag"
           grep -q 'window.__vbvDiagReady = true' "$diag"
           grep -q 'VBV runtime console (tap to collapse)' "$diag"
-          grep -q 'refresh();' "$diag"
-          grep -q 'Copy report' "$diag"
+          grep -q 'Save report' "$diag"
+          ! grep -q 'navigator.clipboard.writeText' "$diag"
 
           echo "Lean HTML: $(stat -c%s "$lean") bytes"
           echo "Console HTML: $(stat -c%s "$diag") bytes"
