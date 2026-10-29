@@ -1,17 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 /*
- * Diagnostics for a client that is stuck on "Loading Eaglercraft 26.2 runtime...".
- *
- * Adds an on-screen panel (no DevTools needed, so it works on a managed
- * Chromebook) that shows:
- *   - how long the page has been loading and which boot stage the loader is on
- *   - the loader's own log (window.__log) and last error
- *   - timing of every WebAssembly compile / instantiate, and whether it finished
- *   - memory, device and browser capabilities
- *   - whether the main thread was blocked, and for how long
- * The "Copy report" button puts the whole thing on the clipboard so it can be
- * pasted into a chat. Click the panel title to collapse it.
+ * Adds an always-visible on-screen VBV runtime console to a standalone
+ * Eaglercraft HTML file. It needs no DevTools and is intended for managed
+ * Chromebooks.
  *
  * usage: node inject_error_overlay.js <in.html> <out.html>
  */
@@ -23,7 +15,6 @@ if (!input || !output) {
   process.exit(2);
 }
 
-// Serialized into the page: must be self-contained and must never throw.
 function diag() {
   var t0 = Date.now();
   var wasmLines = [];
@@ -36,35 +27,51 @@ function diag() {
   function secs(ms) { return (ms / 1000).toFixed(1) + "s"; }
   function short(v, n) { v = String(v); return v.length > n ? v.slice(0, n) + "..." : v; }
   function errText(e) { return e && e.stack ? String(e.stack).split("\n").slice(0, 4).join(" | ") : String(e); }
-  function note(list, msg) { list.push("[" + secs(Date.now() - t0) + "] " + short(msg, 300)); if (list.length > 40) list.shift(); }
+  function note(list, msg) {
+    list.push("[" + secs(Date.now() - t0) + "] " + short(msg, 300));
+    if (list.length > 40) list.shift();
+  }
+
+  window.__vbvDiagReady = true;
+  try { console.log("[VBV console] diagnostics overlay started"); } catch (e) { /* ignore */ }
 
   window.addEventListener("error", function (e) {
     note(errors, "ERROR " + (e.message || "") + (e.error ? " :: " + errText(e.error) : ""));
   }, true);
-  window.addEventListener("unhandledrejection", function (e) { note(errors, "REJECTED " + errText(e.reason)); });
+  window.addEventListener("unhandledrejection", function (e) {
+    note(errors, "REJECTED " + errText(e.reason));
+  });
 
-  // Time every WebAssembly compile/instantiate.
+  // Time every WebAssembly compile/instantiate call made after this script.
   var pending = {};
   var pendingId = 0;
   if (window.WebAssembly) {
     ["compile", "instantiate", "compileStreaming", "instantiateStreaming"].forEach(function (name) {
       var original = WebAssembly[name];
       if (typeof original !== "function") return;
-      WebAssembly[name] = function () {
-        var id = ++pendingId, start = Date.now();
-        pending[id] = name;
-        note(wasmLines, "wasm." + name + " started");
-        var result;
-        try { result = original.apply(WebAssembly, arguments); }
-        catch (e) { delete pending[id]; note(wasmLines, "wasm." + name + " THREW " + errText(e)); throw e; }
-        if (result && typeof result.then === "function") {
-          result.then(
-            function () { delete pending[id]; note(wasmLines, "wasm." + name + " finished in " + secs(Date.now() - start)); },
-            function (e) { delete pending[id]; note(wasmLines, "wasm." + name + " FAILED after " + secs(Date.now() - start) + ": " + errText(e)); }
-          );
-        }
-        return result;
-      };
+      try {
+        WebAssembly[name] = function () {
+          var id = ++pendingId, start = Date.now();
+          pending[id] = name;
+          note(wasmLines, "wasm." + name + " started");
+          var result;
+          try { result = original.apply(WebAssembly, arguments); }
+          catch (e) {
+            delete pending[id];
+            note(wasmLines, "wasm." + name + " THREW " + errText(e));
+            throw e;
+          }
+          if (result && typeof result.then === "function") {
+            result.then(
+              function () { delete pending[id]; note(wasmLines, "wasm." + name + " finished in " + secs(Date.now() - start)); },
+              function (e) { delete pending[id]; note(wasmLines, "wasm." + name + " FAILED after " + secs(Date.now() - start) + ": " + errText(e)); }
+            );
+          }
+          return result;
+        };
+      } catch (e) {
+        note(errors, "Could not hook WebAssembly." + name + ": " + errText(e));
+      }
     });
   }
 
@@ -100,7 +107,7 @@ function diag() {
     var status = "";
     try { status = (document.getElementById("boot_status") || {}).textContent || ""; } catch (e) { /* ignore */ }
     var open = Object.keys(pending).map(function (k) { return pending[k]; });
-    out.push("VBV DIAG  elapsed " + secs(Date.now() - t0) + "   main-thread max block " + secs(maxGap));
+    out.push("VBV RUNTIME CONSOLE  elapsed " + secs(Date.now() - t0) + "   main-thread max block " + secs(maxGap));
     out.push("screen text : " + status);
     out.push("loader stage: " + stage + "   loaded=" + !!window.__loaded + (window.__err ? "   __err=" + window.__err : ""));
     out.push("wasm in flight: " + (open.length ? open.join(", ") : "none"));
@@ -120,12 +127,17 @@ function diag() {
 
   function copyText(text) {
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); return true; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+        return true;
+      }
     } catch (e) { /* fall through */ }
     try {
       var ta = document.createElement("textarea");
-      ta.value = text; ta.style.cssText = "position:fixed;left:-9999px";
-      document.body.appendChild(ta); ta.select();
+      ta.value = text;
+      ta.style.cssText = "position:fixed;left:-9999px";
+      document.body.appendChild(ta);
+      ta.select();
       var ok = document.execCommand("copy");
       document.body.removeChild(ta);
       return ok;
@@ -139,41 +151,69 @@ function diag() {
     box = document.createElement("div");
     box.id = "vbv-diag-box";
     box.style.cssText = "position:fixed;left:0;right:0;bottom:0;max-height:55vh;overflow:auto;margin:0;" +
-      "background:rgba(0,0,0,.9);color:#ffe97a;font:12px/1.35 monospace;z-index:2147483647;";
+      "background:rgba(0,0,0,.92);color:#ffe97a;font:12px/1.35 monospace;z-index:2147483647;" +
+      "border-top:2px solid #ffe97a;pointer-events:auto;";
     var bar = document.createElement("div");
-    bar.style.cssText = "position:sticky;top:0;background:#222;padding:4px 8px;display:flex;gap:8px;align-items:center;cursor:pointer";
+    bar.style.cssText = "position:sticky;top:0;background:#222;padding:5px 8px;display:flex;gap:8px;align-items:center;cursor:pointer";
     var title = document.createElement("b");
-    title.textContent = "VBV diagnostics (tap to collapse)";
+    title.textContent = "VBV runtime console (tap to collapse)";
     title.style.flex = "1";
-    bar.onclick = function () { collapsed = !collapsed; pre.style.display = collapsed ? "none" : "block"; };
+    bar.onclick = function () {
+      collapsed = !collapsed;
+      pre.style.display = collapsed ? "none" : "block";
+    };
     var btn = document.createElement("button");
     btn.textContent = "Copy report";
-    btn.onclick = function (ev) { ev.stopPropagation(); btn.textContent = copyText(report()) ? "Copied" : "Copy failed - select text"; setTimeout(function () { btn.textContent = "Copy report"; }, 2000); };
-    bar.appendChild(title); bar.appendChild(btn);
+    btn.onclick = function (ev) {
+      ev.stopPropagation();
+      btn.textContent = copyText(report()) ? "Copied" : "Copy failed - select text";
+      setTimeout(function () { btn.textContent = "Copy report"; }, 2000);
+    };
+    bar.appendChild(title);
+    bar.appendChild(btn);
     pre = document.createElement("pre");
     pre.style.cssText = "margin:0;padding:6px 8px;white-space:pre-wrap;word-break:break-word;user-select:text";
-    box.appendChild(bar); box.appendChild(pre);
+    box.appendChild(bar);
+    box.appendChild(pre);
     host.appendChild(box);
     return true;
   }
 
+  function refresh() {
+    try {
+      if (ensureBox() && !collapsed) pre.textContent = report();
+    } catch (e) {
+      try { if (pre) pre.textContent = "VBV console internal error: " + errText(e); } catch (ignored) { /* ignore */ }
+    }
+  }
+
+  // Create the console immediately, then keep it updated once per second.
+  refresh();
   setInterval(function () {
     var now = Date.now();
     maxGap = Math.max(maxGap, now - lastBeat - 1000);
     lastBeat = now;
-    try { if (ensureBox() && !collapsed) pre.textContent = report(); } catch (e) { /* never break the page */ }
+    refresh();
   }, 1000);
 }
 
 const tag = '<script id="vbv-diag-script">(' + diag.toString() + ")();</script>";
-
 const html = fs.readFileSync(input, "utf8");
-const match = /<head[^>]*>/i.exec(html);
-if (!match) {
-  console.error("[overlay] ERROR: no <head> found in " + input);
+
+// Prefer the body start so the console has a real DOM host immediately. Fall
+// back to </head> for shells that do not contain a body element.
+const body = /<body\b[^>]*>/i.exec(html);
+const head = /<head[^>]*>/i.exec(html);
+let at;
+if (body) {
+  at = body.index + body[0].length;
+} else if (head) {
+  at = head.index + head[0].length;
+} else {
+  console.error("[overlay] ERROR: no <body> or <head> found in " + input);
   process.exit(1);
 }
-const at = match.index + match[0].length;
+
 const out = html.slice(0, at) + tag + html.slice(at);
 fs.writeFileSync(output, out);
-console.log("[overlay] injected " + tag.length + " chars after <head>: " + input + " -> " + output);
+console.log("[overlay] injected " + tag.length + " chars at " + (body ? "<body>" : "<head>") + ": " + input + " -> " + output);
