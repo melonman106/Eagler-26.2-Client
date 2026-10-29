@@ -32,10 +32,12 @@ const SERVER_FLAG = /serverWorker:\s*window\.location\.search\.indexOf\("singlet
 const MESH_FLAG =
   /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0\s*(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?(?:\/\*[\s\S]*?\*\/\s*)?,/;
 
-// Current VBV runtime-patched expressions. The original upstream expressions
-// are retained in comments, but the actual option value is `enableWorkers`.
-const SERVER_ENABLE_FLAG = /serverWorker:\s*enableWorkers\b\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
-const MESH_ENABLE_FLAG = /meshWorkers:\s*enableWorkers\b\s*(?:\/\*[\s\S]*?\*\/\s*)?,/;
+// Current VBV runtime-patched expressions. patch_wasm_runtime.py inlines the
+// worker condition into each option, then leaves the upstream expression in a
+// trailing comment. Accept that actual format as well as the older variable form.
+const WORKER_CONDITION = String.raw`window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0`;
+const SERVER_INLINE_FLAG = new RegExp(String.raw`serverWorker:\s*(?:${WORKER_CONDITION}|enableWorkers\\b)(?:\s*/\*[\s\S]*?\*/\s*)?,`);
+const MESH_INLINE_FLAG = new RegExp(String.raw`meshWorkers:\s*(?:${WORKER_CONDITION}|enableWorkers\\b)(?:\s*/\*[\s\S]*?\*/\s*)?,`);
 
 const PAYLOAD_RE = /<script\b[^>]*\bid=["']eag-inline-(?:mesh-wasm-br|server-wasm-br)["'][^>]*>[\s\S]*?<\/script>\s*/g;
 const MESH_PROMISE = /(const\s+meshModulePromise\s*=\s*)/;
@@ -53,20 +55,20 @@ if (alreadyLean) {
   process.exit(0);
 }
 
-// 1. Force both worker options off. Accept either the untouched upstream
-// expression or the current VBV `enableWorkers` expression.
+// 1. Force both worker options off. Accept untouched upstream expressions,
+// the previous enableWorkers variable form, and the current inlined condition.
 if (SERVER_FLAG.test(html)) {
   html = html.replace(SERVER_FLAG, "serverWorker: false,");
-} else if (SERVER_ENABLE_FLAG.test(html)) {
-  html = html.replace(SERVER_ENABLE_FLAG, "serverWorker: false,");
+} else if (SERVER_INLINE_FLAG.test(html)) {
+  html = html.replace(SERVER_INLINE_FLAG, "serverWorker: false,");
 } else if (!/serverWorker:\s*false\s*,/.test(html)) {
   die("serverWorker option not found in the page shell (loader changed?)");
 }
 
 if (MESH_FLAG.test(html)) {
   html = html.replace(MESH_FLAG, "meshWorkers: false,");
-} else if (MESH_ENABLE_FLAG.test(html)) {
-  html = html.replace(MESH_ENABLE_FLAG, "meshWorkers: false,");
+} else if (MESH_INLINE_FLAG.test(html)) {
+  html = html.replace(MESH_INLINE_FLAG, "meshWorkers: false,");
 } else if (!/meshWorkers:\s*false\s*,/.test(html)) {
   die("meshWorkers option not found in the page shell (loader changed?)");
 }
