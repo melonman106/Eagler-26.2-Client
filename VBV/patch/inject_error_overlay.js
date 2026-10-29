@@ -42,7 +42,6 @@ function diag() {
     note(errors, "REJECTED " + errText(e.reason));
   });
 
-  // Time every WebAssembly compile/instantiate call made after this script.
   var pending = {};
   var pendingId = 0;
   if (window.WebAssembly) {
@@ -187,7 +186,6 @@ function diag() {
     }
   }
 
-  // Create the console immediately, then keep it updated once per second.
   refresh();
   setInterval(function () {
     var now = Date.now();
@@ -200,8 +198,16 @@ function diag() {
 const tag = '<script id="vbv-diag-script">(' + diag.toString() + ")();</script>";
 const html = fs.readFileSync(input, "utf8");
 
+// Do not inject a second console when workflow 04 processes the normal
+// workflow-02 artifact, which already contains this console.
+if (html.includes('id="vbv-diag-script"')) {
+  fs.writeFileSync(output, html);
+  console.log("[overlay] input already contains vbv-diag-script; copied unchanged");
+  process.exit(0);
+}
+
 // Prefer the body start so the console has a real DOM host immediately. Fall
-// back to </head> for shells that do not contain a body element.
+// back to <head> for shells that do not contain a body element.
 const body = /<body\b[^>]*>/i.exec(html);
 const head = /<head[^>]*>/i.exec(html);
 let at;
