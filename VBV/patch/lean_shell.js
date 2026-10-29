@@ -37,7 +37,7 @@ const MESH_FLAG =
 // trailing comment. Accept that actual format as well as the older variable form.
 const WORKER_CONDITION = String.raw`window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0`;
 const SERVER_INLINE_FLAG = new RegExp(String.raw`serverWorker:\s*(?:${WORKER_CONDITION}|enableWorkers\b)(?:\s*/\*[\s\S]*?\*/\s*)?,`);
-const MESH_INLINE_FLAG = new RegExp(String.raw`meshWorkers:\s*(?:${WORKER_CONDITION}|enableWorkers\b)(?:\s*/\*[\s\S]*?\*/\s*)?,`);
+const MESH_INLINE_FLAG = new RegExp(String.raw`meshWorkers:\s*(?:${WORKER_CONDITION}|enableWorkers\b)(?:\s*/\*[\s\S]*?\*/\s*)?(?:&&\s*window\.location\.search\.indexOf\("nomesh"\)\s*<\s*0\s*)?,`);
 
 const PAYLOAD_RE = /<script\b[^>]*\bid=["']eag-inline-(?:mesh-wasm-br|server-wasm-br)["'][^>]*>[\s\S]*?<\/script>\s*/g;
 const MESH_PROMISE = /(const\s+meshModulePromise\s*=\s*)/;
