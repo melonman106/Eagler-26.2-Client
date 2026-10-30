@@ -54,6 +54,116 @@ def inject_once(text, marker, code, method_name, param_name):
     return text[:match.end()] + "\n        " + code + "\n" + text[match.end():]
 
 
+def _new_screen_expressions(text):
+    """Return (class_name, argument_text) for balanced new X(...) expressions."""
+    out = []
+    for match in re.finditer(r"\bnew\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(", text):
+        start = match.end()
+        depth = 1
+        i = start
+        while i < len(text) and depth:
+            if text[i] == '(':
+                depth += 1
+            elif text[i] == ')':
+                depth -= 1
+            i += 1
+        if depth == 0:
+            out.append((match.group(1), text[start:i - 1].strip()))
+    return out
+
+
+def _pick_screen_expression(title_text, keywords):
+    expressions = _new_screen_expressions(title_text)
+    for class_name, args in expressions:
+        low = class_name.lower()
+        if any(keyword in low for keyword in keywords):
+            # Only use constructors whose arguments can safely be adapted from
+            # TitleScreen to our parent Screen. Unknown local variables are
+            # deliberately rejected instead of producing another compile error.
+            adapted = args
+            adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", adapted)
+            adapted = re.sub(r"\bminecraft\.options\b", "Minecraft.getInstance().options", adapted)
+            adapted = re.sub(r"\bthis\b", "parent", adapted)
+            if not re.search(r"\b(?:this|minecraft|options)\b", adapted):
+                return class_name, adapted
+    return None
+
+
+def _screen_imports(title_text):
+    return dict(re.findall(r"^\s*import\s+([\w.$]+\.([A-Za-z_$][\w$]*));", title_text, re.M))
+
+
+def configure_navigation_helpers(method):
+    """Resolve Eagler's actual screen classes from its generated TitleScreen.
+
+    Vanilla 26.x screen names such as JoinMultiplayerScreen and OptionsScreen
+    are not present in Eagler 26.2. The generated source already contains the
+    correct Eagler screen constructors, so reuse those rather than guessing
+    Minecraft/Fabric class names.
+    """
+    nav_files = list(GAME.rglob("VBVNav.java"))
+    if not nav_files:
+        return
+
+    title_files = list(GAME.rglob("TitleScreen.java"))
+    if not title_files:
+        print("[VBV Dungeons UI] TitleScreen.java not found; keeping navigation fallbacks.")
+        return
+    title_file = title_files[0]
+    title_text = title_file.read_text(encoding="utf-8")
+    imports = _screen_imports(title_text)
+
+    targets = {
+        "openMultiplayer": _pick_screen_expression(title_text, ("multiplayer", "server")),
+        "openSingleplayer": _pick_screen_expression(title_text, ("singleplayer", "world")),
+        "openOptions": _pick_screen_expression(title_text, ("options", "settings")),
+    }
+
+    package_match = re.search(r"^\s*package\s+([\w.]+);", title_text, re.M)
+    title_package = package_match.group(1) if package_match else "net.minecraft.client.gui.screens"
+
+    def fqcn(class_name):
+        simple = class_name.rsplit(".", 1)[-1]
+        return imports.get(simple, f"{title_package}.{class_name}")
+
+    def body(name):
+        target = targets[name]
+        if not target:
+            return "open(parent);"
+        class_name, args = target
+        return f"Minecraft.getInstance().{method}(new {fqcn(class_name)}({args}));"
+
+    generated = f'''package com.melonman106.vbvclient;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+
+/** Eagler 26.2-compatible navigation generated from the actual TitleScreen. */
+public final class VBVNav {{
+    private VBVNav() {{}}
+
+    public static void open(Screen screen) {{
+        Minecraft.getInstance().{method}(screen);
+    }}
+
+    public static void openMultiplayer(Screen parent) {{
+        {body("openMultiplayer")}
+    }}
+
+    public static void openSingleplayer(Screen parent) {{
+        {body("openSingleplayer")}
+    }}
+
+    public static void openOptions(Screen parent) {{
+        {body("openOptions")}
+    }}
+}}
+'''
+    nav_files[0].write_text(generated, encoding="utf-8")
+    print("[VBV Dungeons UI] Navigation targets:",
+          {key: value[0] if value else "fallback" for key, value in targets.items()})
+
+
 def prepare_assets():
     target = RES / "assets/vbvclient/textures/loadingscreen"
     panorama_target = RES / "assets/vbvclient/textures/panorama/panorama_overlay.png"
@@ -127,6 +237,7 @@ def configure_loading_class(backgrounds):
 minecraft = find_minecraft()
 text = minecraft.read_text(encoding="utf-8")
 method, param = find_screen_method(text)
+configure_navigation_helpers(method)
 
 title_marker = "VBV_DUNGEONS_TITLE_HOOK"
 title_code = (
