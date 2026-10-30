@@ -39,6 +39,20 @@ def find_screen_method(text):
     return match.group(1), match.group(2)
 
 
+def make_screen_parameter_assignable(text, method_name, param_name):
+    """Remove final from the generated navigation parameter because the hook replaces it."""
+    pattern = re.compile(
+        r"(\b(?:public|protected|private)\s+(?:(?:static|final|synchronized|native|abstract)\s+)*"
+        r"[\w.$<>?,\[\]\s]+\s+" + re.escape(method_name) +
+        r"\s*\(\s*)final(\s+(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+" +
+        re.escape(param_name) + r"\s*\)",
+    )
+    updated, count = pattern.subn(r"\1\2", text, count=1)
+    if count:
+        print(f"[VBV Dungeons UI] Removed final from {method_name}({param_name}) so the title/loading hook can replace it.")
+    return updated
+
+
 def inject_once(text, marker, code, method_name, param_name):
     if marker in text:
         return text
@@ -80,7 +94,6 @@ def _pick_screen_expression(title_text, keywords):
             adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", args)
             adapted = re.sub(r"\bminecraft\.options\b", "Minecraft.getInstance().options", adapted)
             adapted = re.sub(r"\bthis\b", "parent", adapted)
-            # Accept only constructor arguments that are now self-contained.
             if not re.search(r"\b(?:this|minecraft|options)\b", adapted):
                 return class_name, adapted
     return None
@@ -222,6 +235,7 @@ def configure_loading_class(backgrounds):
 minecraft = find_minecraft()
 text = minecraft.read_text(encoding="utf-8")
 method, param = find_screen_method(text)
+text = make_screen_parameter_assignable(text, method, param)
 configure_navigation_helpers(method)
 
 title_marker = "VBV_DUNGEONS_TITLE_HOOK"
