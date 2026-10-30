@@ -77,30 +77,23 @@ def _pick_screen_expression(title_text, keywords):
     for class_name, args in expressions:
         low = class_name.lower()
         if any(keyword in low for keyword in keywords):
-            # Only use constructors whose arguments can safely be adapted from
-            # TitleScreen to our parent Screen. Unknown local variables are
-            # deliberately rejected instead of producing another compile error.
-            adapted = args
-            adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", adapted)
+            adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", args)
             adapted = re.sub(r"\bminecraft\.options\b", "Minecraft.getInstance().options", adapted)
             adapted = re.sub(r"\bthis\b", "parent", adapted)
+            # Accept only constructor arguments that are now self-contained.
             if not re.search(r"\b(?:this|minecraft|options)\b", adapted):
                 return class_name, adapted
     return None
 
 
 def _screen_imports(title_text):
-    return dict(re.findall(r"^\s*import\s+([\w.$]+\.([A-Za-z_$][\w$]*));", title_text, re.M))
+    return {simple: full for full, simple in re.findall(
+        r"^\s*import\s+([\w.$]+\.([A-Za-z_$][\w$]*));", title_text, re.M
+    )}
 
 
 def configure_navigation_helpers(method):
-    """Resolve Eagler's actual screen classes from its generated TitleScreen.
-
-    Vanilla 26.x screen names such as JoinMultiplayerScreen and OptionsScreen
-    are not present in Eagler 26.2. The generated source already contains the
-    correct Eagler screen constructors, so reuse those rather than guessing
-    Minecraft/Fabric class names.
-    """
+    """Resolve Eagler's actual screen classes from its generated TitleScreen."""
     nav_files = list(GAME.rglob("VBVNav.java"))
     if not nav_files:
         return
@@ -109,10 +102,8 @@ def configure_navigation_helpers(method):
     if not title_files:
         print("[VBV Dungeons UI] TitleScreen.java not found; keeping navigation fallbacks.")
         return
-    title_file = title_files[0]
-    title_text = title_file.read_text(encoding="utf-8")
+    title_text = title_files[0].read_text(encoding="utf-8")
     imports = _screen_imports(title_text)
-
     targets = {
         "openMultiplayer": _pick_screen_expression(title_text, ("multiplayer", "server")),
         "openSingleplayer": _pick_screen_expression(title_text, ("singleplayer", "world")),
@@ -167,13 +158,11 @@ public final class VBVNav {{
 def prepare_assets():
     target = RES / "assets/vbvclient/textures/loadingscreen"
     panorama_target = RES / "assets/vbvclient/textures/panorama/panorama_overlay.png"
-
     backgrounds = []
     for i in range(1, 4):
         source = ASSETS / f"LoadingScreen{i}.png"
         if source.is_file():
             backgrounds.append(source)
-
     if not backgrounds:
         print("[VBV Dungeons UI] No LoadingScreen*.png assets found; using vanilla connection screen.")
         return []
@@ -181,7 +170,6 @@ def prepare_assets():
     target.mkdir(parents=True, exist_ok=True)
     for source in backgrounds:
         shutil.copy2(source, target / source.name.lower())
-
     for i in range(1, 4):
         expected = target / f"loadingscreen{i}.png"
         if not (ASSETS / f"LoadingScreen{i}.png").is_file():
@@ -223,10 +211,7 @@ def configure_loading_class(backgrounds):
         for p in backgrounds
     )
     text = LOADING_CLASS.read_text(encoding="utf-8")
-    pattern = re.compile(
-        r"private static final List<Identifier> BACKDROPS = List\.of\(.*?\n    \);",
-        re.S,
-    )
+    pattern = re.compile(r"private static final List<Identifier> BACKDROPS = List\.of\(.*?\n    \);", re.S)
     replacement = "private static final List<Identifier> BACKDROPS = List.of(\n        " + names + "\n    );"
     updated, count = pattern.subn(replacement, text, count=1)
     if count != 1:
