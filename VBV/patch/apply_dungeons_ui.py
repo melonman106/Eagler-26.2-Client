@@ -56,14 +56,30 @@ def inject_once(text, marker, code, method_name, param_name):
 def prepare_assets():
     target = RES / "assets/vbvclient/textures/loadingscreen"
     panorama_target = RES / "assets/vbvclient/textures/panorama/panorama_overlay.png"
-    backgrounds = [ASSETS / f"LoadingScreen{i}.png" for i in range(1, 4)]
-    if not all(p.is_file() for p in backgrounds):
-        print("[VBV Dungeons UI] LoadingScreen1.png/2.png/3.png not all present; loading-screen hook will use vanilla connection screen.")
+
+    # Any number from 1 to 3 is valid. This lets the client ship now with only
+    # LoadingScreen1.png and automatically starts random 1-of-N selection when
+    # LoadingScreen2.png/3.png are added later.
+    backgrounds = []
+    for i in range(1, 4):
+        source = ASSETS / f"LoadingScreen{i}.png"
+        if source.is_file():
+            backgrounds.append(source)
+
+    if not backgrounds:
+        print("[VBV Dungeons UI] No LoadingScreen*.png assets found; using vanilla connection screen.")
         return False
 
     target.mkdir(parents=True, exist_ok=True)
     for source in backgrounds:
         shutil.copy2(source, target / source.name.lower())
+
+    # Remove stale backgrounds from previous builds so the runtime only sees
+    # assets that actually exist in the current source tree.
+    for i in range(1, 4):
+        expected = target / f"loadingscreen{i}.png"
+        if not (ASSETS / f"LoadingScreen{i}.png").is_file():
+            expected.unlink(missing_ok=True)
 
     gif = ASSETS / "Walking.gif"
     frames_dir = target / "walking"
@@ -85,15 +101,6 @@ def prepare_assets():
             subprocess.run([convert, str(gif), str(frames_dir / "frame_%d.png")], check=True)
     else:
         print("[VBV Dungeons UI] Walking.gif missing; loading text will remain but no creeper animation will be available.")
-
-    frame_files = sorted(frames_dir.glob("frame_*.png"))
-    if frame_files:
-        while len(frame_files) < 12:
-            clone = frames_dir / f"frame_{len(frame_files)}.png"
-            shutil.copy2(frame_files[-1], clone)
-            frame_files.append(clone)
-        while len(frame_files) > 12:
-            frame_files.pop().unlink()
 
     overlay = CLIENT_SIDE / "panorama/panorama_overlay.png"
     if overlay.is_file():
