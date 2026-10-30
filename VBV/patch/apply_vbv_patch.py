@@ -129,3 +129,9 @@ if post.is_file():
 runtime_patch = CLIENT_SIDE / "patch/patch_wasm_runtime.py"
 if runtime_patch.is_file():
     subprocess.run([sys.executable, str(runtime_patch), *sys.argv[1:]], check=True)
+
+# Dungeons II-style title/loading UI is applied last so the pinned upstream
+# patch and post-fixes cannot overwrite its screen-navigation hooks.
+dungeons_ui = CLIENT_SIDE / "patch/apply_dungeons_ui.py"
+if dungeons_ui.is_file():
+    subprocess.run([sys.executable, str(dungeons_ui), *sys.argv[1:]], check=True)
