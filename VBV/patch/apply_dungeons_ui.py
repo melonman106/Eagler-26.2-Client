@@ -11,6 +11,7 @@ CLIENT_SIDE = Path(__file__).resolve().parent.parent
 GAME = ROOT / "game/src/main/java"
 RES = ROOT / "game/src/main/resources"
 ASSETS = CLIENT_SIDE / "LoadingScreen"
+LOADING_CLASS = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVServerLoadingScreen.java"
 
 
 def find_minecraft():
@@ -57,9 +58,6 @@ def prepare_assets():
     target = RES / "assets/vbvclient/textures/loadingscreen"
     panorama_target = RES / "assets/vbvclient/textures/panorama/panorama_overlay.png"
 
-    # Any number from 1 to 3 is valid. This lets the client ship now with only
-    # LoadingScreen1.png and automatically starts random 1-of-N selection when
-    # LoadingScreen2.png/3.png are added later.
     backgrounds = []
     for i in range(1, 4):
         source = ASSETS / f"LoadingScreen{i}.png"
@@ -68,14 +66,12 @@ def prepare_assets():
 
     if not backgrounds:
         print("[VBV Dungeons UI] No LoadingScreen*.png assets found; using vanilla connection screen.")
-        return False
+        return []
 
     target.mkdir(parents=True, exist_ok=True)
     for source in backgrounds:
         shutil.copy2(source, target / source.name.lower())
 
-    # Remove stale backgrounds from previous builds so the runtime only sees
-    # assets that actually exist in the current source tree.
     for i in range(1, 4):
         expected = target / f"loadingscreen{i}.png"
         if not (ASSETS / f"LoadingScreen{i}.png").is_file():
@@ -106,7 +102,26 @@ def prepare_assets():
     if overlay.is_file():
         panorama_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(overlay, panorama_target)
-    return True
+    return backgrounds
+
+
+def configure_loading_class(backgrounds):
+    if not backgrounds or not LOADING_CLASS.is_file():
+        return
+    names = ",\n        ".join(
+        f'Identifier.parse("vbvclient:textures/loadingscreen/{p.name.lower()}")'
+        for p in backgrounds
+    )
+    text = LOADING_CLASS.read_text(encoding="utf-8")
+    pattern = re.compile(
+        r"private static final List<Identifier> BACKDROPS = List\.of\(.*?\n    \);",
+        re.S,
+    )
+    replacement = "private static final List<Identifier> BACKDROPS = List.of(\n        " + names + "\n    );"
+    updated, count = pattern.subn(replacement, text, count=1)
+    if count != 1:
+        raise RuntimeError("Could not configure VBVServerLoadingScreen BACKDROPS list")
+    LOADING_CLASS.write_text(updated, encoding="utf-8")
 
 
 minecraft = find_minecraft()
@@ -122,9 +137,10 @@ title_code = (
 )
 text = inject_once(text, title_marker, title_code, method, param)
 
-loading_enabled = prepare_assets()
+backgrounds = prepare_assets()
+configure_loading_class(backgrounds)
 loading_marker = "VBV_DUNGEONS_LOADING_HOOK"
-if loading_enabled:
+if backgrounds:
     loading_code = (
         f"// {loading_marker}\n"
         f"if ({param} instanceof net.minecraft.client.gui.screens.ConnectScreen && !({param} instanceof com.melonman106.vbvclient.VBVServerLoadingScreen)) {{\n"
