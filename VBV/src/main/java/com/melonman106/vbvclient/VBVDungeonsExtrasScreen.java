@@ -1,9 +1,7 @@
 package com.melonman106.vbvclient;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.OptionsScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -26,7 +24,7 @@ public final class VBVDungeonsExtrasScreen extends Screen {
             VBVNav.open(new VBVModsScreen(this)))
             .bounds(x, y, w, 24).build());
         addRenderableWidget(Button.builder(Component.literal("Options"), b ->
-            VBVNav.open(new OptionsScreen(this, Minecraft.getInstance().options)))
+            VBVNav.openOptions(this))
             .bounds(x, y + 29, w, 24).build());
         addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
             .bounds(x, y + 58, w, 24).build());
