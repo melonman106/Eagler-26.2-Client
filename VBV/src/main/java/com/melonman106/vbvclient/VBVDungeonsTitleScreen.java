@@ -2,8 +2,6 @@ package com.melonman106.vbvclient;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.JoinMultiplayerScreen;
-import net.minecraft.client.gui.screens.SelectWorldScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
@@ -29,10 +27,10 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int gap = 5;
 
         addRenderableWidget(Button.builder(Component.literal("Play"), b ->
-            VBVNav.open(new JoinMultiplayerScreen(this)))
+            VBVNav.openMultiplayer(this))
             .bounds(x, y, buttonWidth, h).build());
         addRenderableWidget(Button.builder(Component.literal("Singleplayer"), b ->
-            VBVNav.open(new SelectWorldScreen(this)))
+            VBVNav.openSingleplayer(this))
             .bounds(x, y + h + gap, buttonWidth, h).build());
         addRenderableWidget(Button.builder(Component.literal("Mods & Options"), b ->
             VBVNav.open(new VBVDungeonsExtrasScreen(this)))
