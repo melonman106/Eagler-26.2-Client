@@ -12,42 +12,10 @@ function diag() {
   function short(v, n) { v = String(v); return v.length > n ? v.slice(0, n) + "..." : v; }
   function errText(e) { return e && e.stack ? String(e.stack).split("\n").slice(0, 4).join(" | ") : String(e); }
   function note(list, msg) { list.push("[" + secs(Date.now() - t0) + "] " + short(msg, 300)); if (list.length > 40) list.shift(); }
-  function fmtArgs(args, maxLen) {
-    var out = [];
-    for (var i = 0; i < args.length; i++) {
-      var s = String(args[i]);
-      out.push(s.length > maxLen ? s.slice(0, maxLen) + "..." : s);
-    }
-    return out.join(" || ");
-  }
 
-  function installFunctionTrap() {
-    try {
-      var NativeFunction = window.Function;
-      if (typeof NativeFunction !== "function") return;
-      if (NativeFunction.__vbvPatched) return;
-      function PatchedFunction() {
-        var args = Array.prototype.slice.call(arguments);
-        try {
-          return Reflect.construct(NativeFunction, args, new.target || PatchedFunction);
-        } catch (e) {
-          note(errors, "Function ctor failed: " + errText(e) + " :: " + fmtArgs(args, 240));
-          throw e;
-        }
-      }
-      PatchedFunction.prototype = NativeFunction.prototype;
-      try { Object.setPrototypeOf(PatchedFunction, NativeFunction); } catch (e) {}
-      try { Object.defineProperty(PatchedFunction, "__vbvPatched", { value: true }); } catch (e) { PatchedFunction.__vbvPatched = true; }
-      try { window.Function = PatchedFunction; } catch (e) {}
-      try { globalThis.Function = PatchedFunction; } catch (e) {}
-      note(wasmLines, "Installed Function() syntax-trap");
-    } catch (e) {
-      note(errors, "Failed to install Function trap: " + errText(e));
-    }
-  }
-
+  // Do not monkey-patch Function/WebAssembly or any Eagler runtime primitive.
+  // The console must be observational only so it cannot itself break startup.
   window.__vbvDiagReady = true;
-  installFunctionTrap();
   window.addEventListener("error", function(e) {
     var detail = "ERROR ";
     if (e && e.message) detail += e.message;
