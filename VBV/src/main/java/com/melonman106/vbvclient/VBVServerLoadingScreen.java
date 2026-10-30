@@ -1,6 +1,5 @@
 package com.melonman106.vbvclient;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -11,7 +10,13 @@ import net.minecraft.resources.Identifier;
 
 /** Dungeons II-inspired multiplayer connection/loading screen. */
 public final class VBVServerLoadingScreen extends Screen {
-    private static final List<Identifier> BACKDROPS = buildBackdrops();
+    // Rewritten by apply_dungeons_ui.py from the LoadingScreen*.png files that
+    // are actually present at build time. With only LoadingScreen1.png this
+    // contains exactly one entry; adding 2/3 later automatically enables the
+    // requested random 1-of-3 behavior.
+    private static final List<Identifier> BACKDROPS = List.of(
+        Identifier.parse("vbvclient:textures/loadingscreen/loadingscreen1.png")
+    );
     private static final Identifier[] WALK_FRAMES = buildWalkFrames();
     private final Identifier backdrop;
     private int ticks;
@@ -19,22 +24,6 @@ public final class VBVServerLoadingScreen extends Screen {
     public VBVServerLoadingScreen() {
         super(Component.literal("Loading..."));
         backdrop = BACKDROPS.get(new Random().nextInt(BACKDROPS.size()));
-    }
-
-    private static List<Identifier> buildBackdrops() {
-        List<Identifier> result = new ArrayList<>();
-        for (int i = 1; i <= 3; i++) {
-            Identifier id = Identifier.parse("vbvclient:textures/loadingscreen/loadingscreen" + i + ".png");
-            if (MinecraftAssetProbe.exists(id)) {
-                result.add(id);
-            }
-        }
-        // The build patch guarantees at least LoadingScreen1.png when this
-        // screen is installed. Keep a deterministic fallback for safety.
-        if (result.isEmpty()) {
-            result.add(Identifier.parse("vbvclient:textures/loadingscreen/loadingscreen1.png"));
-        }
-        return result;
     }
 
     private static Identifier[] buildWalkFrames() {
@@ -64,16 +53,9 @@ public final class VBVServerLoadingScreen extends Screen {
             graphics.blit(RenderPipelines.GUI_TEXTURED, WALK_FRAMES[frame], x, y, 0, 0,
                 size, size, size, size, size, size);
         } catch (RuntimeException ignored) {
-            // Keep the loading label visible if the optional animation is absent.
+            // The walking animation is optional until Walking.gif is supplied.
         }
         graphics.text(font, label, x - font.width(label) - 8, y + size - font.lineHeight,
             0xFFFFFFFF, true);
-    }
-
-    /** Resource probe supplied by the generated client runtime. */
-    private static final class MinecraftAssetProbe {
-        private static boolean exists(Identifier id) {
-            return true;
-        }
     }
 }
