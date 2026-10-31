@@ -127,6 +127,16 @@
   }
   async function loadWorldMaps() {
     if (!root) return;
+    const legacy = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("vbv.worldmap.v1.")) {
+          const value = localStorage.getItem(key);
+          if (value) legacy.push([key, value]);
+        }
+      }
+    } catch (_) {}
     const folder = await dir("WorldMap", true);
     async function visit(current) {
       for await (const [name, handle] of current.entries()) {
@@ -139,6 +149,12 @@
       }
     }
     await visit(folder);
+    for (const [key, value] of legacy) {
+      if (!cache.has(key)) {
+        cache.set(key, value);
+        try { await writeFile(pathForKey(key), value, false); } catch (e) { writeError = String(e && e.message || e); }
+      }
+    }
     revision++;
   }
   async function loadProfiles() {
@@ -146,7 +162,15 @@
       const raw = await readFile("Server Profiles/profiles.json");
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) cache.set("vbv.server-profiles.v1", JSON.stringify(parsed));
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const legacy = localStorage.getItem("vbv.server-profiles.v1");
+        if (legacy && Array.isArray(JSON.parse(legacy))) {
+          cache.set("vbv.server-profiles.v1", legacy);
+          await writeFile("Server Profiles/profiles.json", legacy, false);
+        }
+      } catch (_) {}
+    }
   }
   async function ensureLayout() {
     for (const path of LAYOUT) await dir(path, true);
@@ -187,6 +211,7 @@
   }
   function getTextSync(key) {
     if (cache.has(key)) return cache.get(key);
+    if (root) return "";
     try { return localStorage.getItem(key) || ""; } catch (_) { return ""; }
   }
   function setTextSync(key, value) {
@@ -293,6 +318,10 @@
   async function deleteFile(path, name) {
     const folder = await dir(path, false);
     await folder.removeEntry(name);
+    if (path.startsWith("WorldMap/") && name.endsWith(".txt")) {
+      cache.delete("vbv.worldmap.v1." + name.slice(0, -4));
+      revision++;
+    }
     render();
   }
   async function clearFolder(path) {
