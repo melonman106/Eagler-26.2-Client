@@ -26,8 +26,11 @@ public final class VBVDungeonsExtrasScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Options"), b ->
             VBVNav.openOptions(this))
             .bounds(x, y + 29, w, 24).build());
-        addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
+        addRenderableWidget(Button.builder(Component.literal("Storage"), b ->
+            VBVNav.open(new VBVStorageScreen(this)))
             .bounds(x, y + 58, w, 24).build());
+        addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
+            .bounds(x, y + 87, w, 24).build());
     }
 
     @Override
