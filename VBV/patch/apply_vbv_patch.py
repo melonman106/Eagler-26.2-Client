@@ -93,9 +93,6 @@ sanitize = CLIENT_SIDE / "patch/sanitize_modpacks.py"
 if sanitize.is_file():
     subprocess.run([sys.executable, str(sanitize), str(REPO_ROOT)], check=True)
 
-# Keep the Armor HUD warning icons in the pack namespace. The panel texture
-# itself is intentionally Unique Dark Lite's hotbar_texture.png and is verified
-# after the upstream importer extracts ModsPack/*.zip into game resources.
 armor = CLIENT_SIDE / "src/main/java/com/melonman106/vbvclient/VBVArmorHud.java"
 if armor.is_file():
     text = armor.read_text(encoding="utf-8")
@@ -130,9 +127,12 @@ runtime_patch = CLIENT_SIDE / "patch/patch_wasm_runtime.py"
 if runtime_patch.is_file():
     subprocess.run([sys.executable, str(runtime_patch), *sys.argv[1:]], check=True)
 
-resolver_patch = CLIENT_SIDE / "patch/patch_final_runtime_resolver.py"
-if resolver_patch.is_file():
-    subprocess.run([sys.executable, str(resolver_patch), *sys.argv[1:]], check=True)
+# TeaVM's generated standalone runtime contains a dynamic global resolver.
+# Apply the CSP-safe/property-walking replacement after the packager hook is
+# installed, so the final HTML cannot reach new Function() for global lookup.
+final_runtime = CLIENT_SIDE / "patch/patch_final_runtime_resolver.py"
+if final_runtime.is_file():
+    subprocess.run([sys.executable, str(final_runtime), *sys.argv[1:]], check=True)
 
 # Dungeons II-style title/loading UI is applied last so the pinned upstream
 # patch and post-fixes cannot overwrite its screen-navigation hooks.
