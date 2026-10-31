@@ -138,7 +138,7 @@ jobs:
 
       - name: Compile game Java after injection
         working-directory: eaglercraft-u2
-        run: ./gradlew :game:processResources :game:compileJava --console=plain --daemon --build-cache --stacktrace
+        run: ./gradlew :game:processResources :game:compileJava --console=plain --no-daemon --build-cache --stacktrace
 
       - name: Install U2 browser packaging dependency
         working-directory: eaglercraft-u2
