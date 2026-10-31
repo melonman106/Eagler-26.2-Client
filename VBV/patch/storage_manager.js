@@ -337,8 +337,9 @@
     state.appendChild(element("div", root ? "Connected folder: " + rootName : "No computer folder connected", root ? "" : "vbvs-warning"));
     state.appendChild(element("div", root ? "World maps and profile data will be written to this folder." : "The client is currently using browser storage as a fallback.", "vbvs-muted"));
     const buttons = element("div", null, "vbvs-row");
-    buttons.append(action(root ? "Change folder" : "Import / Choose folder", chooseFolder, "vbvs-btn primary"));
-    buttons.append(action("Reconnect existing folder", () => reconnect(true)));
+    buttons.append(action("Import Existing Storage", chooseFolder, "vbvs-btn primary"));
+    buttons.append(action("Choose New Storage Folder", chooseFolder));
+    buttons.append(action("Reconnect Existing Folder", () => reconnect(true)));
     state.appendChild(buttons);
     if (writeError) state.appendChild(element("div", "Last filesystem write failed: " + writeError, "vbvs-warning"));
     box.appendChild(state);
@@ -376,6 +377,11 @@
       if (activeProfile) list.appendChild(element("div", "Active profile: " + activeProfile.name, "vbvs-muted"));
       box.appendChild(list);
     } else {
+      const maps = section("World maps");
+      const mapFiles = await listFiles("WorldMap").catch(() => []);
+      maps.appendChild(element("div", mapFiles.length + " saved map file(s). Deleting a map removes only its explored map data, not the Minecraft world.", "vbvs-muted"));
+      mapFiles.forEach(f => maps.appendChild(fileRow("WorldMap", f)));
+      box.appendChild(maps);
       const files = section("Resource packs");
       const global = await listFiles("Resource Packs/Global").catch(() => []);
       files.appendChild(element("div", "Global packs (" + global.length + ")"));
