@@ -3,6 +3,9 @@ name: "02 - Build Eaglercraft 26.2 u2 (VBV + Herz, no Litematica)"
 run-name: "02 - Build VBV + Herz without Litematica"
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
