@@ -15,6 +15,7 @@ public final class VBVStorage {
     public static String getText(String key) { return getTextJS(key); }
     public static boolean putText(String key, String value) { return putTextJS(key, value); }
     public static long revision() { return revisionJS(); }
+    public static boolean writeFailed() { return writeFailedJS(); }
 
     @JSBody(script = "try { if (window.VBVStorage) window.VBVStorage.openUI(); else window.alert('Storage Manager is unavailable in this build.'); } catch (e) { console.error(e); }")
     private static native void openManagerJS();
@@ -30,4 +31,7 @@ public final class VBVStorage {
 
     @JSBody(script = "try { return window.VBVStorage ? Number(window.VBVStorage.revision()) || 0 : 0; } catch (e) { return 0; }")
     private static native long revisionJS();
+
+    @JSBody(script = "try { return !!(window.VBVStorage && window.VBVStorage.status().writeError); } catch (e) { return false; }")
+    private static native boolean writeFailedJS();
 }
