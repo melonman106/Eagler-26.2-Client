@@ -21,7 +21,7 @@ if text.count(needle) != 1:
 patch = r'''  /* VBV safe global resolver patch */
   const vbvGlobalBefore = `let globalsCache = new Map();
 let stackDeobfuscator = null;
-let exceptionFrameRegex = /.+:wasm-function\[[0-9]+\]:0x([0-9a-f]+).*/;
+let exceptionFrameRegex = /.+:wasm-function\\[[0-9]+\\]:0x([0-9a-f]+).*/;
 let getGlobalName = function(name) {
     let result = globalsCache.get(name);
     if (typeof result === "undefined") {
@@ -35,7 +35,7 @@ let setGlobalName = function(name, value) {
 }`;
   const vbvGlobalAfter = `let globalsCache = new Map();
 let stackDeobfuscator = null;
-let exceptionFrameRegex = /.+:wasm-function\[[0-9]+\]:0x([0-9a-f]+).*/;
+let exceptionFrameRegex = /.+:wasm-function\\[[0-9]+\\]:0x([0-9a-f]+).*/;
 function globalPath(name) {
     if (!/^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*$/.test(name)) {
         throw new Error("Unsafe global path: " + name);
