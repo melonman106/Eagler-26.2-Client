@@ -216,7 +216,7 @@ jobs:
               raise SystemExit("Inline WASM release is already present in the shell")
           text = text.replace(
               marker,
-              "window.__eagReleaseInlineWasm();\\n\\t\\t\\t\\t" + marker,
+              "window.__eagReleaseInlineWasm();\n\t\t\t\t" + marker,
               1
           )
           if text.index("window.__eagReleaseInlineWasm();") > text.index(marker):
@@ -224,8 +224,8 @@ jobs:
           path.write_text(text, encoding="utf-8")
           print("Moved inline WASM cleanup to the successful post-instantiation path")
           PY
-          grep -q 'window.__eagReleaseInlineWasm();' eaglercraft-u2/target_teavm_wasm_gc/src/web/index.html
-          grep -q 'window.__loaded = true;' eaglercraft-u2/target_teavm_wasm_gc/src/web/index.html
+          grep -q 'window.__eagReleaseInlineWasm();' target_teavm_wasm_gc/src/web/index.html
+          grep -q 'window.__loaded = true;' target_teavm_wasm_gc/src/web/index.html
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
           grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
