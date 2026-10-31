@@ -203,6 +203,24 @@ jobs:
           path.write_text(text, encoding="utf-8")
           PY
 
+          # Remove the packager's original early release injection first.
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+          early = '''html = html.replace(
+            "window.__eaglerWasmModule = module;",
+            "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
+          );'''
+          if text.count(early) != 1:
+              raise SystemExit(f"Expected exactly one early WASM cleanup injection; found {text.count(early)}")
+          text = text.replace(early, "", 1)
+          if "__eagReleaseInlineWasm();" in text:
+              raise SystemExit("An early WASM release call remains in the packager")
+          path.write_text(text, encoding="utf-8")
+          print("Removed the premature WASM cleanup call from the packager")
+          PY
+
           # Release inline WASM only after the main module has instantiated.
           # This line is in the actual TeaVM shell source, not the HTML packager.
           python3 - <<'PY'
@@ -224,6 +242,7 @@ jobs:
           path.write_text(text, encoding="utf-8")
           print("Moved inline WASM cleanup to the successful post-instantiation path")
           PY
+          ! grep -q 'window.__eagReleaseInlineWasm();' wasm-toolchain/build-single-html.js
           grep -q 'window.__eagReleaseInlineWasm();' target_teavm_wasm_gc/src/web/index.html
           grep -q 'window.__loaded = true;' target_teavm_wasm_gc/src/web/index.html
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
