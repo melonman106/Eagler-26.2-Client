@@ -28,6 +28,37 @@ if marker not in text:
         raise SystemExit("::error::Could not find the u2 single-HTML output declaration in build-single-html.js")
 
     patch = r'''/* VBV low-memory standalone HTML patch */
+function vbvValidateExecutableJavaScript(html) {
+  // The standalone HTML contains large application/octet-stream script tags
+  // carrying binary WASM/assets. Only parse executable JavaScript blocks.
+  const blocks = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)];
+  let checked = 0;
+  for (let i = 0; i < blocks.length; ++i) {
+    const attrs = blocks[i][1] || "";
+    const script = blocks[i][2] || "";
+    const typeMatch = attrs.match(/\btype=["']([^"']+)["']/i);
+    const type = typeMatch ? typeMatch[1].toLowerCase() : "text/javascript";
+    if (!["text/javascript", "application/javascript", "module", "text/ecmascript"].includes(type)) continue;
+    if (!script.trim()) continue;
+    try {
+      const vm = require("node:vm");
+      if (type === "module") {
+        // vm.Script is deliberately used for classic script syntax only. A
+        // module block is still checked by wrapping it as a Script-compatible
+        // source where possible; if it contains imports/exports, skip it here
+        // rather than falsely rejecting valid module syntax.
+        if (/^\s*(?:import|export)\b/m.test(script)) continue;
+      }
+      new vm.Script(script, { filename: `vbv-standalone-script-${i}.js` });
+      checked++;
+    } catch (error) {
+      throw new Error(`VBV final HTML JavaScript syntax error in script block ${i}: ${error.message}`);
+    }
+  }
+  if (checked === 0) throw new Error("VBV final HTML validation found no executable JavaScript blocks");
+  console.log(`[VBV runtime] validated ${checked} executable JavaScript blocks before writing standalone HTML`);
+}
+
 function vbvPatchStandaloneHtml(source) {
   let html = Buffer.isBuffer(source) ? source.toString("utf8") : String(source);
   const enableWorkers = 'window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0';
@@ -116,6 +147,7 @@ function vbvPatchStandaloneHtml(source) {
     if (bootPos >= 0) html = html.slice(0, bootPos) + diagnostic + html.slice(bootPos);
   }
 
+  vbvValidateExecutableJavaScript(html);
   return html;
 }
 
