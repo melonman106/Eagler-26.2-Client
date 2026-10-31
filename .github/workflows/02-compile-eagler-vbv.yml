@@ -211,13 +211,13 @@ jobs:
           path = Path("wasm-toolchain/build-single-html.js")
           text = path.read_text(encoding="utf-8")
           old = '''html = html.replace(
-            "window.__eaglerWasmModule = module;",
-            "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
-          );'''
+  "window.__eaglerWasmModule = module;",
+  "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
+);'''
           new = '''html = html.replace(
-            "window.__loaded = true;",
-            "window.__eagReleaseInlineWasm();\\n\\t\\t\\t\\twindow.__loaded = true;"
-          );'''
+  "window.__loaded = true;",
+  "window.__eagReleaseInlineWasm();\\n\\t\\t\\t\\twindow.__loaded = true;"
+);'''
           if old not in text:
               raise SystemExit("Expected early WASM cleanup injection was not found")
           if new in text:
