@@ -15,11 +15,11 @@ if marker in text:
     print("[VBV World Map] import JavaScript patch already installed")
     raise SystemExit(0)
 
-# Do not assume the exact @JSBody parameter declaration used by the source.
-# Upstream VBV has changed this annotation more than once. Match the complete
-# annotation immediately before the importBackupFromFile declaration instead.
+# Match only the @JSBody immediately associated with importBackupFromFile.
+# The negative lookahead prevents this patch from consuming another native
+# method's annotation if the World Map class gains additional @JSBody methods.
 pattern = re.compile(
-    r'(?ms)^\s*@JSBody\(.*?^\s*private\s+static\s+native\s+void\s+importBackupFromFile\(\);'
+    r'(?ms)^\s*@JSBody\((?:(?!^\s*@JSBody\().)*?^\s*private\s+static\s+native\s+void\s+importBackupFromFile\(\);'
 )
 match = pattern.search(text)
 if not match:
