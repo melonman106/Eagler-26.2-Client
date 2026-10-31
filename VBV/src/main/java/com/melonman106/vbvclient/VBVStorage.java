@@ -9,7 +9,7 @@ public final class VBVStorage {
     public static void openManager() { openManagerJS(); }
 
     public static void updateServer(String address) {
-        if (address != null && !address.isEmpty()) updateServerJS(address);
+        if (address != null) updateServerJS(address);
     }
 
     public static String getText(String key) { return getTextJS(key); }
