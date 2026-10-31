@@ -29,7 +29,7 @@ public final class VBVWorldMap {
     private static final Map<String, Set<Long>> EXPLORED = new HashMap<>();
     private static final Map<String, Map<Long, int[]>> TERRAIN = new HashMap<>();
     private static final Map<String, Map<String, VBVWaypoint>> WAYPOINTS = new HashMap<>();
-    private static final Set<String> LOADED_WORLDS = new HashSet<>();
+    private static final Map<String, Long> LOADED_STORAGE_REVISION = new HashMap<>();
     private static final String STORAGE_PREFIX = "vbv.worldmap.v1.";
     private static long lastChunk = Long.MIN_VALUE;
     private static String lastWorld = "";
@@ -51,6 +51,11 @@ public final class VBVWorldMap {
         int chunkX = Math.floorDiv(pos.getX(), 16);
         int chunkZ = Math.floorDiv(pos.getZ(), 16);
         String world = worldKey(minecraft);
+        if (minecraft.getCurrentServer() != null) {
+            VBVStorage.updateServer(minecraft.getCurrentServer().ip);
+        } else {
+            VBVStorage.updateServer("");
+        }
         loadWorld(world);
         long key = pack(chunkX, chunkZ);
         boolean enteredNewChunk = key != lastChunk || !world.equals(lastWorld);
@@ -205,10 +210,13 @@ public final class VBVWorldMap {
     }
 
     private static void loadWorld(String world) {
-        if (!LOADED_WORLDS.add(world)) return;
+        long currentRevision = VBVStorage.revision();
+        Long loadedRevision = LOADED_STORAGE_REVISION.get(world);
+        if (loadedRevision != null && loadedRevision.longValue() == currentRevision) return;
+        LOADED_STORAGE_REVISION.put(world, currentRevision);
         String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
             .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        String stored = readStorage(storageKey);
+        String stored = VBVStorage.getText(storageKey);
         if (stored == null || stored.isEmpty()) return;
         try {
             Set<Long> explored = exploredSet(world, true);
@@ -262,7 +270,7 @@ public final class VBVWorldMap {
         String data = serializeWorld(world);
         String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
             .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        storageWriteFailed = !writeStorage(storageKey, data);
+        storageWriteFailed = !VBVStorage.putText(storageKey, data);
         if (storageWriteFailed) {
             System.err.println("[VBV World Map] Browser storage write failed; use Export Backup on the map screen.");
         }
@@ -318,12 +326,6 @@ public final class VBVWorldMap {
 
     @JSBody(script = "try { var input = document.createElement('input'); input.type = 'file'; input.accept = '.txt,.vbvmap'; input.onchange = function(){ var file = input.files && input.files[0]; if (!file) return; var reader = new FileReader(); reader.onload = function(){ try { var text = String(reader.result || ''); var lines = text.split(/\\r?\\n/); if (lines[0] !== 'VBV-WORLDMAP-BACKUP-v1' || !lines[1] || lines[1].indexOf('WORLD:') !== 0) throw new Error('This is not a VBV World Map backup'); var token = lines[1].substring(6); var payload = lines.slice(2).join('\\n'); window.localStorage.setItem('vbv.worldmap.v1.' + token, payload); window.alert('World map backup imported. Reload the Eaglercraft page to load it.'); } catch (e) { window.alert('Import failed. Browser storage may be full or blocked. If it is full, clear this site\'s storage, reload, then import the backup again. Details: ' + e); } }; reader.readAsText(file); }; input.click(); } catch (e) { window.alert('Could not open the backup file picker: ' + e); }")
     private static native void importBackupFromFile();
-
-    @JSBody(params = {"key"}, script = "try { return window.localStorage.getItem(key) || ''; } catch (e) { return ''; }")
-    private static native String readStorage(String key);
-
-    @JSBody(params = {"key", "value"}, script = "try { window.localStorage.setItem(key, value); return true; } catch (e) { return false; }")
-    private static native boolean writeStorage(String key, String value);
 
     public static String worldKey(Minecraft minecraft) {
         if (minecraft.level == null) return "unknown";
