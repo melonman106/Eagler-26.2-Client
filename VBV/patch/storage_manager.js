@@ -184,7 +184,13 @@
   }
   function saveProfiles(list) {
     setTextSync("vbv.server-profiles.v1", JSON.stringify(list, null, 2));
-    if (activeAddress) matchServer(activeAddress);
+    if (activeAddress) {
+      activeProfile = profileList().find(p => normalizedAddress(p.address) === activeAddress) || null;
+      window.VBVActiveServerProfile = activeProfile;
+      window.dispatchEvent(new CustomEvent("vbv:server-profile-changed", {
+        detail: { address: activeAddress, profile: activeProfile }
+      }));
+    }
   }
   function serverSlug(value) {
     return normalizedAddress(value).replace(/[^a-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unassigned";
@@ -527,6 +533,7 @@
     getTextSync,
     setTextSync,
     revision: () => revision,
+    refresh: () => { revision++; updateStatus(); },
     updateServer: matchServer,
     status: () => ({ connected: !!root, folder: rootName, revision, activeProfile, writeError }),
     async initialize() {
