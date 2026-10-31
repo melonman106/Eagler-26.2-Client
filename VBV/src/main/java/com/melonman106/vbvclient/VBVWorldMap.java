@@ -217,7 +217,18 @@ public final class VBVWorldMap {
         String storageKey = STORAGE_PREFIX + Base64.getUrlEncoder().withoutPadding()
             .encodeToString(world.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         String stored = VBVStorage.getText(storageKey);
-        if (stored == null || stored.isEmpty()) return;
+        if (stored == null || stored.isEmpty()) {
+            // A map file removed through the Storage Manager invalidates the
+            // in-memory copy too; otherwise the next chunk save would recreate it.
+            if (loadedRevision != null) {
+                EXPLORED.remove(world);
+                TERRAIN.remove(world);
+                WAYPOINTS.remove(world);
+                lastChunk = Long.MIN_VALUE;
+                lastWorld = "";
+            }
+            return;
+        }
         try {
             Set<Long> explored = exploredSet(world, true);
             Map<Long, int[]> terrain = TERRAIN.computeIfAbsent(world, ignored -> new HashMap<>());
