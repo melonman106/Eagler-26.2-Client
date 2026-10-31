@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replace the World Map file-import @JSBody with TeaVM-safe JavaScript."""
+"""Replace the World Map backup-import @JSBody with TeaVM-safe JavaScript."""
 from pathlib import Path
 import re
 import sys
@@ -15,24 +15,27 @@ if marker in text:
     print("[VBV World Map] import JavaScript patch already installed")
     raise SystemExit(0)
 
+# Do not assume the exact @JSBody parameter declaration used by the source.
+# Upstream VBV has changed this annotation more than once. Match the complete
+# annotation immediately before the importBackupFromFile declaration instead.
 pattern = re.compile(
-    r'    @JSBody\(params = \{"input"\}, script = ".*?"\)\s+private static native void importBackupFromFile\(\);',
-    re.DOTALL,
+    r'(?ms)^\s*@JSBody\(.*?^\s*private\s+static\s+native\s+void\s+importBackupFromFile\(\);'
 )
-if not pattern.search(text):
-    raise SystemExit("::error::Could not locate the existing importBackupFromFile @JSBody")
+match = pattern.search(text)
+if not match:
+    raise SystemExit("::error::Could not locate the importBackupFromFile @JSBody/native declaration")
 
-# Use single-quoted JavaScript strings so only the Java annotation's outer
-# double quotes need escaping.
-js = r"""var input=document.createElement('input'); input.type='file'; input.accept='.txt,.vbvmap'; input.onchange=function(){ var file=input.files&&input.files[0]; if(!file)return; var reader=new FileReader(); reader.onload=function(){ try { var text=String(reader.result||''); var lines=text.split(/\r?\n/); if(lines[0]!=='VBV-WORLDMAP-BACKUP-v1'||!lines[1]||lines[1].indexOf('WORLD:')!==0) throw new Error('This is not a VBV World Map backup'); var token=lines[1].substring(6); var payload=lines.slice(2).join('\n'); var key='vbv.worldmap.v1.'+token; if(!window.VBVStorage||!window.VBVStorage.setTextSync(key,payload)) throw new Error('Could not write the selected storage folder'); window.location.reload(); } catch(e) { window.alert('Could not import VBV World Map backup: '+e); } }; reader.readAsText(file); }; input.click();"""
+# Use simple JavaScript with single-quoted JS strings so only the Java
+# annotation's outer double quotes need escaping.
+js = r'''var input=document.createElement('input'); input.type='file'; input.accept='.txt,.vbvmap'; input.onchange=function(){ var file=input.files&&input.files[0]; if(!file)return; var reader=new FileReader(); reader.onload=function(){ try { var text=String(reader.result||''); var lines=text.split(/\r?\n/); if(lines[0]!=='VBV-WORLDMAP-BACKUP-v1'||!lines[1]||lines[1].indexOf('WORLD:')!==0) throw new Error('This is not a VBV World Map backup'); var token=lines[1].substring(6); var payload=lines.slice(2).join('\n'); var key='vbv.worldmap.v1.'+token; if(!window.VBVStorage||!window.VBVStorage.setTextSync(key,payload)) throw new Error('Could not write the selected storage folder'); window.location.reload(); } catch(e) { window.alert('Could not import VBV World Map backup: '+e); } }; reader.readAsText(file); }; input.click();'''
 
-java_literal = js.replace("\\", "\\\\").replace('"', '\\"')
+java_literal = js.replace('\\', '\\\\').replace('"', '\\"')
 replacement = (
     '    /* VBV world-map import JS patch */\n'
     f'    @JSBody(script = "{java_literal}")\n'
     '    private static native void importBackupFromFile();'
 )
 
-text = pattern.sub(replacement, text, count=1)
+text = text[:match.start()] + replacement + text[match.end():]
 SOURCE.write_text(text, encoding="utf-8")
 print(f"[VBV World Map] installed TeaVM-safe import JavaScript: {SOURCE}")
