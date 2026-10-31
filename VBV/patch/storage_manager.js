@@ -184,12 +184,18 @@
   }
   function saveProfiles(list) {
     setTextSync("vbv.server-profiles.v1", JSON.stringify(list, null, 2));
+    if (activeAddress) matchServer(activeAddress);
+  }
+  function serverSlug(value) {
+    return normalizedAddress(value).replace(/[^a-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "") || "unassigned";
   }
   function normalizedAddress(value) {
     return String(value || "").trim().toLowerCase().replace(/\/+$/, "");
   }
   function matchServer(address) {
-    activeAddress = normalizedAddress(address);
+    const nextAddress = normalizedAddress(address);
+    if (nextAddress === activeAddress) return activeProfile;
+    activeAddress = nextAddress;
     const profiles = profileList();
     activeProfile = profiles.find(p => normalizedAddress(p.address) === activeAddress) || null;
     window.VBVActiveServerProfile = activeProfile;
@@ -411,6 +417,9 @@
     const fps = select("FPS preference", existing?.settings?.fps || "unlimited", [["unlimited","Maximum / unlimited"],["60","60 FPS"],["120","120 FPS"],["30","30 FPS"]]);
     const packs = await listFiles("Resource Packs/Global").catch(() => []);
     const selected = new Set(existing?.resourcePacks || []);
+    const selectedServerPacks = new Set(existing?.serverResourcePacks || []);
+    const selectedDatapacks = new Set(existing?.datapacks || []);
+    const selectedServerDatapacks = new Set(existing?.serverDatapacks || []);
     const shade = element("div", null, "vbvs-shade");
     const form = element("div", null, "vbvs-panel");
     form.append(element("h2", existing ? "Edit Server Profile" : "Add Server Profile"));
@@ -424,6 +433,59 @@
     });
     if (!packs.length) packBox.appendChild(element("div","Add ZIP files under Files & Backups first.","vbvs-muted"));
     form.appendChild(packBox);
+
+    const serverPackBox = section("Resource packs for this server only");
+    const serverPackInput = document.createElement("input"); serverPackInput.type = "file"; serverPackInput.accept = ".zip"; serverPackInput.multiple = true;
+    serverPackBox.appendChild(serverPackInput);
+    const serverPackList = element("div");
+    serverPackBox.appendChild(serverPackList);
+    const serverDatapackBox = section("Datapacks for this server");
+    const serverDatapackInput = document.createElement("input"); serverDatapackInput.type = "file"; serverDatapackInput.accept = ".zip"; serverDatapackInput.multiple = true;
+    serverDatapackBox.appendChild(serverDatapackInput);
+    const serverDatapackList = element("div");
+    serverDatapackBox.appendChild(serverDatapackList);
+    const globalDatapackBox = section("Global datapacks");
+    const globalDatapacks = await listFiles("Datapacks/Global").catch(() => []);
+    globalDatapacks.forEach(p => {
+      const label = element("label", null, "vbvs-check");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = selectedDatapacks.has(p.name);
+      cb.addEventListener("change", () => cb.checked ? selectedDatapacks.add(p.name) : selectedDatapacks.delete(p.name));
+      label.append(cb, document.createTextNode(p.name)); globalDatapackBox.appendChild(label);
+    });
+    form.append(serverPackBox, serverDatapackBox, globalDatapackBox);
+
+    async function refreshServerFiles() {
+      const slug = serverSlug(address.field.value);
+      const packPath = "Resource Packs/Servers/" + slug;
+      const datapackPath = "Datapacks/Servers/" + slug;
+      serverPackList.replaceChildren();
+      serverDatapackList.replaceChildren();
+      const serverPacks = await listFiles(packPath).catch(() => []);
+      serverPacks.forEach(p => {
+        const label = element("label", null, "vbvs-check");
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = selectedServerPacks.has(p.name);
+        cb.addEventListener("change", () => cb.checked ? selectedServerPacks.add(p.name) : selectedServerPacks.delete(p.name));
+        label.append(cb, document.createTextNode(p.name)); serverPackList.appendChild(label);
+      });
+      const serverDatapacks = await listFiles(datapackPath).catch(() => []);
+      serverDatapacks.forEach(p => {
+        const label = element("label", null, "vbvs-check");
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = selectedServerDatapacks.has(p.name);
+        cb.addEventListener("change", () => cb.checked ? selectedServerDatapacks.add(p.name) : selectedServerDatapacks.delete(p.name));
+        label.append(cb, document.createTextNode(p.name)); serverDatapackList.appendChild(label);
+      });
+    }
+    serverPackInput.addEventListener("change", async () => {
+      await uploadFiles(serverPackInput, "Resource Packs/Servers/" + serverSlug(address.field.value));
+      await refreshServerFiles();
+    });
+    serverDatapackInput.addEventListener("change", async () => {
+      await uploadFiles(serverDatapackInput, "Datapacks/Servers/" + serverSlug(address.field.value));
+      await refreshServerFiles();
+    });
+    address.field.addEventListener("change", refreshServerFiles);
+    await refreshServerFiles();
+
     const foot = element("div",null,"vbvs-foot");
     foot.append(action("Cancel",()=>shade.remove()));
     foot.append(action("Save profile",()=>{
@@ -435,6 +497,9 @@
         name: name.field.value.trim() || addr,
         address: addr,
         resourcePacks: Array.from(selected),
+        serverResourcePacks: Array.from(selectedServerPacks),
+        datapacks: Array.from(selectedDatapacks),
+        serverDatapacks: Array.from(selectedServerDatapacks),
         settings: {
           renderDistance: Number(renderDistance.field.value),
           graphics: graphics.field.value, particles: particles.field.value,
