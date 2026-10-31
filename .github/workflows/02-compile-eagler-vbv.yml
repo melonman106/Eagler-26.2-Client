@@ -261,8 +261,20 @@ jobs:
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'serverWorker: window.location.search.indexOf("singlethread") < 0' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'meshWorkers: window.location.search.indexOf("singlethread") < 0' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          # The patched runtime must default to single-threaded mode.
+          # Worker WASM is compiled only when the URL explicitly contains ?workers.
+          grep -Fq 'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -Fq 'const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          # Ensure the unsafe TeaVM resolver was replaced in the final packaged HTML.
+          grep -Fq 'function globalPath(name)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          if grep -Fq 'new Function("return " + name + ";")' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
+            echo "::error::Unsafe TeaVM global resolver remains in final HTML"
+            exit 1
+          fi
+          if grep -Fq 'new Function("value", name + " = value;")' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
+            echo "::error::Unsafe TeaVM global setter remains in final HTML"
+            exit 1
+          fi
           grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
