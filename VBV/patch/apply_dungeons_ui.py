@@ -40,16 +40,13 @@ def find_screen_method(text):
 
 
 def make_screen_parameter_assignable(text, method_name, param_name):
-    """Remove final from the generated navigation parameter because the hook replaces it."""
+    """Remove final from the generated navigation parameter because older hooks replace it."""
     pattern = re.compile(
-        r"(\b(?:public|protected|private)\s+(?:(?:static|final|synchronized|native|abstract)\s+)*"
-        r"[\w.$<>?,\[\]\s]+\s+" + re.escape(method_name) +
-        r"\s*\(\s*)final(\s+(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+" +
-        re.escape(param_name) + r"\s*\)",
+        rf"(\b{re.escape(method_name)}\s*\(\s*)final\s+((?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+{re.escape(param_name)}\s*\))"
     )
     updated, count = pattern.subn(r"\1\2", text, count=1)
     if count:
-        print(f"[VBV Dungeons UI] Removed final from {method_name}({param_name}) so the title/loading hook can replace it.")
+        print(f"[VBV Dungeons UI] Removed final from {method_name}({param_name}).")
     return updated
 
 
@@ -57,10 +54,7 @@ def inject_once(text, marker, code, method_name, param_name):
     if marker in text:
         return text
     pattern = re.compile(
-        r"(\b(?:public|protected|private)\s+(?:(?:static|final|synchronized|native|abstract)\s+)*"
-        r"[\w.$<>?,\[\]\s]+\s+" + re.escape(method_name) +
-        r"\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+" +
-        re.escape(param_name) + r"\s*\)\s*\{)",
+        rf"(\b{re.escape(method_name)}\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+{re.escape(param_name)}\s*\)\s*\{{)"
     )
     match = pattern.search(text)
     if not match:
@@ -94,7 +88,6 @@ def _pick_screen_expression(title_text, preferred_names):
         simple = class_name.rsplit(".", 1)[-1]
         if simple.lower() not in preferred:
             continue
-        # Adapt expressions from TitleScreen context to the generated helper context.
         adapted = re.sub(r"\bthis\.minecraft\.options\b", "Minecraft.getInstance().options", args)
         adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", adapted)
         adapted = re.sub(r"\bminecraft\.options\b", "Minecraft.getInstance().options", adapted)
@@ -111,11 +104,9 @@ def _screen_imports(title_text):
 
 
 def configure_navigation_helpers(method):
-    """Resolve Eagler's actual screen classes from its generated TitleScreen."""
     nav_files = list(GAME.rglob("VBVNav.java"))
     if not nav_files:
         return
-
     title_files = list(GAME.rglob("TitleScreen.java"))
     if not title_files:
         print("[VBV Dungeons UI] TitleScreen.java not found; keeping navigation fallbacks.")
@@ -127,12 +118,10 @@ def configure_navigation_helpers(method):
         "openSingleplayer": _pick_screen_expression(title_text, ("SelectWorldScreen",)),
         "openOptions": _pick_screen_expression(title_text, ("OptionsScreen",)),
     }
-
     package_match = re.search(r"^\s*package\s+([\w.]+);", title_text, re.M)
     title_package = package_match.group(1) if package_match else "net.minecraft.client.gui.screens"
 
     def fqcn(class_name):
-        # Fully-qualified expressions in Eagler TitleScreen must stay fully qualified.
         if "." in class_name:
             return class_name
         return imports.get(class_name, f"{title_package}.{class_name}")
