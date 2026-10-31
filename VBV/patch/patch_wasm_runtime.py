@@ -98,21 +98,56 @@ function vbvPatchStandaloneHtml(source) {
     const meshBlock = html.slice(meshStart, serverStart);
     const serverBlock = html.slice(serverStart, workersStart);
 
-    const meshSemicolon = meshBlock.lastIndexOf(";");
-    const serverSemicolon = serverBlock.lastIndexOf(";");
-    if (meshSemicolon < 0 || serverSemicolon < 0) {
-      throw new Error("VBV low-memory patch: worker promise declaration terminator not found");
+    // Find the first top-level semicolon terminating each declaration.
+    // lastIndexOf() is unsafe because callbacks/comments may contain semicolons.
+    function findDeclarationSemicolon(source) {
+      let round = 0, square = 0, curly = 0;
+      let quote = null, escaped = false, lineComment = false, blockComment = false;
+      for (let i = 0; i < source.length; ++i) {
+        const ch = source[i], next = source[i + 1];
+        if (lineComment) { if (ch === "\n") lineComment = false; continue; }
+        if (blockComment) {
+          if (ch === "*" && next === "/") { blockComment = false; ++i; }
+          continue;
+        }
+        if (quote !== null) {
+          if (escaped) { escaped = false; continue; }
+          if (ch === "\\") { escaped = true; continue; }
+          if (ch.charCodeAt(0) === quote) quote = null;
+          continue;
+        }
+        if (ch === "/" && next === "/") { lineComment = true; ++i; continue; }
+        if (ch === "/" && next === "*") { blockComment = true; ++i; continue; }
+        if (ch === "'" || ch === '"') { quote = ch.charCodeAt(0); continue; }
+        if (ch.charCodeAt(0) === 96) { quote = 96; continue; }
+        if (ch === "(") ++round;
+        else if (ch === ")") --round;
+        else if (ch === "[") ++square;
+        else if (ch === "]") --square;
+        else if (ch === "{") ++curly;
+        else if (ch === "}") --curly;
+        else if (ch === ";" && round === 0 && square === 0 && curly === 0) return i;
+      }
+      return -1;
     }
 
-    const meshExpr = meshBlock.slice(0, meshSemicolon).replace(
+    const meshSemicolon = findDeclarationSemicolon(meshBlock);
+    const serverSemicolon = findDeclarationSemicolon(serverBlock);
+    if (meshSemicolon < 0 || serverSemicolon < 0) {
+      throw new Error("VBV low-memory patch: top-level worker promise declaration terminator not found");
+    }
+
+    const meshBefore = meshBlock.slice(0, meshSemicolon);
+    const serverBefore = serverBlock.slice(0, serverSemicolon);
+    const meshExpr = meshBefore.replace(
       "const meshModulePromise = WebAssembly.compileStreaming(",
       "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming("
     );
-    const serverExpr = serverBlock.slice(0, serverSemicolon).replace(
+    const serverExpr = serverBefore.replace(
       "const serverModulePromise =",
       "const serverModulePromise = enableWorkers ?"
     );
-    if (meshExpr === meshBlock.slice(0, meshSemicolon) || serverExpr === serverBlock.slice(0, serverSemicolon)) {
+    if (meshExpr === meshBefore || serverExpr === serverBefore) {
       throw new Error("VBV low-memory patch: worker compile expression was not rewritten");
     }
 
@@ -120,10 +155,8 @@ function vbvPatchStandaloneHtml(source) {
       "/* VBV low-memory worker bootstrap */\n" +
       "const enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;\n" +
       "console.info(\"[VBV runtime] worker mode:\", enableWorkers ? \"enabled\" : \"single-threaded\");\n" +
-      meshExpr +
-      " : Promise.resolve(null);\n" +
-      serverExpr +
-      " : Promise.resolve(null);\n" +
+      meshExpr + " : Promise.resolve(null);" + meshBlock.slice(meshSemicolon + 1) +
+      serverExpr + " : Promise.resolve(null);" + serverBlock.slice(serverSemicolon + 1) +
       "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];";
 
     html = html.slice(0, meshStart) + replacement + html.slice(workersStart + workersLine.length);
