@@ -209,9 +209,9 @@ jobs:
           path = Path("wasm-toolchain/build-single-html.js")
           text = path.read_text(encoding="utf-8")
           early = '''html = html.replace(
-            "window.__eaglerWasmModule = module;",
-            "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
-          );'''
+  "window.__eaglerWasmModule = module;",
+  "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
+);'''
           if text.count(early) != 1:
               raise SystemExit(f"Expected exactly one early WASM cleanup injection; found {text.count(early)}")
           text = text.replace(early, "", 1)
