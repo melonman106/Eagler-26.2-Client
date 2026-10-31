@@ -209,9 +209,9 @@ jobs:
           path = Path("wasm-toolchain/build-single-html.js")
           text = path.read_text(encoding="utf-8")
           early = (
-              "html = html.replace(\\n"
+              "html = html.replace(\n"
               "  \"window.__eaglerWasmModule = module;\",\\n"
-              "  \"window.__eaglerWasmModule = module;\\\\n\\\\t\\\\t\\\\t\\\\t\\\\twindow.__eagReleaseInlineWasm();\"\\n"
+              "  \"window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();\"\\n"
               ");"
           )
           if text.count(early) != 1:
