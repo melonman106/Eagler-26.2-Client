@@ -9,6 +9,19 @@ Native Eaglercraft 26.2 u2 client-side ViaBackportVisuals project, built in GitH
 
 The build workflows are manually triggered from the GitHub Actions tab.
 
+## Eaglercraft filesystem storage
+
+The standalone HTML build now embeds a browser storage manager using the Chromium File System Access API when available, with the existing browser storage path retained as a fallback.
+
+- **Import Existing Storage** connects an existing user-selected folder without copying its contents.
+- **Choose New Storage Folder** creates the managed directory layout; **Reconnect Existing Folder** reuses a saved directory handle when the browser still grants permission.
+- Managed folders include `Worlds/`, `WorldMap/`, `Resource Packs/Global/`, `Resource Packs/Servers/`, `Datapacks/Global/`, `Datapacks/Servers/`, `Server Profiles/`, `Backups/`, `Cache/`, and `Settings/`.
+- The explored-chunk world map reads and writes its per-world map files through the filesystem bridge when a folder is connected. Writes are coalesced, and the previous map version is kept under `Backups/WorldMap/`.
+- Server profiles store the server address, selected global and server-specific resource packs/datapacks, and per-server graphics/performance preferences.
+- The storage manager reports the size of its managed files and the browser-managed storage estimate, and it warns when a filesystem write fails.
+
+**Browser/API limits:** the browser does not expose the exact free-space value of an arbitrary selected folder. The world-map storage is connected, but Eaglercraft's actual singleplayer world-save backend has not yet been redirected to `Worlds/`. Resource packs, datapacks, and profile settings can be stored and selected per server, but automatic runtime application of those packs/settings still needs integration with the Eagler resource-pack and options systems. IndexedDB remains necessary for the saved folder handle and fallback metadata; browser permissions may need to be granted again after a restart or browser policy change.
+
 ## Native VBV architecture
 
 The client no longer uses WebMC, JSMod, converted JavaScript Fabric mods, or a browser-side JS mod loader. Client features are implemented in Java and injected into the Eaglercraft 26.2 u2 source before compilation.
