@@ -59,31 +59,40 @@ function vbvPatchStandaloneHtml(source) {
       throw new Error("VBV low-memory patch: generated u2 HTML does not contain the expected mesh/server worker bootstrap");
     }
 
+    // Replace the complete three-declaration region. Do not use a regexp to
+    // strip the terminating semicolon: the generated blocks can contain
+    // comments/newlines after the expression, and leaving that semicolon in a
+    // ternary expression produces the exact `Unexpected token ';'` seen by
+    // Android WebView.
     const meshBlock = html.slice(meshStart, serverStart);
     const serverBlock = html.slice(serverStart, workersStart);
-    const meshExpr = meshBlock.replace(
+
+    const meshSemicolon = meshBlock.lastIndexOf(";");
+    const serverSemicolon = serverBlock.lastIndexOf(";");
+    if (meshSemicolon < 0 || serverSemicolon < 0) {
+      throw new Error("VBV low-memory patch: worker promise declaration terminator not found");
+    }
+
+    const meshExpr = meshBlock.slice(0, meshSemicolon).replace(
       "const meshModulePromise = WebAssembly.compileStreaming(",
       "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming("
     );
-    if (meshExpr == meshBlock) {
-      throw new Error("VBV low-memory patch: mesh compile expression was not rewritten");
-    }
-    const meshLazy = meshExpr.replace(/;\s*$/, " : Promise.resolve(null);");
-    const serverExpr = serverBlock.replace(
+    const serverExpr = serverBlock.slice(0, serverSemicolon).replace(
       "const serverModulePromise =",
       "const serverModulePromise = enableWorkers ?"
     );
-    if (serverExpr == serverBlock) {
-      throw new Error("VBV low-memory patch: server compile expression was not rewritten");
+    if (meshExpr === meshBlock.slice(0, meshSemicolon) || serverExpr === serverBlock.slice(0, serverSemicolon)) {
+      throw new Error("VBV low-memory patch: worker compile expression was not rewritten");
     }
-    const serverLazy = serverExpr.replace(/;\s*$/, " : Promise.resolve(null);");
 
     const replacement =
       "/* VBV low-memory worker bootstrap */\n" +
       "const enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;\n" +
       "console.info(\"[VBV runtime] worker mode:\", enableWorkers ? \"enabled\" : \"single-threaded\");\n" +
-      meshLazy +
-      serverLazy +
+      meshExpr +
+      " : Promise.resolve(null);\n" +
+      serverExpr +
+      " : Promise.resolve(null);\n" +
       "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];";
 
     html = html.slice(0, meshStart) + replacement + html.slice(workersStart + workersLine.length);
