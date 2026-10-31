@@ -26,7 +26,6 @@ if not pattern.search(text):
 # Java annotation. This prevents Python/Java/JavaScript quote layers colliding.
 js = r'''var input=document.createElement("input"); input.type="file"; input.accept=".txt,.vbvmap"; input.onchange=function(){ var file=input.files&&input.files[0]; if(!file)return; var reader=new FileReader(); reader.onload=function(){ try { var text=String(reader.result||""); var lines=text.split(/\r?\n/); if(lines[0]!=="VBV-WORLDMAP-BACKUP-v1"||!lines[1]||lines[1].indexOf("WORLD:")!==0) throw new Error("This is not a VBV World Map backup"); var token=lines[1].substring(6); var payload=lines.slice(2).join("\n"); var key="vbv.worldmap.v1."+token; if(!window.VBVStorage||!window.VBVStorage.setTextSync(key,payload)) throw new Error("Could not write the selected storage folder"); window.location.reload(); } catch(e) { window.alert("Could not import VBV World Map backup: "+e); } }; reader.readAsText(file); }; input.click();'''
 
-# Java source needs backslashes and double quotes escaped inside the annotation.
 java_literal = js.replace("\\", "\\\\").replace('"', '\\"')
 replacement = (
     '    /* VBV world-map import JS patch */\n'
