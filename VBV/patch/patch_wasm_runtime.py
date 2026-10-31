@@ -68,7 +68,7 @@ function vbvPatchStandaloneHtml(source) {
   let html = Buffer.isBuffer(source) ? source.toString("utf8") : String(source);
   const storageScript = __VBV_STORAGE_SCRIPT_JSON__;
   if (!html.includes("VBV_STORAGE_MANAGER_V1")) {
-    const storageTag = "<script>\\n" + storageScript + "\\n</script>";
+    const storageTag = "<script>" + storageScript + "</script>";
     const headEnd = html.lastIndexOf("</head>");
     if (headEnd < 0) throw new Error("VBV storage manager: standalone HTML has no closing </head> tag");
     html = html.slice(0, headEnd) + storageTag + html.slice(headEnd);
