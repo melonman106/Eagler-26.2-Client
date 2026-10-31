@@ -86,16 +86,21 @@ def _new_screen_expressions(text):
     return out
 
 
-def _pick_screen_expression(title_text, keywords):
+def _pick_screen_expression(title_text, preferred_names):
+    """Pick the actual menu destination, not an unrelated Eagler helper screen."""
     expressions = _new_screen_expressions(title_text)
+    preferred = {name.lower() for name in preferred_names}
     for class_name, args in expressions:
-        low = class_name.lower()
-        if any(keyword in low for keyword in keywords):
-            adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", args)
-            adapted = re.sub(r"\bminecraft\.options\b", "Minecraft.getInstance().options", adapted)
-            adapted = re.sub(r"\bthis\b", "parent", adapted)
-            if not re.search(r"\b(?:this|minecraft|options)\b", adapted):
-                return class_name, adapted
+        simple = class_name.rsplit(".", 1)[-1]
+        if simple.lower() not in preferred:
+            continue
+        # Adapt expressions from TitleScreen context to the generated helper context.
+        adapted = re.sub(r"\bthis\.minecraft\.options\b", "Minecraft.getInstance().options", args)
+        adapted = re.sub(r"\bthis\.options\b", "Minecraft.getInstance().options", adapted)
+        adapted = re.sub(r"\bminecraft\.options\b", "Minecraft.getInstance().options", adapted)
+        adapted = re.sub(r"\bthis\b", "parent", adapted)
+        if not re.search(r"\b(?:this|minecraft|options)\b", adapted):
+            return class_name, adapted
     return None
 
 
@@ -118,17 +123,19 @@ def configure_navigation_helpers(method):
     title_text = title_files[0].read_text(encoding="utf-8")
     imports = _screen_imports(title_text)
     targets = {
-        "openMultiplayer": _pick_screen_expression(title_text, ("multiplayer", "server")),
-        "openSingleplayer": _pick_screen_expression(title_text, ("singleplayer", "world")),
-        "openOptions": _pick_screen_expression(title_text, ("options", "settings")),
+        "openMultiplayer": _pick_screen_expression(title_text, ("JoinMultiplayerScreen",)),
+        "openSingleplayer": _pick_screen_expression(title_text, ("SelectWorldScreen",)),
+        "openOptions": _pick_screen_expression(title_text, ("OptionsScreen",)),
     }
 
     package_match = re.search(r"^\s*package\s+([\w.]+);", title_text, re.M)
     title_package = package_match.group(1) if package_match else "net.minecraft.client.gui.screens"
 
     def fqcn(class_name):
-        simple = class_name.rsplit(".", 1)[-1]
-        return imports.get(simple, f"{title_package}.{class_name}")
+        # Fully-qualified expressions in Eagler TitleScreen must stay fully qualified.
+        if "." in class_name:
+            return class_name
+        return imports.get(class_name, f"{title_package}.{class_name}")
 
     def body(name):
         target = targets[name]
@@ -242,7 +249,8 @@ title_marker = "VBV_DUNGEONS_TITLE_HOOK"
 title_code = (
     f"// {title_marker}\n"
     f"if ({param} instanceof net.minecraft.client.gui.screens.TitleScreen && !({param} instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) {{\n"
-    f"    {param} = new com.melonman106.vbvclient.VBVDungeonsTitleScreen();\n"
+    f"    this.{method}(new com.melonman106.vbvclient.VBVDungeonsTitleScreen());\n"
+    f"    return;\n"
     f"}}"
 )
 text = inject_once(text, title_marker, title_code, method, param)
@@ -254,7 +262,8 @@ if backgrounds:
     loading_code = (
         f"// {loading_marker}\n"
         f"if ({param} instanceof net.minecraft.client.gui.screens.ConnectScreen && !({param} instanceof com.melonman106.vbvclient.VBVServerLoadingScreen)) {{\n"
-        f"    {param} = new com.melonman106.vbvclient.VBVServerLoadingScreen();\n"
+        f"    this.{method}(new com.melonman106.vbvclient.VBVServerLoadingScreen());\n"
+        f"    return;\n"
         f"}}"
     )
     text = inject_once(text, loading_marker, loading_code, method, param)
