@@ -202,6 +202,32 @@ jobs:
           elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
           path.write_text(text, encoding="utf-8")
           PY
+
+          # Move inline WASM cleanup until after either compile-once or fallback
+          # instantiation succeeds. The old placement cleared the cached client
+          # bytes before TeaVM.wasmGC.load() could retry them.
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+          old = '''html = html.replace(
+            "window.__eaglerWasmModule = module;",
+            "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
+          );'''
+          new = '''html = html.replace(
+            "window.__loaded = true;",
+            "window.__eagReleaseInlineWasm();\\n\\t\\t\\t\\twindow.__loaded = true;"
+          );'''
+          if old not in text:
+              raise SystemExit("Expected early WASM cleanup injection was not found")
+          if new in text:
+              raise SystemExit("WASM cleanup already appears to be moved")
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding="utf-8")
+          print("Moved inline WASM cleanup to post-instantiation")
+          PY
+          grep -q 'window.__eagReleaseInlineWasm();' wasm-toolchain/build-single-html.js
+          grep -q 'window.__loaded = true;' wasm-toolchain/build-single-html.js
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
           grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
