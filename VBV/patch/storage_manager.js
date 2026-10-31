@@ -95,7 +95,20 @@
   }
   function pathForKey(key) {
     const prefix = "vbv.worldmap.v1.";
-    if (key.startsWith(prefix)) return "WorldMap/" + key.slice(prefix.length) + ".txt";
+    if (key.startsWith(prefix)) {
+      const token = key.slice(prefix.length);
+      let decoded = "";
+      try {
+        let base64 = token.replace(/-/g, "+").replace(/_/g, "/");
+        while (base64.length % 4) base64 += "=";
+        const binary = atob(base64);
+        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+        decoded = new TextDecoder().decode(bytes);
+      } catch (_) {}
+      const parts = decoded.split("|");
+      const owner = parts.length > 1 ? parts[1] : "unknown";
+      return "WorldMap/" + serverSlug(owner) + "/" + token + ".txt";
+    }
     if (key === "vbv.server-profiles.v1") return "Server Profiles/profiles.json";
     return "Settings/" + encodeURIComponent(key) + ".json";
   }
@@ -115,11 +128,17 @@
   async function loadWorldMaps() {
     if (!root) return;
     const folder = await dir("WorldMap", true);
-    for await (const [name, handle] of folder.entries()) {
-      if (handle.kind !== "file" || !name.endsWith(".txt")) continue;
-      const key = "vbv.worldmap.v1." + name.slice(0, -4);
-      try { cache.set(key, await (await handle.getFile()).text()); } catch (_) {}
+    async function visit(current) {
+      for await (const [name, handle] of current.entries()) {
+        if (handle.kind === "directory") {
+          await visit(handle);
+        } else if (handle.kind === "file" && name.endsWith(".txt")) {
+          const key = "vbv.worldmap.v1." + name.slice(0, -4);
+          try { cache.set(key, await (await handle.getFile()).text()); } catch (_) {}
+        }
+      }
     }
+    await visit(folder);
     revision++;
   }
   async function loadProfiles() {
@@ -239,10 +258,25 @@
     for await (const [name, handle] of folder.entries()) {
       if (handle.kind === "file") {
         const file = await handle.getFile();
-        out.push({ name, size: file.size, modified: file.lastModified });
+        out.push({ name, path, size: file.size, modified: file.lastModified });
       }
     }
     return out.sort((a,b) => a.name.localeCompare(b.name));
+  }
+  async function listTreeFiles(path) {
+    const folder = await dir(path, true);
+    const out = [];
+    async function visit(current, currentPath) {
+      for await (const [name, handle] of current.entries()) {
+        if (handle.kind === "directory") await visit(handle, currentPath + "/" + name);
+        else {
+          const file = await handle.getFile();
+          out.push({ name, path: currentPath, size: file.size, modified: file.lastModified });
+        }
+      }
+    }
+    await visit(folder, path);
+    return out.sort((a,b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name));
   }
   async function uploadFiles(input, path) {
     const files = Array.from(input.files || []);
@@ -378,7 +412,7 @@
       box.appendChild(list);
     } else {
       const maps = section("World maps");
-      const mapFiles = await listFiles("WorldMap").catch(() => []);
+      const mapFiles = await listTreeFiles("WorldMap").catch(() => []);
       maps.appendChild(element("div", mapFiles.length + " saved map file(s). Deleting a map removes only its explored map data, not the Minecraft world.", "vbvs-muted"));
       mapFiles.forEach(f => maps.appendChild(fileRow("WorldMap", f)));
       box.appendChild(maps);
@@ -413,8 +447,9 @@
     const desc = element("div");
     desc.append(element("strong", file.name), element("br"), element("small", humanBytes(file.size)));
     row.appendChild(desc);
+    const targetPath = file.path || path;
     row.append(action("Delete", async () => {
-      if (confirm("Delete " + file.name + "?")) await deleteFile(path, file.name);
+      if (confirm("Delete " + file.name + "?")) await deleteFile(targetPath, file.name);
     }, "vbvs-btn danger"));
     return row;
   }
