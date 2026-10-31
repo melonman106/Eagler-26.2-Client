@@ -3,9 +3,6 @@ name: "02 - Build Eaglercraft 26.2 u2 (VBV + Herz, no Litematica)"
 run-name: "02 - Build VBV + Herz without Litematica"
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -211,10 +208,12 @@ jobs:
           from pathlib import Path
           path = Path("wasm-toolchain/build-single-html.js")
           text = path.read_text(encoding="utf-8")
-          early = '''html = html.replace(
-  "window.__eaglerWasmModule = module;",
-  "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
-);'''
+          early = (
+              "html = html.replace(\\n"
+              "  \"window.__eaglerWasmModule = module;\",\\n"
+              "  \"window.__eaglerWasmModule = module;\\\\n\\\\t\\\\t\\\\t\\\\t\\\\twindow.__eagReleaseInlineWasm();\"\\n"
+              ");"
+          )
           if text.count(early) != 1:
               raise SystemExit(f"Expected exactly one early WASM cleanup injection; found {text.count(early)}")
           text = text.replace(early, "", 1)
