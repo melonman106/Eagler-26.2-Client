@@ -7,11 +7,16 @@ immediately before it is written, then fail closed if the expected bootstrap
 cannot be patched.
 """
 from pathlib import Path
+import json
 import sys
 
 ROOT = Path(sys.argv[1]).resolve()
 TOOLCHAIN = ROOT / "wasm-toolchain"
 PACKAGER = TOOLCHAIN / "build-single-html.js"
+STORAGE_SCRIPT = Path(__file__).resolve().parent / "storage_manager.js"
+if not STORAGE_SCRIPT.is_file():
+    raise SystemExit(f"::error::VBV storage manager script is missing: {STORAGE_SCRIPT}")
+STORAGE_SCRIPT_TEXT = STORAGE_SCRIPT.read_text(encoding="utf-8")
 
 if not TOOLCHAIN.is_dir():
     raise SystemExit(f"::error::WASM toolchain directory is missing: {TOOLCHAIN}")
@@ -61,6 +66,13 @@ function vbvValidateExecutableJavaScript(html) {
 
 function vbvPatchStandaloneHtml(source) {
   let html = Buffer.isBuffer(source) ? source.toString("utf8") : String(source);
+  const storageScript = __VBV_STORAGE_SCRIPT_JSON__;
+  if (!html.includes("VBV_STORAGE_MANAGER_V1")) {
+    const storageTag = "<script>\\n" + storageScript + "\\n</script>";
+    const headEnd = html.lastIndexOf("</head>");
+    if (headEnd < 0) throw new Error("VBV storage manager: standalone HTML has no closing </head> tag");
+    html = html.slice(0, headEnd) + storageTag + html.slice(headEnd);
+  }
   const enableWorkers = 'window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0';
 
   const serverWorkerPattern = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g;
@@ -165,7 +177,8 @@ function vbvPatchStandaloneHtml(source) {
   const requiredRuntime = [
     "const enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;",
     "/* VBV low-memory worker bootstrap */",
-    "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];"
+    "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];",
+    "VBV_STORAGE_MANAGER_V1"
   ];
   for (const token of requiredRuntime) {
     if (!html.includes(token)) {
@@ -193,6 +206,9 @@ fs.writeFileSync = function(file, data, ...args) {
 };
 
 '''
+    patch = patch.replace("__VBV_STORAGE_SCRIPT_JSON__", json.dumps(STORAGE_SCRIPT_TEXT))
+    if "__VBV_STORAGE_SCRIPT_JSON__" in patch:
+        raise SystemExit("::error::VBV storage manager script placeholder was not replaced")
     text = text[:pos] + patch + text[pos:]
     PACKAGER.write_text(text, encoding="utf-8")
     print(f"[VBV runtime] installed standalone packager hook: {PACKAGER}")
