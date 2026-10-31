@@ -203,31 +203,29 @@ jobs:
           path.write_text(text, encoding="utf-8")
           PY
 
-          # Move inline WASM cleanup until after either compile-once or fallback
-          # instantiation succeeds. The old placement cleared the cached client
-          # bytes before TeaVM.wasmGC.load() could retry them.
+          # Release inline WASM only after the main module has instantiated.
+          # This line is in the actual TeaVM shell source, not the HTML packager.
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("wasm-toolchain/build-single-html.js")
+          path = Path("target_teavm_wasm_gc/src/web/index.html")
           text = path.read_text(encoding="utf-8")
-          old = '''html = html.replace(
-  "window.__eaglerWasmModule = module;",
-  "window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();"
-);'''
-          new = '''html = html.replace(
-  "window.__loaded = true;",
-  "window.__eagReleaseInlineWasm();\\n\\t\\t\\t\\twindow.__loaded = true;"
-);'''
-          if old not in text:
-              raise SystemExit("Expected early WASM cleanup injection was not found")
-          if new in text:
-              raise SystemExit("WASM cleanup already appears to be moved")
-          text = text.replace(old, new, 1)
+          marker = "window.__loaded = true;"
+          if text.count(marker) != 1:
+              raise SystemExit(f"Expected exactly one post-instantiation marker; found {text.count(marker)}")
+          if "window.__eagReleaseInlineWasm();" in text:
+              raise SystemExit("Inline WASM release is already present in the shell")
+          text = text.replace(
+              marker,
+              "window.__eagReleaseInlineWasm();\\n\\t\\t\\t\\t" + marker,
+              1
+          )
+          if text.index("window.__eagReleaseInlineWasm();") > text.index(marker):
+              raise SystemExit("Inline WASM release was not placed before the loaded marker")
           path.write_text(text, encoding="utf-8")
-          print("Moved inline WASM cleanup to post-instantiation")
+          print("Moved inline WASM cleanup to the successful post-instantiation path")
           PY
-          grep -q 'window.__eagReleaseInlineWasm();' wasm-toolchain/build-single-html.js
-          grep -q 'window.__loaded = true;' wasm-toolchain/build-single-html.js
+          grep -q 'window.__eagReleaseInlineWasm();' eaglercraft-u2/target_teavm_wasm_gc/src/web/index.html
+          grep -q 'window.__loaded = true;' eaglercraft-u2/target_teavm_wasm_gc/src/web/index.html
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
           grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
