@@ -134,6 +134,12 @@ final_runtime = CLIENT_SIDE / "patch/patch_final_runtime_resolver.py"
 if final_runtime.is_file():
     subprocess.run([sys.executable, str(final_runtime), *sys.argv[1:]], check=True)
 
+# TeaVM currently emits warnings for the original World Map file-picker
+# @JSBody. Replace it with a deliberately simple script before Java compilation.
+worldmap_import = CLIENT_SIDE / "patch/patch_worldmap_import_js.py"
+if worldmap_import.is_file():
+    subprocess.run([sys.executable, str(worldmap_import), *sys.argv[1:]], check=True)
+
 # Dungeons II-style title/loading UI is applied last so the pinned upstream
 # patch and post-fixes cannot overwrite its screen-navigation hooks.
 dungeons_ui = CLIENT_SIDE / "patch/apply_dungeons_ui.py"
