@@ -59,6 +59,30 @@ def patch_loading_animation(count: int):
     print(f"[VBV Dungeons Home] configured {count} animated slime frames")
 
 
+
+def suppress_vanilla_title_branding():
+    candidates = list(GAME.rglob("TitleScreen.java"))
+    if not candidates:
+        raise RuntimeError("TitleScreen.java not found; cannot suppress vanilla title branding")
+    path = next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")), candidates[0])
+    source = path.read_text(encoding="utf-8")
+    marker = "VBV_DUNGEONS_SUPPRESS_VANILLA_BRANDING"
+    if marker in source:
+        return
+    logo = "this.logoRenderer.extractRenderState(graphics, this.width, this.logoRenderer.keepLogoThroughFade() ? 1.0F : widgetFade);"
+    if logo in source:
+        source = source.replace(logo, "if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) { " + logo + " }", 1)
+    splash = "this.splash.extractRenderState(graphics, this.width, this.font, widgetFade);"
+    if splash in source:
+        source = source.replace(splash, "if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) { " + splash + " }", 1)
+    version = "graphics.text(this.font, versionString, 2, this.height - 10, ARGB.white(widgetFade));"
+    if version in source:
+        source = source.replace(version, "if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) { " + version + " }", 1)
+    source = source.replace("public class TitleScreen", "public class TitleScreen /* " + marker + " */", 1)
+    path.write_text(source, encoding="utf-8")
+    print("[VBV Dungeons Home] suppressed vanilla logo, splash and version on the custom home screen")
+
+
 def patch_title_screen():
     files = list(GAME.rglob("VBVDungeonsTitleScreen.java"))
     if not files:
@@ -162,10 +186,6 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         graphics.fill(avatarX + 18, 28, avatarX + 20, 30, 0xFFFFFFFF);
         graphics.fill(avatarX + 12, 35, avatarX + 19, 37, 0xFF26303C);
 
-        String settingsHint = "Settings";
-        graphics.text(font, settingsHint, Math.max(12, railX + 40), height - 43, 0xFFFFFFFF, true);
-        String partyHint = "Party";
-        graphics.text(font, partyHint, Math.max(180, railX + 205), height - 43, 0xFFFFFFFF, true);
     }
 }
 '''
@@ -178,4 +198,5 @@ frame_count = 0
 if gif:
     frame_count = extract_gif(gif, RES / "assets/vbvclient/textures/loadingscreen/slime")
 patch_loading_animation(frame_count)
+suppress_vanilla_title_branding()
 patch_title_screen()
