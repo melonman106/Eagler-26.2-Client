@@ -6,7 +6,8 @@ import org.teavm.jso.JSBody;
 public final class VBVStorage {
     private VBVStorage() {}
 
-    public static void openManager() { openManagerJS(); }
+    public static void chooseFolder() { chooseFolderJS(); }
+    public static void reconnect() { reconnectJS(); }
 
     public static void updateServer(String address) {
         if (address != null) updateServerJS(address);
@@ -16,9 +17,14 @@ public final class VBVStorage {
     public static boolean putText(String key, String value) { return putTextJS(key, value); }
     public static long revision() { return revisionJS(); }
     public static boolean writeFailed() { return writeFailedJS(); }
+    public static boolean connected() { return connectedJS(); }
+    public static String folderName() { return folderNameJS(); }
 
-    @JSBody(script = "try { if (window.VBVStorage) window.VBVStorage.openUI(); else window.alert('Storage Manager is unavailable in this build.'); } catch (e) { console.error(e); }")
-    private static native void openManagerJS();
+    @JSBody(script = "try { if (window.VBVStorage) window.VBVStorage.chooseFolder(); else window.alert('Storage bridge is unavailable in this build.'); } catch (e) { console.error(e); }")
+    private static native void chooseFolderJS();
+
+    @JSBody(script = "try { if (window.VBVStorage) window.VBVStorage.reconnect(); else window.alert('Storage bridge is unavailable in this build.'); } catch (e) { console.error(e); }")
+    private static native void reconnectJS();
 
     @JSBody(params = {"address"}, script = "try { if (window.VBVStorage) window.VBVStorage.updateServer(address); } catch (e) { console.error(e); }")
     private static native void updateServerJS(String address);
@@ -34,4 +40,10 @@ public final class VBVStorage {
 
     @JSBody(script = "try { return !!(window.VBVStorage && window.VBVStorage.status().writeError); } catch (e) { return false; }")
     private static native boolean writeFailedJS();
+
+    @JSBody(script = "try { return !!(window.VBVStorage && window.VBVStorage.status().connected); } catch (e) { return false; }")
+    private static native boolean connectedJS();
+
+    @JSBody(script = "try { return window.VBVStorage ? String(window.VBVStorage.status().folder || '') : ''; } catch (e) { return ''; }")
+    private static native String folderNameJS();
 }
