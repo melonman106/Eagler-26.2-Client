@@ -26,6 +26,29 @@ public final class VBVServerLoadingScreen extends Screen {
         backdrop = BACKDROPS.get(new Random().nextInt(BACKDROPS.size()));
     }
 
+    private static final Identifier CONNECTION_BACKDROP = BACKDROPS.get(new Random().nextInt(BACKDROPS.size()));
+
+    /**
+     * Draws the custom art behind the real ConnectScreen. The real screen must
+     * remain active because it owns the network tick, connection status and
+     * cancel button.
+     */
+    public static void renderConnectionBackground(GuiGraphicsExtractor graphics, int width, int height) {
+        graphics.blit(RenderPipelines.GUI_TEXTURED, CONNECTION_BACKDROP, 0, 0, 0, 0,
+            width, height, width, height, width, height);
+
+        int frame = (int)((System.currentTimeMillis() / 150L) % WALK_FRAMES.length);
+        int size = Math.min(42, Math.max(28, height / 18));
+        int x = width - size - 16;
+        int y = height - size - 14;
+        try {
+            graphics.blit(RenderPipelines.GUI_TEXTURED, WALK_FRAMES[frame], x, y, 0, 0,
+                size, size, size, size, size, size);
+        } catch (RuntimeException ignored) {
+            // Walking frames are optional.
+        }
+    }
+
     private static Identifier[] buildWalkFrames() {
         Identifier[] frames = new Identifier[12];
         for (int i = 0; i < frames.length; i++) {
