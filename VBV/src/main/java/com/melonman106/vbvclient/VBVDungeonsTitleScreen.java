@@ -32,12 +32,15 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         addRenderableWidget(Button.builder(Component.literal("Mods"), b -> {})
             .bounds(x, y + (buttonHeight + gap) * 3, buttonWidth, buttonHeight).build());
 
-        // Settings is the first real navigation entry; the settings area uses
-        // breadcrumb navigation so more pages can be added without changing
-        // the home-screen layout.
+        // Bottom utility buttons use the normal Minecraft Button widget so they
+        // match the native Eagler/Minecraft UI rather than being custom text.
+        int utilityY = height - 42;
         addRenderableWidget(Button.builder(Component.literal("Settings"), b ->
             VBVNav.open(new VBVSettingsScreen(this)))
-            .bounds(x, height - 42, 100, 24).build());
+            .bounds(x, utilityY, 100, 24).build());
+        addRenderableWidget(Button.builder(Component.literal("Storage"), b ->
+            VBVNav.open(new VBVStorageScreen(this)))
+            .bounds(x + 106, utilityY, 100, 24).build());
     }
 
     /*
