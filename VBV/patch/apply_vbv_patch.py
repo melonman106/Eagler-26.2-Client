@@ -157,6 +157,13 @@ dungeons_home = CLIENT_SIDE / "patch/apply_dungeons_home.py"
 if dungeons_home.is_file():
     subprocess.run([sys.executable, str(dungeons_home), *sys.argv[1:]], check=True)
 
+# The storage backend remains filesystem-capable, but its floating JavaScript
+# launcher is removed. Storage is now opened only through the native Minecraft
+# storage screen and its tabbed UI.
+storage_ui = CLIENT_SIDE / "patch/remove_storage_launcher.py"
+if storage_ui.is_file():
+    subprocess.run([sys.executable, str(storage_ui), *sys.argv[1:]], check=True)
+
 # Some source assets are AVIF/WebP files carrying a .png name. Vanilla's
 # Minecraft PNG loader rejects those bytes with "Bad PNG Signature" during
 # the initial resource reload, so normalize every PNG-named resource before
