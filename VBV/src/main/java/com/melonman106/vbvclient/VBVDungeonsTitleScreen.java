@@ -35,7 +35,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         addNativeButton("MODS", left, y, smallWidth, heightSmall,
             b -> VBVNav.open(new VBVModsScreen(this)));
         addNativeButton("OPTIONS", left + smallWidth + 8, y, smallWidth, heightSmall,
-            b -> VBVNav.openOptions(this));
+            b -> VBVNav.open(new VBVSettingsScreen(this)));
 
         // Storage is deliberately a normal native Minecraft button and exists
         // only on the home screen.
