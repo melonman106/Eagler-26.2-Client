@@ -66,6 +66,23 @@ function vbvValidateExecutableJavaScript(html) {
 
 function vbvPatchStandaloneHtml(source) {
   let html = Buffer.isBuffer(source) ? source.toString("utf8") : String(source);
+
+  // TeaVM WASM-GC async callbacks can receive safe integer continuation tokens
+  // as JavaScript Numbers, while the compiled callback ABI expects Java longs
+  // as BigInts. Normalize only safe integers at this boundary.
+  const asyncBridgeNeedle = "return setTimeout(()=>{t(e)},r)";
+  const asyncBridgeMarker = "VBV_WASM_GC_ASYNC_I64_BRIDGE";
+  if (!html.includes(asyncBridgeMarker)) {
+    const asyncBridgeCount = html.split(asyncBridgeNeedle).length - 1;
+    if (asyncBridgeCount < 1) {
+      throw new Error("VBV WASM-GC async bridge: expected TeaVM teavmAsync.offer callback was not found");
+    }
+    html = html.split(asyncBridgeNeedle).join(
+      'return setTimeout(()=>{t(typeof e === "number" && Number.isSafeInteger(e) ? BigInt(e) : e)},r)/* ' + asyncBridgeMarker + ' */'
+    );
+    console.log("[VBV runtime] normalized " + asyncBridgeCount + " TeaVM WASM-GC async i64 callback bridge(s)");
+  }
+
   const storageScript = __VBV_STORAGE_SCRIPT_JSON__;
   if (!html.includes("VBV_STORAGE_MANAGER_V1")) {
     const storageTag = "<script>" + storageScript + "</script>";
@@ -178,7 +195,8 @@ function vbvPatchStandaloneHtml(source) {
     "const enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;",
     "/* VBV low-memory worker bootstrap */",
     "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];",
-    "VBV_STORAGE_MANAGER_V1"
+    "VBV_STORAGE_MANAGER_V1",
+    "VBV_WASM_GC_ASYNC_I64_BRIDGE"
   ];
   for (const token of requiredRuntime) {
     if (!html.includes(token)) {
