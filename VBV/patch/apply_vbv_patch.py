@@ -127,6 +127,10 @@ runtime_patch = CLIENT_SIDE / "patch/patch_wasm_runtime.py"
 if runtime_patch.is_file():
     subprocess.run([sys.executable, str(runtime_patch), *sys.argv[1:]], check=True)
 
+i64_guard = CLIENT_SIDE / "patch/patch_wasm_i64_guard.py"
+if i64_guard.is_file():
+    subprocess.run([sys.executable, str(i64_guard), *sys.argv[1:]], check=True)
+
 # TeaVM's generated standalone runtime contains a dynamic global resolver.
 # Apply the CSP-safe/property-walking replacement after the packager hook is
 # installed, so the final HTML cannot reach new Function() for global lookup.
