@@ -20,17 +20,24 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int x = 18;
         int buttonHeight = 24;
         int gap = 6;
-        int y = height - (buttonHeight * 3 + gap * 2) - 24;
+        int y = Math.max(70, height - 190);
 
-        addRenderableWidget(Button.builder(Component.literal("Play"), b ->
-            VBVNav.openMultiplayer(this))
+        // These home-screen entries are intentionally visual-only for now.
+        addRenderableWidget(Button.builder(Component.literal("Play"), b -> {})
             .bounds(x, y, buttonWidth, buttonHeight).build());
-        addRenderableWidget(Button.builder(Component.literal("Singleplayer"), b ->
-            VBVNav.openSingleplayer(this))
+        addRenderableWidget(Button.builder(Component.literal("Friends"), b -> {})
             .bounds(x, y + buttonHeight + gap, buttonWidth, buttonHeight).build());
-        addRenderableWidget(Button.builder(Component.literal("Mods & Options"), b ->
-            VBVNav.open(new VBVDungeonsExtrasScreen(this)))
+        addRenderableWidget(Button.builder(Component.literal("Profile"), b -> {})
             .bounds(x, y + (buttonHeight + gap) * 2, buttonWidth, buttonHeight).build());
+        addRenderableWidget(Button.builder(Component.literal("Mods"), b -> {})
+            .bounds(x, y + (buttonHeight + gap) * 3, buttonWidth, buttonHeight).build());
+
+        // Settings is the first real navigation entry; the settings area uses
+        // breadcrumb navigation so more pages can be added without changing
+        // the home-screen layout.
+        addRenderableWidget(Button.builder(Component.literal("Settings"), b ->
+            VBVNav.open(new VBVSettingsScreen(this)))
+            .bounds(x, height - 42, 100, 24).build());
     }
 
     /*
