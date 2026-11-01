@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply the Dungeons-style home layout and optional animated panorama overlay."""
+"""Build the Dungeons II-inspired title screen and animate every slime GIF frame."""
 from pathlib import Path
 import re
 import shutil
@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 ROOT = Path(sys.argv[1]).resolve()
-CLIENT_SIDE = Path(__file__).resolve().parent.parent
+CLIENT = Path(__file__).resolve().parent.parent
 GAME = ROOT / "game/src/main/java"
 RES = ROOT / "game/src/main/resources"
 
@@ -27,57 +27,155 @@ def extract_gif(gif: Path, out_dir: Path) -> int:
     except Exception:
         convert = shutil.which("magick") or shutil.which("convert")
         if not convert:
-            raise RuntimeError(f"{gif.name} is present but neither Pillow nor ImageMagick is available")
+            raise RuntimeError("slime.gif is present but neither Pillow nor ImageMagick is available")
         subprocess.run([convert, str(gif), str(out_dir / "frame_%d.png")], check=True)
         return len(list(out_dir.glob("frame_*.png")))
 
 
-def find_panorama_gif() -> Path | None:
-    candidates = (
-        CLIENT_SIDE / "panorama/panorama_overlay.gif",
-        CLIENT_SIDE / "LoadingScreen/panorama_overlay.gif",
-        CLIENT_SIDE / "panorama_overlay.gif",
-    )
-    return next((p for p in candidates if p.is_file()), None)
+def find_slime_gif():
+    for candidate in (CLIENT / "LoadingScreen/slime.gif", CLIENT / "slime.gif"):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
-def prepare_panorama_animation() -> int:
-    gif = find_panorama_gif()
-    if not gif:
-        print("[VBV Dungeons Home] No panorama_overlay.gif found; keeping the normal static panorama overlay.")
-        return 0
-    frames = RES / "assets/vbvclient/textures/panorama/animated"
-    count = extract_gif(gif, frames)
-    if count < 1:
-        raise RuntimeError("panorama_overlay.gif produced no frames")
-    print(f"[VBV Dungeons Home] Extracted {count} panorama overlay frames from {gif.name}.")
-    return count
+def patch_loading_animation(count: int):
+    files = list(GAME.rglob("VBVServerLoadingScreen.java"))
+    if not files:
+        raise RuntimeError("VBVServerLoadingScreen.java not found")
+    path = files[0]
+    source = path.read_text(encoding="utf-8")
+    if count:
+        entries = ",\n            ".join(
+            f'Identifier.parse("vbvclient:textures/loadingscreen/slime/frame_{i}.png")'
+            for i in range(count)
+        )
+        replacement = "private static Identifier[] buildSlimeFrames() {\n        return new Identifier[] {\n            " + entries + "\n        };\n    }"
+        pattern = re.compile(r"private static Identifier\[\] buildSlimeFrames\(\)\s*\{.*?\n    \}", re.S)
+        source, n = pattern.subn(replacement, source, count=1)
+        if n != 1:
+            raise RuntimeError("Could not update generated slime frame list")
+        path.write_text(source, encoding="utf-8")
+    print(f"[VBV Dungeons Home] configured {count} animated slime frames")
 
 
-def patch_title_screen(frame_count: int) -> None:
+def patch_title_screen():
     files = list(GAME.rglob("VBVDungeonsTitleScreen.java"))
     if not files:
         raise RuntimeError("VBVDungeonsTitleScreen.java not found in generated source")
     path = files[0]
-    text = path.read_text(encoding="utf-8")
+    source = r'''package com.melonman106.vbvclient;
 
-    marker = "VBV_DUNGEONS_HOME_LAYOUT"
-    if marker in text:
-        print("[VBV Dungeons Home] Home layout already patched.")
-        return
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.PlainTextButton;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
 
-    overlay_block = ""
-    if frame_count:
-        overlay_block = f'''\n    private static final Identifier[] ANIMATED_OVERLAY = buildAnimatedOverlay();\n\n    private static Identifier[] buildAnimatedOverlay() {{\n        Identifier[] frames = new Identifier[{frame_count}];\n        for (int i = 0; i < frames.length; i++) {{\n            frames[i] = Identifier.parse("vbvclient:textures/panorama/animated/frame_" + i + ".png");\n        }}\n        return frames;\n    }}\n\n'''
+/** Dungeons II-inspired home screen, arranged to match the supplied reference. */
+public final class VBVDungeonsTitleScreen extends TitleScreen {
+    private final Screen parent;
+    private static final int MENU_X = 84;
+    private static final int MENU_Y_OFFSET = 322;
+    private static final int MENU_STEP = 51;
 
-    overlay_draw = ""
-    if frame_count:
-        overlay_draw = '''\n        if (ANIMATED_OVERLAY.length > 0) {\n            int frame = (int)((System.currentTimeMillis() / 100L) % ANIMATED_OVERLAY.length);\n            graphics.blit(RenderPipelines.GUI_TEXTURED, ANIMATED_OVERLAY[frame],\n                0, 0, 0, 0, width, height, width, height, width, height);\n        }\n'''
+    public VBVDungeonsTitleScreen() {
+        this(null);
+    }
 
-    new_text = f'''package com.melonman106.vbvclient;\n\nimport net.minecraft.client.gui.GuiGraphicsExtractor;\nimport net.minecraft.client.gui.components.Button;\nimport net.minecraft.client.gui.screens.TitleScreen;\nimport net.minecraft.client.renderer.RenderPipelines;\nimport net.minecraft.network.chat.Component;\nimport net.minecraft.resources.Identifier;\n\n/** Minecraft Dungeons II-inspired VBV title screen. */\npublic final class VBVDungeonsTitleScreen extends TitleScreen {{\n{overlay_block}    public VBVDungeonsTitleScreen() {{\n        super();\n    }}\n\n    @Override\n    protected void init() {{\n        super.init();\n        clearWidgets();\n\n        int buttonWidth = Math.min(250, Math.max(190, width / 5));\n        int buttonHeight = 28;\n        int gap = 7;\n        int x = Math.max(28, width / 24);\n        int y = Math.max(90, height / 2 + 15);\n\n        addRenderableWidget(Button.builder(Component.literal("Play"), b ->\n            VBVNav.openMultiplayer(this))\n            .bounds(x, y, buttonWidth, buttonHeight).build());\n        addRenderableWidget(Button.builder(Component.literal("Join a Party"), b ->\n            VBVNav.openMultiplayer(this))\n            .bounds(x, y + (buttonHeight + gap), buttonWidth, buttonHeight).build());\n        addRenderableWidget(Button.builder(Component.literal("Heroes"), b ->\n            VBVNav.open(new VBVDungeonsExtrasScreen(this)))\n            .bounds(x, y + (buttonHeight + gap) * 2, buttonWidth, buttonHeight).build());\n        addRenderableWidget(Button.builder(Component.literal("DLC"), b ->\n            VBVNav.open(new VBVDungeonsExtrasScreen(this)))\n            .bounds(x, y + (buttonHeight + gap) * 3, buttonWidth, buttonHeight).build());\n\n        addRenderableWidget(Button.builder(Component.literal("Settings"), b ->\n            VBVNav.openOptions(this))\n            .bounds(x, height - 46, 110, 22).build());\n        addRenderableWidget(Button.builder(Component.literal("Party"), b ->\n            VBVNav.openMultiplayer(this))\n            .bounds(x + 120, height - 46, 100, 22).build());\n    }}\n\n    @Override\n    protected void extractPanorama(GuiGraphicsExtractor graphics, float partialTick) {{\n        super.extractPanorama(graphics, partialTick);\n{overlay_draw}    }}\n\n    @Override\n    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {{\n        super.extractRenderState(graphics, mouseX, mouseY, partialTick);\n        // {marker}\n        String title = "MINECRAFT DUNGEONS II";\n        graphics.text(font, title, width / 2 - font.width(title) / 2, 28, 0xFFFFFFFF, true);\n    }}\n}}\n'''
-    path.write_text(new_text, encoding="utf-8")
-    print(f"[VBV Dungeons Home] Installed Dungeons-style home layout with {frame_count} animated overlay frames.")
+    public VBVDungeonsTitleScreen(Screen parent) {
+        super();
+        this.parent = parent;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        clearWidgets();
+
+        int left = Math.max(44, width / 38);
+        int menuTop = Math.max(150, height - MENU_Y_OFFSET);
+        int menuWidth = Math.min(270, Math.max(190, width / 5));
+        int menuHeight = 38;
+
+        addMenuItem("PLAY", left + 40, menuTop, menuWidth, menuHeight,
+            b -> VBVNav.openMultiplayer(this));
+        addMenuItem("JOIN A PARTY", left + 40, menuTop + MENU_STEP, menuWidth, menuHeight,
+            b -> {});
+        addMenuItem("HEROES", left + 40, menuTop + MENU_STEP * 2, menuWidth, menuHeight,
+            b -> {});
+        addMenuItem("DLC", left + 40, menuTop + MENU_STEP * 3, menuWidth, menuHeight,
+            b -> {});
+
+        // Storage is a real native Minecraft widget, only present on the home screen.
+        addRenderableWidget(Button.builder(Component.literal("Storage"), b ->
+            VBVNav.open(new VBVStorageScreen(this)))
+            .bounds(left + 40, height - 52, 112, 24).build());
+
+        addRenderableWidget(Button.builder(Component.literal("Settings"), b ->
+            VBVNav.open(new VBVSettingsScreen(this)))
+            .bounds(left + 164, height - 52, 112, 24).build());
+    }
+
+    private void addMenuItem(String label, int x, int y, int w, int h, Button.OnPress action) {
+        addRenderableWidget(new DungeonsTextButton(x, y, w, h, Component.literal(label), action, font));
+    }
+
+    private static final class DungeonsTextButton extends PlainTextButton {
+        DungeonsTextButton(int x, int y, int width, int height, Component text,
+                Button.OnPress action, Font font) {
+            super(x, y, width, height, text, action, font);
+        }
+
+        @Override
+        public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float alpha) {
+            boolean hover = isHoveredOrFocused();
+            int color = hover ? 0xFFFFFFFF : 0xFF777777;
+            graphics.text(Minecraft.getInstance().font, getMessage(), getX(), getY() + 8, color, true);
+        }
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+
+        // Dungeons-style lower-left corner rail.
+        int railX = Math.max(44, width / 38);
+        int railTop = Math.max(150, height - MENU_Y_OFFSET - 12);
+        graphics.fill(railX, railTop, railX + 2, height - 34, 0x887C8587);
+        graphics.fill(railX, height - 34, railX + 15, height - 32, 0x887C8587);
+        graphics.fill(railX, railTop, railX + 15, railTop + 2, 0x887C8587);
+
+        // Player identity area occupies the same top-right region as the reference party strip.
+        String username = Minecraft.getInstance().getUser().getName();
+        String label = "PLAYER: " + username;
+        int textX = width - font.width(label) - 82;
+        graphics.text(font, label, textX, 27, 0xFF8EDFFF, true);
+        int avatarX = width - 52;
+        graphics.fill(avatarX, 17, avatarX + 30, 47, 0xFF273B58);
+        graphics.fill(avatarX + 3, 20, avatarX + 27, 44, 0xFF8B9FB4);
+        graphics.fill(avatarX + 8, 24, avatarX + 22, 39, 0xFF31435C);
+        graphics.fill(avatarX + 11, 28, avatarX + 13, 30, 0xFFFFFFFF);
+        graphics.fill(avatarX + 18, 28, avatarX + 20, 30, 0xFFFFFFFF);
+        graphics.fill(avatarX + 12, 35, avatarX + 19, 37, 0xFF26303C);
+
+        String settingsHint = "Settings";
+        graphics.text(font, settingsHint, Math.max(12, railX + 40), height - 43, 0xFFFFFFFF, true);
+        String partyHint = "Party";
+        graphics.text(font, partyHint, Math.max(180, railX + 205), height - 43, 0xFFFFFFFF, true);
+    }
+}
+'''
+    path.write_text(source, encoding="utf-8")
+    print("[VBV Dungeons Home] installed reference-based menu; removed heading and browser overlay controls")
 
 
-count = prepare_panorama_animation()
-patch_title_screen(count)
+gif = find_slime_gif()
+frame_count = 0
+if gif:
+    frame_count = extract_gif(gif, RES / "assets/vbvclient/textures/loadingscreen/slime")
+patch_loading_animation(frame_count)
+patch_title_screen()
