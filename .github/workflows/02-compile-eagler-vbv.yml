@@ -78,6 +78,15 @@ jobs:
           cp "$overlay" "$overlay_target"
           echo "Restored verified resource overlay: $overlay_target"
 
+      - name: Install FFmpeg for image asset normalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
+          command -v ffmpeg
+          ffmpeg -version | head -n 1
+
       - name: Inject VBV + Herz and embedded resource-pack mods
         shell: bash
         run: |
