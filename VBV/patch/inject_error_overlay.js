@@ -69,7 +69,7 @@ function diag() {
     var bar = document.createElement("div");
     bar.style.cssText = "position:sticky;top:0;background:#222;padding:5px 8px;display:flex;gap:8px;align-items:center";
     var title = document.createElement("b");
-    title.textContent = "VBV startup console (tap to collapse)";
+    title.textContent = "VBV runtime console (tap to collapse)";
     title.style.flex = "1";
     bar.onclick = function() { collapsed = !collapsed; pre.style.display = collapsed ? "none" : "block"; };
     var btn = document.createElement("button");
