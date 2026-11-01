@@ -211,6 +211,28 @@ def prepare_assets():
     return backgrounds
 
 
+def configure_slime_frames():
+    frames_dir = RES / "assets/vbvclient/textures/loadingscreen/slime"
+    frames = sorted(frames_dir.glob("frame_*.png"), key=lambda p: int(p.stem.split("_")[-1]))
+    if not LOADING_CLASS.is_file() or not frames:
+        return
+    text = LOADING_CLASS.read_text(encoding="utf-8")
+    start = text.find("    private static Identifier[] buildSlimeFrames() {")
+    if start < 0:
+        raise RuntimeError("Could not find buildSlimeFrames() in VBVServerLoadingScreen")
+    end = text.find("\n    }", start) + len("\n    }")
+    if end < len("\n    }"):
+        raise RuntimeError("Could not find end of buildSlimeFrames()")
+    lines = ",\n            ".join(
+        'Identifier.parse("vbvclient:textures/loadingscreen/slime/' + frame.name + '")'
+        for frame in frames
+    )
+    replacement = "    private static Identifier[] buildSlimeFrames() {\n        return new Identifier[] {\n            " + lines + "\n        };\n    }"
+    text = text[:start] + replacement + text[end:]
+    LOADING_CLASS.write_text(text, encoding="utf-8")
+    print("[VBV Dungeons UI] Configured " + str(len(frames)) + " slime GIF frames.")
+
+
 def configure_loading_class(backgrounds):
     if not backgrounds or not LOADING_CLASS.is_file():
         return
@@ -245,6 +267,7 @@ text = inject_once(text, title_marker, title_code, method, param)
 
 backgrounds = prepare_assets()
 configure_loading_class(backgrounds)
+configure_slime_frames()
 # Keep the real ConnectScreen alive: it owns connection polling, status updates,
 # error handling and the cancel button. Only replace its background artwork.
 if backgrounds:
