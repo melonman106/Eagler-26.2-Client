@@ -251,6 +251,26 @@ jobs:
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
           grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
 
+          # Standalone HTML size is unrestricted; keep the full client even when it exceeds the upstream 90 MB guard.
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+          old_guard = '''if (withoutMusic && outputBytes > target && !diagnosticBuild && !fastPackage) {
+            fail(`lean standalone exceeded the size target by ${(outputBytes - target).toLocaleString()} bytes`);
+          }'''
+          new_guard = '''if (withoutMusic && outputBytes > target && !diagnosticBuild && !fastPackage) {
+            console.log("[single-html] Standalone size target exceeded; continuing because output size is unrestricted");
+          }'''
+          if old_guard in text:
+              text = text.replace(old_guard, new_guard, 1)
+          elif 'Standalone size target exceeded; continuing because output size is unrestricted' not in text:
+              raise SystemExit("Expected standalone size guard was not found; refusing to continue without verifying the packager")
+          path.write_text(text, encoding="utf-8")
+          print("Disabled the standalone HTML size failure; full-size output is allowed")
+          PY
+          grep -q 'Standalone size target exceeded; continuing because output size is unrestricted' wasm-toolchain/build-single-html.js
+
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
         env:
