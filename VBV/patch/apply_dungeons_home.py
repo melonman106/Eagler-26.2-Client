@@ -94,6 +94,70 @@ def patch_title_screen():
     print("[VBV Dungeons Home] copied the maintained native-button home-screen template")
 
 
+
+def configure_panorama_overlay():
+    """Convert an optional GIF/MP4 panorama overlay to animated PNG frames."""
+    overlay_root = CLIENT / "panorama"
+    candidates = [overlay_root / "panorama_overlay.mp4", overlay_root / "panorama_overlay.gif"]
+    animated = next((path for path in candidates if path.is_file()), None)
+    frame_dir = RES / "assets/vbvclient/textures/panorama_overlay"
+    frame_dir.mkdir(parents=True, exist_ok=True)
+    for old in frame_dir.glob("frame_*.png"):
+        old.unlink()
+
+    if animated is None:
+        print("[VBV Panorama] No GIF/MP4 overlay found; the static PNG path remains available.")
+        return
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("panorama_overlay.gif/mp4 is present but FFmpeg is unavailable")
+    output = frame_dir / "frame_%04d.png"
+    subprocess.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(animated),
+        "-vf", "fps=12,scale=w='min(1280,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease",
+        "-vsync", "0", "-pix_fmt", "rgba", str(output),
+    ], check=True)
+    frames = sorted(frame_dir.glob("frame_*.png"))
+    if not frames:
+        raise RuntimeError(f"FFmpeg produced no frames from {animated.name}")
+
+    java_files = list(GAME.rglob("VBVPanoramaOverlay.java"))
+    if not java_files:
+        raise RuntimeError("VBVPanoramaOverlay.java was not copied into generated sources")
+    java = java_files[0]
+    source = java.read_text(encoding="utf-8")
+    entries = ",\\n            ".join(
+        f'Identifier.parse("vbvclient:textures/panorama_overlay/{frame.name}")'
+        for frame in frames
+    )
+    replacement = "private static final Identifier[] FRAMES = new Identifier[] {\\n            " + entries + "\\n    };"
+    source, count = re.subn(
+        r"private static final Identifier\\[\\] FRAMES = new Identifier\\[\\] \\{.*?\\};",
+        replacement, source, count=1, flags=re.S,
+    )
+    if count != 1:
+        raise RuntimeError("Could not configure VBV panorama animation frame list")
+    java.write_text(source, encoding="utf-8")
+
+    title_files = list(GAME.rglob("TitleScreen.java"))
+    if not title_files:
+        raise RuntimeError("TitleScreen.java not found for animated panorama overlay hook")
+    title = next((p for p in title_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")), title_files[0])
+    title_source = title.read_text(encoding="utf-8")
+    marker = "VBV_PANORAMA_OVERLAY_RENDER"
+    if marker not in title_source:
+        anchor = "this.extractPanorama(graphics, a);"
+        if title_source.count(anchor) != 1:
+            raise RuntimeError("Could not locate the unique title panorama render call")
+        hook = (anchor + "\\n      // " + marker + "\\n" +
+            "      if (this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen) {\\n" +
+            "         com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);\\n" +
+            "      }")
+        title_source = title_source.replace(anchor, hook, 1)
+        title.write_text(title_source, encoding="utf-8")
+    print(f"[VBV Panorama] enabled looping {animated.suffix[1:].upper()} overlay: {len(frames)} frames at 12 FPS")
+
 gif = find_slime_gif()
 frame_count = 0
 if gif:
@@ -101,3 +165,4 @@ if gif:
 patch_loading_animation(frame_count)
 suppress_vanilla_title_branding()
 patch_title_screen()
+configure_panorama_overlay()
