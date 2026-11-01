@@ -246,16 +246,35 @@ text = inject_once(text, title_marker, title_code, method, param)
 
 backgrounds = prepare_assets()
 configure_loading_class(backgrounds)
-loading_marker = "VBV_DUNGEONS_LOADING_HOOK"
+# Keep the real ConnectScreen alive: it owns connection polling, status updates,
+# error handling and the cancel button. Only replace its background artwork.
 if backgrounds:
-    loading_code = (
-        f"// {loading_marker}\n"
-        f"if ({param} instanceof net.minecraft.client.gui.screens.ConnectScreen && !({param} instanceof com.melonman106.vbvclient.VBVServerLoadingScreen)) {{\n"
-        f"    this.{method}(new com.melonman106.vbvclient.VBVServerLoadingScreen());\n"
-        f"    return;\n"
-        f"}}"
+    connect_files = list(GAME.rglob("ConnectScreen.java"))
+    if not connect_files:
+        raise RuntimeError("ConnectScreen.java not found for custom loading background")
+    connect_screen = next(
+        (p for p in connect_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/ConnectScreen.java")),
+        connect_files[0],
     )
-    text = inject_once(text, loading_marker, loading_code, method, param)
+    connect_text = connect_screen.read_text(encoding="utf-8")
+    connect_marker = "VBV_DUNGEONS_CONNECT_BACKGROUND"
+    if connect_marker not in connect_text:
+        render_pattern = re.compile(
+            r"(\\bextractRenderState\\s*\\(\\s*(?:final\\s+)?(?:[\\w.$]+\\.)?GuiGraphicsExtractor\\s+(\\w+)[^)]*\\)\\s*\\{)"
+        )
+        render_match = render_pattern.search(connect_text)
+        if not render_match:
+            raise RuntimeError("Could not locate ConnectScreen.extractRenderState for custom background")
+        graphics_name = render_match.group(2)
+        draw_code = (
+            f"\\n        // {connect_marker}\\n"
+            f"        com.melonman106.vbvclient.VBVServerLoadingScreen.renderConnectionBackground({graphics_name}, this.width, this.height);"
+        )
+        connect_text = connect_text[:render_match.end()] + draw_code + connect_text[render_match.end():]
+        connect_screen.write_text(connect_text, encoding="utf-8")
+        print("[VBV Dungeons UI] Added custom background to the real ConnectScreen.")
+    else:
+        print("[VBV Dungeons UI] ConnectScreen background hook already present.")
 
 minecraft.write_text(text, encoding="utf-8")
 print("[VBV Dungeons UI] Patched Minecraft screen navigation:", method, param)
