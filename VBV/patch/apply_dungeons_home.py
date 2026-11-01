@@ -127,13 +127,13 @@ def configure_panorama_overlay():
         raise RuntimeError("VBVPanoramaOverlay.java was not copied into generated sources")
     java = java_files[0]
     source = java.read_text(encoding="utf-8")
-    entries = ",\\n            ".join(
+    entries = ",\n            ".join(
         f'Identifier.parse("vbvclient:textures/panorama_overlay/{frame.name}")'
         for frame in frames
     )
-    replacement = "private static final Identifier[] FRAMES = new Identifier[] {\\n            " + entries + "\\n    };"
+    replacement = "private static final Identifier[] FRAMES = new Identifier[] {\n            " + entries + "\n    };"
     source, count = re.subn(
-        r"private static final Identifier\\[\\] FRAMES = new Identifier\\[\\] \\{.*?\\};",
+        r"private static final Identifier\[\] FRAMES = new Identifier\[\] \\{.*?\\};",
         replacement, source, count=1, flags=re.S,
     )
     if count != 1:
@@ -150,9 +150,9 @@ def configure_panorama_overlay():
         anchor = "this.extractPanorama(graphics, a);"
         if title_source.count(anchor) != 1:
             raise RuntimeError("Could not locate the unique title panorama render call")
-        hook = (anchor + "\\n      // " + marker + "\\n" +
-            "      if (this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen) {\\n" +
-            "         com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);\\n" +
+        hook = (anchor + "\n      // " + marker + "\n" +
+            "      if (this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen) {\n" +
+            "         com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);\n" +
             "      }")
         title_source = title_source.replace(anchor, hook, 1)
         title.write_text(title_source, encoding="utf-8")
