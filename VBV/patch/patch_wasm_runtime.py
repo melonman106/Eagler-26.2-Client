@@ -78,7 +78,7 @@ function vbvPatchStandaloneHtml(source) {
       throw new Error("VBV WASM-GC async bridge: expected TeaVM teavmAsync.offer callback was not found");
     }
     html = html.split(asyncBridgeNeedle).join(
-      'return setTimeout(()=>{t(typeof e === "number" && Number.isSafeInteger(e) ? BigInt(e) : e)},r)/* ' + asyncBridgeMarker + ' */'
+      'return setTimeout(()=>{t(typeof e === typeof 0 && Number.isSafeInteger(e) ? BigInt(e) : e)},r)/* ' + asyncBridgeMarker + ' */'
     );
     console.log("[VBV runtime] normalized " + asyncBridgeCount + " TeaVM WASM-GC async i64 callback bridge(s)");
   }
