@@ -5,6 +5,7 @@
 
   const DB_NAME = "vbv-storage-handles-v1";
   const STORE = "handles";
+  const KV_STORE = "data";
   const LAYOUT = [
     "Worlds", "WorldMap", "Resource Packs", "Resource Packs/Global",
     "Resource Packs/Servers", "Datapacks", "Datapacks/Global",
@@ -25,13 +26,39 @@
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
       if (!("indexedDB" in window)) return reject(new Error("IndexedDB is unavailable"));
-      const request = indexedDB.open(DB_NAME, 1);
-      request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+      const request = indexedDB.open(DB_NAME, 2);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+        if (!db.objectStoreNames.contains(KV_STORE)) db.createObjectStore(KV_STORE);
+      };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error || new Error("Could not open storage metadata"));
     });
     return dbPromise;
   }
+
+  async function kvSet(key, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(KV_STORE, "readwrite");
+      tx.objectStore(KV_STORE).put(String(value), String(key));
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error || new Error("IndexedDB save failed"));
+      tx.onabort = () => reject(tx.error || new Error("IndexedDB save aborted"));
+    });
+  }
+  async function kvLoadAll() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(KV_STORE, "readonly");
+      const request = tx.objectStore(KV_STORE).getAll();
+      const keys = tx.objectStore(KV_STORE).getAllKeys();
+      tx.oncomplete = () => resolve((keys.result || []).map((key, i) => [String(key), String(request.result[i])]));
+      tx.onerror = () => reject(tx.error || new Error("IndexedDB restore failed"));
+    });
+  }
+
   async function handleGet(key) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
@@ -217,11 +244,14 @@
   function setTextSync(key, value) {
     value = String(value);
     cache.set(key, value);
-    if (root) {
-      queueWrite(pathForKey(key), value, key.startsWith("vbv.worldmap.v1."));
-      return true;
-    }
-    try { localStorage.setItem(key, value); return true; } catch (_) { return false; }
+    kvSet(key, value).catch(error => {
+      writeError = String(error && error.message || error);
+      console.error("[VBV Storage] IndexedDB mirror write failed", error);
+      updateStatus();
+    });
+    try { localStorage.setItem(key, value); } catch (_) {}
+    if (root) queueWrite(pathForKey(key), value, key.startsWith("vbv.worldmap.v1."));
+    return true;
   }
   function profileList() {
     try { return JSON.parse(getTextSync("vbv.server-profiles.v1") || "[]"); } catch (_) { return []; }
@@ -397,12 +427,12 @@
     }
     box.appendChild(tabs);
     const state = section("Storage connection");
-    state.appendChild(element("div", root ? "Connected folder: " + rootName : "No computer folder connected", root ? "" : "vbvs-warning"));
-    state.appendChild(element("div", root ? "World maps and profile data will be written to this folder." : "The client is currently using browser storage as a fallback.", "vbvs-muted"));
+    state.appendChild(element("div", root ? "Connected folder: " + rootName : "Browser storage is active", root ? "" : "vbvs-warning"));
+    state.appendChild(element("div", root ? "Data is mirrored to IndexedDB and written to this computer folder." : "Your data is saved in browser IndexedDB automatically. Reconnect your computer folder when the browser asks for permission; you do not need to import the data again.", "vbvs-muted"));
     const buttons = element("div", null, "vbvs-row");
-    buttons.append(action("Import Existing Storage", chooseFolder, "vbvs-btn primary"));
+    buttons.append(action("Reconnect Existing Folder", () => reconnect(true), "vbvs-btn primary"));
+    buttons.append(action("Import Existing Storage", chooseFolder));
     buttons.append(action("Choose New Storage Folder", chooseFolder));
-    buttons.append(action("Reconnect Existing Folder", () => reconnect(true)));
     state.appendChild(buttons);
     if (writeError) state.appendChild(element("div", "Last filesystem write failed: " + writeError, "vbvs-warning"));
     box.appendChild(state);
@@ -608,6 +638,27 @@
     status: () => ({ connected: !!root, folder: rootName, revision, activeProfile, writeError }),
     async initialize() {
       try {
+        if (navigator.storage && navigator.storage.persist) {
+          try { await navigator.storage.persist(); } catch (_) {}
+        }
+        try {
+          const saved = await kvLoadAll();
+          for (const [key, value] of saved) cache.set(key, value);
+        } catch (e) {
+          console.warn("[VBV Storage] IndexedDB restore unavailable:", e);
+        }
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && !cache.has(key)) {
+              const value = localStorage.getItem(key);
+              if (value != null) {
+                cache.set(key, value);
+                kvSet(key, value).catch(() => {});
+              }
+            }
+          }
+        } catch (_) {}
         const handle = await handleGet("root");
         if (handle && await permission(handle, false)) {
           root = handle; rootName = handle.name || "Eaglercraft Storage";
