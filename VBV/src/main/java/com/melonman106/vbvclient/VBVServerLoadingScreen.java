@@ -14,7 +14,7 @@ public final class VBVServerLoadingScreen extends Screen {
     private static final List<Identifier> BACKDROPS = List.of(
         Identifier.parse("vbvclient:textures/loadingscreen/loadingscreen1.png")
     );
-    private static final Identifier[] WALK_FRAMES = buildWalkFrames();
+    private static final Identifier[] SLIME_FRAMES = buildSlimeFrames();
     private final Identifier backdrop;
     private int ticks;
 
@@ -30,15 +30,18 @@ public final class VBVServerLoadingScreen extends Screen {
         graphics.blit(RenderPipelines.GUI_TEXTURED, CONNECTION_BACKDROP, 0, 0, 0, 0,
             width, height, width, height, width, height);
 
-        int frame = (int)((System.currentTimeMillis() / 150L) % WALK_FRAMES.length);
+        if (SLIME_FRAMES.length == 0) {
+            return;
+        }
+        int frame = (int)((System.currentTimeMillis() / 150L) % SLIME_FRAMES.length);
         int size = Math.min(42, Math.max(28, height / 18));
         int x = width - size - 16;
         int y = height - size - 14;
         try {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, WALK_FRAMES[frame], x, y, 0, 0,
+            graphics.blit(RenderPipelines.GUI_TEXTURED, SLIME_FRAMES[frame], x, y, 0, 0,
                 size, size, size, size, size, size);
         } catch (RuntimeException ignored) {
-            // Walking frames are optional.
+            // Slime animation frames are optional.
         }
     }
 
@@ -56,12 +59,10 @@ public final class VBVServerLoadingScreen extends Screen {
         graphics.centeredText(font, Component.literal(label), width / 2, height / 2 - 50, -1);
     }
 
-    private static Identifier[] buildWalkFrames() {
-        Identifier[] frames = new Identifier[12];
-        for (int i = 0; i < frames.length; i++) {
-            frames[i] = Identifier.parse("vbvclient:textures/loadingscreen/walking/frame_" + i + ".png");
-        }
-        return frames;
+    private static Identifier[] buildSlimeFrames() {
+        return new Identifier[] {
+            Identifier.parse("vbvclient:textures/loadingscreen/slime/frame_0.png")
+        };
     }
 
     @Override
@@ -75,15 +76,17 @@ public final class VBVServerLoadingScreen extends Screen {
             width, height, width, height, width, height);
 
         String label = "Loading...";
-        int frame = (ticks / 3) % WALK_FRAMES.length;
+        int frame = SLIME_FRAMES.length == 0 ? 0 : (ticks / 3) % SLIME_FRAMES.length;
         int size = Math.min(42, Math.max(28, height / 18));
         int x = width - size - 16;
         int y = height - size - 14;
-        try {
-            graphics.blit(RenderPipelines.GUI_TEXTURED, WALK_FRAMES[frame], x, y, 0, 0,
-                size, size, size, size, size, size);
-        } catch (RuntimeException ignored) {
-            // The walking animation is optional.
+        if (SLIME_FRAMES.length > 0) {
+            try {
+                graphics.blit(RenderPipelines.GUI_TEXTURED, SLIME_FRAMES[frame], x, y, 0, 0,
+                    size, size, size, size, size, size);
+            } catch (RuntimeException ignored) {
+                // The slime animation is optional.
+            }
         }
         graphics.text(font, label, x - font.width(label) - 8, y + size - font.lineHeight,
             0xFFFFFFFF, true);
