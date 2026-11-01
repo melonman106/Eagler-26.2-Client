@@ -10,10 +10,7 @@ import net.minecraft.resources.Identifier;
 
 /** Dungeons II-inspired multiplayer connection/loading screen. */
 public final class VBVServerLoadingScreen extends Screen {
-    // Rewritten by apply_dungeons_ui.py from the LoadingScreen*.png files that
-    // are actually present at build time. With only LoadingScreen1.png this
-    // contains exactly one entry; adding 2/3 later automatically enables the
-    // requested random 1-of-3 behavior.
+    // Rewritten by apply_dungeons_ui.py from the LoadingScreen*.png files.
     private static final List<Identifier> BACKDROPS = List.of(
         Identifier.parse("vbvclient:textures/loadingscreen/loadingscreen1.png")
     );
@@ -28,11 +25,7 @@ public final class VBVServerLoadingScreen extends Screen {
 
     private static final Identifier CONNECTION_BACKDROP = BACKDROPS.get(new Random().nextInt(BACKDROPS.size()));
 
-    /**
-     * Draws the custom art behind the real ConnectScreen. The real screen must
-     * remain active because it owns the network tick, connection status and
-     * cancel button.
-     */
+    /** Draws custom art behind the real ConnectScreen without replacing it. */
     public static void renderConnectionBackground(GuiGraphicsExtractor graphics, int width, int height) {
         graphics.blit(RenderPipelines.GUI_TEXTURED, CONNECTION_BACKDROP, 0, 0, 0, 0,
             width, height, width, height, width, height);
@@ -47,6 +40,20 @@ public final class VBVServerLoadingScreen extends Screen {
         } catch (RuntimeException ignored) {
             // Walking frames are optional.
         }
+    }
+
+    /** Draws the simple animated connection message requested for the custom screen. */
+    public static void renderConnectionStatus(GuiGraphicsExtractor graphics, net.minecraft.client.gui.Font font,
+            int width, int height) {
+        long phase = (System.currentTimeMillis() / 650L) % 4L;
+        String label;
+        if (phase == 0L) {
+            label = "Joining server";
+        } else {
+            int dots = (int) phase;
+            label = "Loading" + ".".repeat(dots);
+        }
+        graphics.centeredText(font, Component.literal(label), width / 2, height / 2 - 50, -1);
     }
 
     private static Identifier[] buildWalkFrames() {
@@ -76,7 +83,7 @@ public final class VBVServerLoadingScreen extends Screen {
             graphics.blit(RenderPipelines.GUI_TEXTURED, WALK_FRAMES[frame], x, y, 0, 0,
                 size, size, size, size, size, size);
         } catch (RuntimeException ignored) {
-            // The walking animation is optional until Walking.gif is supplied.
+            // The walking animation is optional.
         }
         graphics.text(font, label, x - font.width(label) - 8, y + size - font.lineHeight,
             0xFFFFFFFF, true);
