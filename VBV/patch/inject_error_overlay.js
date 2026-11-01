@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 "use strict";
-/* Small, dependency-free runtime console for the standalone Eagler HTML. */
+/* Small, dependency-free startup diagnostics for the standalone Eagler HTML. */
 const fs = require("node:fs");
 const [, , input, output] = process.argv;
 if (!input || !output) { console.error("usage: node inject_error_overlay.js <in.html> <out.html>"); process.exit(2); }
 
 function diag() {
   var t0 = Date.now(), errors = [], wasmLines = [], maxGap = 0, lastBeat = t0;
-  var box = null, pre = null, collapsed = false;
+  var box = null, pre = null, collapsed = false, timer = null;
   function secs(ms) { return (ms / 1000).toFixed(1) + "s"; }
   function short(v, n) { v = String(v); return v.length > n ? v.slice(0, n) + "..." : v; }
   function errText(e) { return e && e.stack ? String(e.stack).split("\n").slice(0, 4).join(" | ") : String(e); }
   function note(list, msg) { list.push("[" + secs(Date.now() - t0) + "] " + short(msg, 300)); if (list.length > 40) list.shift(); }
 
   // Do not monkey-patch Function/WebAssembly or any Eagler runtime primitive.
-  // The console must be observational only so it cannot itself break startup.
+  // The diagnostics are observational only so they cannot alter startup.
   window.__vbvDiagReady = true;
   window.addEventListener("error", function(e) {
     var detail = "ERROR ";
@@ -54,6 +54,11 @@ function diag() {
     if (Date.now() - t0 > 20000 && status.indexOf("Loading Eaglercraft") === 0) out.push(">>> startup has not completed");
     return out.join("\n");
   }
+  function removeBox() {
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+    box = null;
+    pre = null;
+  }
   function ensureBox() {
     if (box && box.isConnected) return true;
     var host = document.body || document.documentElement;
@@ -64,7 +69,7 @@ function diag() {
     var bar = document.createElement("div");
     bar.style.cssText = "position:sticky;top:0;background:#222;padding:5px 8px;display:flex;gap:8px;align-items:center";
     var title = document.createElement("b");
-    title.textContent = "VBV runtime console (tap to collapse)";
+    title.textContent = "VBV startup console (tap to collapse)";
     title.style.flex = "1";
     bar.onclick = function() { collapsed = !collapsed; pre.style.display = collapsed ? "none" : "block"; };
     var btn = document.createElement("button");
@@ -86,9 +91,20 @@ function diag() {
     pre.style.cssText = "margin:0;padding:6px 8px;white-space:pre-wrap;word-break:break-word;user-select:text";
     box.appendChild(bar); box.appendChild(pre); host.appendChild(box); return true;
   }
-  function refresh() { try { if (ensureBox() && !collapsed) pre.textContent = report(); } catch(e) { try { if(pre) pre.textContent = "VBV console internal error: " + errText(e); } catch(ignore) {} } }
+  function refresh() {
+    try {
+      // The console is a startup diagnostic only. Once Minecraft reports that
+      // the main client is loaded, remove it completely and stop refreshing.
+      if (window.__loaded === true) {
+        removeBox();
+        if (timer !== null) { clearInterval(timer); timer = null; }
+        return;
+      }
+      if (ensureBox() && !collapsed) pre.textContent = report();
+    } catch(e) { try { if(pre) pre.textContent = "VBV console internal error: " + errText(e); } catch(ignore) {} }
+  }
   refresh();
-  setInterval(function() { var now = Date.now(); maxGap = Math.max(maxGap, now - lastBeat - 1000); lastBeat = now; refresh(); }, 1000);
+  timer = setInterval(function() { var now = Date.now(); maxGap = Math.max(maxGap, now - lastBeat - 1000); lastBeat = now; refresh(); }, 1000);
 }
 
 const tag = '<script id="vbv-diag-script">(' + diag.toString() + ")();</script>";
@@ -98,4 +114,4 @@ const body = /<body\b[^>]*>/i.exec(html), head = /<head[^>]*>/i.exec(html);
 if (!body && !head) { console.error("[overlay] ERROR: no <body> or <head> found"); process.exit(1); }
 const at = body ? body.index + body[0].length : head.index + head[0].length;
 fs.writeFileSync(output, html.slice(0, at) + tag + html.slice(at));
-console.log("[overlay] injected visible runtime console into " + output);
+console.log("[overlay] injected startup diagnostics into " + output);
