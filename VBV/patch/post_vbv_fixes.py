@@ -362,9 +362,11 @@ if renderer_candidates:
     elif not method:
         raise RuntimeError("ItemInHandRenderer.submitArmWithItem was not found")
 
-panorama_src = Path(__file__).resolve().parent.parent / "panorama" / "panorama_overlay.png"
+panorama_root = Path(__file__).resolve().parent.parent / "panorama"
+panorama_src = panorama_root / "panorama_overlay.png"
+panorama_animated = any((panorama_root / name).is_file() for name in ("panorama_overlay.gif", "panorama_overlay.mp4"))
 panorama_dst = RES / "assets/minecraft/textures/gui/title/background/panorama_overlay.png"
-if panorama_src.is_file():
+if panorama_src.is_file() and not panorama_animated:
     panorama_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(panorama_src, panorama_dst)
     print("Installed optional panorama_overlay.png")
