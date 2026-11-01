@@ -11,27 +11,42 @@ from pathlib import Path
 import base64
 import gzip
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import zlib
-
-from PIL import Image
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 FOOTER = b":::YEE:>"
+FFMPEG = shutil.which("ffmpeg")
+if not FFMPEG:
+    raise SystemExit("::error::ffmpeg is required to repair invalid PNG-named assets")
 
 
 def normalize_png(data: bytes, name: str) -> tuple[bytes, bool]:
     if data.startswith(PNG_SIGNATURE):
         return data, False
-    from io import BytesIO
+
+    source_fd, source_name = tempfile.mkstemp(prefix="vbv-src-", suffix=Path(name).suffix or ".bin")
+    Path(source_name).unlink(missing_ok=True)
+    output_fd, output_name = tempfile.mkstemp(prefix="vbv-png-", suffix=".png")
+    Path(output_name).unlink(missing_ok=True)
+    source = Path(source_name)
+    output = Path(output_name)
     try:
-        with Image.open(BytesIO(data)) as source:
-            source.load()
-            output = BytesIO()
-            source.convert("RGBA").save(output, format="PNG", optimize=True)
-        converted = output.getvalue()
+        source.write_bytes(data)
+        subprocess.run(
+            [FFMPEG, "-y", "-loglevel", "error", "-i", str(source), "-frames:v", "1", str(output)],
+            check=True,
+        )
+        converted = output.read_bytes()
     except Exception as exc:
         raise RuntimeError(f"cannot convert {name}: {exc}") from exc
+    finally:
+        source.unlink(missing_ok=True)
+        output.unlink(missing_ok=True)
+
     if not converted.startswith(PNG_SIGNATURE):
         raise RuntimeError(f"conversion did not produce a PNG for {name}")
     return converted, True
@@ -41,14 +56,12 @@ def rebuild_epk(epk: bytes) -> tuple[bytes, list[str]]:
     if not epk.startswith(b"EAGPKG$$") or not epk.endswith(FOOTER):
         raise RuntimeError("embedded assets are not an EAGPKG$$ v2 package")
 
-    # Locate the one-byte compression marker after version/name/comment,
-    # timestamp and file-count metadata. The generated package uses GZIP.
     p = 8
     version_len = epk[p]; p += 1 + version_len
     name_len = epk[p]; p += 1 + name_len
     comment_len = int.from_bytes(epk[p:p + 2], "big")
     p += 2 + comment_len
-    p += 8  # timestamp
+    p += 8
     file_count = int.from_bytes(epk[p:p + 4], "big")
     p += 4
     compression = epk[p:p + 1]
@@ -56,8 +69,7 @@ def rebuild_epk(epk: bytes) -> tuple[bytes, list[str]]:
     if compression != b"G":
         raise RuntimeError(f"unsupported embedded EPK compression: {compression!r}")
 
-    compressed = epk[p:-8]
-    raw = gzip.decompress(compressed)
+    raw = gzip.decompress(epk[p:-8])
     out = bytearray()
     q = 0
     seen = 0
@@ -73,8 +85,7 @@ def rebuild_epk(epk: bytes) -> tuple[bytes, list[str]]:
             start = q
             q += 4
             n = raw[q]
-            q += 1
-            q += n
+            q += 1 + n
             size = int.from_bytes(raw[q:q + 4], "big")
             q += 4 + size
             if raw[q:q + 1] != b">":
@@ -146,8 +157,6 @@ def patch_html(source: Path, target: Path) -> None:
     replacement = match.group(1) + base64.b64encode(rebuilt).decode("ascii") + match.group(3)
     html = html[:match.start()] + replacement + html[match.end():]
 
-    # The existing diagnostic overlay is useful during startup failures, but
-    # must disappear automatically once Minecraft finishes booting.
     hide_script = (
         '<script id="vbv-diag-autohide">'
         '(function(){function h(){if(window.__loaded===true){var e=document.getElementById("vbv-diag-box");'
