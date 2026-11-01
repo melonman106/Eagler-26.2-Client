@@ -81,7 +81,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     private void drawMenuLabel(GuiGraphicsExtractor graphics, String label, int x, int y,
             int w, int h, int mouseX, int mouseY) {
         boolean hovered = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
-        int color = hovered ? 0xFFFFFFFF : 0xFFB8B8B8;
+        int color = hovered ? 0xFFFFFFFF : 0xFF808080;
         graphics.text(font, label, x + 2, y + (h - 8) / 2, color, true);
     }
 }
