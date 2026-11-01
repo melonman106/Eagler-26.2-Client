@@ -1,28 +1,21 @@
 package com.melonman106.vbvclient;
 
-import java.util.ArrayList;
-import java.util.List;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-/** Dungeons-style breadcrumb settings area for the VBV home screen. */
+/** Tabbed VBV settings screen. */
 public final class VBVSettingsScreen extends Screen {
     private final Screen parent;
-    private final List<String> breadcrumb = new ArrayList<>();
-    private String page = "root";
-
-    private boolean highContrast;
-    private boolean reducedMotion;
-    private boolean largeText;
-    private boolean subtitles;
-    private boolean narrator;
+    private static final String[] TABS = {
+        "Video", "Language", "Controls", "Audio", "Accessibility", "Other"
+    };
+    private String activeTab = "Video";
 
     public VBVSettingsScreen(Screen parent) {
-        super(Component.literal("Settings"));
+        super(Component.literal("Options"));
         this.parent = parent;
-        breadcrumb.add("Settings");
     }
 
     @Override
@@ -33,99 +26,65 @@ public final class VBVSettingsScreen extends Screen {
 
     private void rebuild() {
         clearWidgets();
-        int w = Math.min(430, Math.max(280, width / 2));
-        int x = width / 2 - w / 2;
-        int y = 78;
-        int gap = 31;
-
-        if (page.equals("root")) {
-            add("Language", x, y, w, () -> openPage("Language", "language")); y += gap;
-            add("Accessibility", x, y, w, () -> openPage("Accessibility", "accessibility")); y += gap;
-            add("Video", x, y, w, () -> openPage("Video", "video")); y += gap;
-            add("Audio", x, y, w, () -> openPage("Audio", "audio")); y += gap;
-            add("Controls", x, y, w, () -> openPage("Controls", "controls")); y += gap;
-            add("Gameplay", x, y, w, () -> openPage("Gameplay", "gameplay")); y += gap;
-            add("Interface", x, y, w, () -> openPage("Interface", "interface")); y += gap;
-            add("Resource Packs", x, y, w, () -> openPage("Resource Packs", "packs")); y += gap;
-            add("Account & Privacy", x, y, w, () -> openPage("Account & Privacy", "account")); y += gap;
-            add("Storage", x, y, w, () -> openPage("Storage", "storage")); y += gap;
-            add("About", x, y, w, () -> openPage("About", "about"));
-            addBack(x, Math.min(height - 42, y + gap + 8), w);
-            return;
+        int margin = 18;
+        int gap = 4;
+        int available = Math.max(120, width - margin * 2 - gap * (TABS.length - 1));
+        int tabWidth = available / TABS.length;
+        int x = margin;
+        int tabY = 54;
+        for (String tab : TABS) {
+            final String selected = tab;
+            int w = tabWidth;
+            addRenderableWidget(Button.builder(
+                Component.literal((activeTab.equals(tab) ? "> " : "") + tab),
+                b -> { activeTab = selected; rebuild(); }
+            ).bounds(x, tabY, w, 22).build());
+            x += tabWidth + gap;
         }
 
-        if (page.equals("language")) {
-            add("English (US)", x, y, w, () -> {}); y += gap;
-            add("Language Packs", x, y, w, () -> {});
-        } else if (page.equals("accessibility")) {
-            addToggle("High Contrast", highContrast, x, y, w, v -> highContrast = v); y += gap;
-            addToggle("Reduced Motion", reducedMotion, x, y, w, v -> reducedMotion = v); y += gap;
-            addToggle("Large Text", largeText, x, y, w, v -> largeText = v); y += gap;
-            addToggle("Subtitles", subtitles, x, y, w, v -> subtitles = v); y += gap;
-            addToggle("Narrator", narrator, x, y, w, v -> narrator = v);
+        int contentX = Math.max(24, width / 2 - 190);
+        int contentW = Math.min(380, width - contentX * 2);
+        int y = 100;
+
+        if ("Video".equals(activeTab)) {
+            addInfo("Video and rendering options", contentX, y, contentW); y += 30;
+            addToggle("Animation Arms", VBVFirstPersonAnimations.isEnabled(),
+                contentX, y, contentW, VBVFirstPersonAnimations::setEnabled);
+        } else if ("Language".equals(activeTab)) {
+            addInfo("Language selection is managed by the game language menu.", contentX, y, contentW);
+        } else if ("Controls".equals(activeTab)) {
+            addInfo("Keyboard, mouse and key bindings are managed by the game controls menu.", contentX, y, contentW);
+        } else if ("Audio".equals(activeTab)) {
+            addInfo("Audio levels are managed by the game sound settings.", contentX, y, contentW);
+        } else if ("Accessibility".equals(activeTab)) {
+            addInfo("Accessibility options", contentX, y, contentW);
         } else {
-            String[] options = switch (page) {
-                case "video" -> new String[]{"Graphics", "Brightness", "UI Scale", "View Distance", "Animations"};
-                case "audio" -> new String[]{"Master Volume", "Music", "Sound Effects", "Weather", "Players"};
-                case "controls" -> new String[]{"Keyboard & Mouse", "Touch Controls", "Controller", "Keybinds"};
-                case "gameplay" -> new String[]{"Difficulty", "Chat", "Auto-Jump", "Hints", "Notifications"};
-                case "interface" -> new String[]{"HUD", "HUD Editor", "Crosshair", "Coordinates", "Status Effects"};
-                case "packs" -> new String[]{"Active Resource Packs", "Available Packs", "Pack Settings"};
-                case "account" -> new String[]{"Player Name", "Privacy", "Online Features", "Party & Friends"};
-                case "storage" -> new String[]{"World Storage", "Import / Export", "Clear Cache"};
-                default -> new String[]{"Eaglercraft 26.2", "VBV Client", "Credits", "Open Source Notices"};
-            };
-            for (String option : options) {
-                add(option, x, y, w, () -> {});
-                y += gap;
-            }
+            addInfo("Additional VBV client settings", contentX, y, contentW);
         }
-        addBack(x, Math.min(height - 42, y + 8), w);
+
+        addRenderableWidget(Button.builder(Component.literal("Back"), b -> VBVNav.open(parent))
+            .bounds(width / 2 - 100, height - 38, 200, 22).build());
     }
 
-    private void add(String label, int x, int y, int w, Runnable action) {
-        addRenderableWidget(Button.builder(Component.literal(label), b -> action.run())
+    private void addInfo(String text, int x, int y, int w) {
+        addRenderableWidget(Button.builder(Component.literal(text), b -> {})
             .bounds(x, y, w, 24).build());
     }
 
-    private interface ToggleAction { void set(boolean value); }
-
-    private void addToggle(String label, boolean value, int x, int y, int w, ToggleAction action) {
-        String text = label + ": " + (value ? "ON" : "OFF");
-        add(text, x, y, w, () -> {
-            action.set(!value);
-            rebuild();
-        });
-    }
-
-    private void addBack(int x, int y, int w) {
-        add("Back", x, y, w, () -> {
-            if (page.equals("root")) {
-                VBVNav.open(parent);
-            } else {
-                page = "root";
-                breadcrumb.clear();
-                breadcrumb.add("Settings");
-                rebuild();
-            }
-        });
-    }
-
-    private void openPage(String name, String id) {
-        page = id;
-        breadcrumb.clear();
-        breadcrumb.add("Settings");
-        breadcrumb.add(name);
-        rebuild();
+    private void addToggle(String label, boolean value, int x, int y, int w,
+                           java.util.function.Consumer<Boolean> setter) {
+        addRenderableWidget(Button.builder(
+            Component.literal(label + ": " + (value ? "ON" : "OFF")),
+            b -> { setter.accept(!value); rebuild(); }
+        ).bounds(x, y, w, 24).build());
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         graphics.fill(0, 0, width, height, 0x50000000);
-        String crumbs = String.join("  >  ", breadcrumb).toUpperCase();
-        graphics.text(font, crumbs, 28, 28, 0xFFFFFFFF, true);
-        graphics.fill(28, 50, width - 28, 51, 0x80FFFFFF);
+        graphics.text(font, "OPTIONS", 20, 24, 0xFFFFFFFF, true);
+        graphics.fill(18, 43, width - 18, 44, 0x80FFFFFF);
     }
 
     @Override
