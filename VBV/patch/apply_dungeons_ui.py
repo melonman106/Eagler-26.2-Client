@@ -181,8 +181,10 @@ def prepare_assets():
         if not (ASSETS / f"LoadingScreen{i}.png").is_file():
             expected.unlink(missing_ok=True)
 
-    gif = ASSETS / "Walking.gif"
-    frames_dir = target / "walking"
+    # Minecraft cannot load animated GIFs directly, so extract the user's
+    # slime.gif into PNG frames and animate those frames in VBVServerLoadingScreen.
+    gif = ASSETS / "slime.gif"
+    frames_dir = target / "slime"
     if gif.is_file():
         frames_dir.mkdir(parents=True, exist_ok=True)
         for old in frames_dir.glob("frame_*.png"):
@@ -197,10 +199,10 @@ def prepare_assets():
         except Exception:
             convert = shutil.which("magick") or shutil.which("convert")
             if not convert:
-                raise RuntimeError("Walking.gif is present but neither Pillow nor ImageMagick is available")
+                raise RuntimeError("slime.gif is present but neither Pillow nor ImageMagick is available")
             subprocess.run([convert, str(gif), str(frames_dir / "frame_%d.png")], check=True)
     else:
-        print("[VBV Dungeons UI] Walking.gif missing; loading text will remain but no creeper animation will be available.")
+        print("[VBV Dungeons UI] slime.gif missing; loading text will remain but no slime animation will be available.")
 
     overlay = CLIENT_SIDE / "panorama/panorama_overlay.png"
     if overlay.is_file():
@@ -269,8 +271,6 @@ if backgrounds:
         )
         connect_text = connect_text[:render_match.end()] + draw_code + connect_text[render_match.end():]
 
-    # Replace only the vanilla centered connection-status text. The real
-    # ConnectScreen remains active and still owns the network state machine.
     status_pattern = re.compile(
         r"graphics\.centeredText\(this\.font,\s*this\.status,\s*this\.width\s*/\s*2,\s*this\.height\s*/\s*2\s*-\s*50,\s*-1\);"
     )
