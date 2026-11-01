@@ -33,7 +33,7 @@ public final class VBVServerLoadingScreen extends Screen {
         if (SLIME_FRAMES.length == 0) {
             return;
         }
-        int frame = (int)((System.currentTimeMillis() / 150L) % SLIME_FRAMES.length);
+        int frame = (int)((System.currentTimeMillis() / 85L) % SLIME_FRAMES.length);
         int size = Math.min(42, Math.max(28, height / 18));
         int x = width - size - 16;
         int y = height - size - 14;
@@ -76,7 +76,7 @@ public final class VBVServerLoadingScreen extends Screen {
             width, height, width, height, width, height);
 
         String label = "Loading...";
-        int frame = SLIME_FRAMES.length == 0 ? 0 : (ticks / 3) % SLIME_FRAMES.length;
+        int frame = SLIME_FRAMES.length == 0 ? 0 : (ticks / 2) % SLIME_FRAMES.length;
         int size = Math.min(42, Math.max(28, height / 18));
         int x = width - size - 16;
         int y = height - size - 14;
