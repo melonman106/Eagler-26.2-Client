@@ -40,7 +40,6 @@ def find_screen_method(text):
 
 
 def make_screen_parameter_assignable(text, method_name, param_name):
-    """Remove final from the generated navigation parameter because older hooks replace it."""
     pattern = re.compile(
         rf"(\b{re.escape(method_name)}\s*\(\s*)final\s+((?:[\w.$]+\.)?Screen(?:\s*<[^>]+>)?\s+{re.escape(param_name)}\s*\))"
     )
@@ -63,7 +62,6 @@ def inject_once(text, marker, code, method_name, param_name):
 
 
 def _new_screen_expressions(text):
-    """Return (class_name, argument_text) for balanced new X(...) expressions."""
     out = []
     for match in re.finditer(r"\bnew\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(", text):
         start = match.end()
@@ -81,7 +79,6 @@ def _new_screen_expressions(text):
 
 
 def _pick_screen_expression(title_text, preferred_names):
-    """Pick the actual menu destination, not an unrelated Eagler helper screen."""
     expressions = _new_screen_expressions(title_text)
     preferred = {name.lower() for name in preferred_names}
     for class_name, args in expressions:
@@ -271,10 +268,22 @@ if backgrounds:
             f"        com.melonman106.vbvclient.VBVServerLoadingScreen.renderConnectionBackground({graphics_name}, this.width, this.height);"
         )
         connect_text = connect_text[:render_match.end()] + draw_code + connect_text[render_match.end():]
-        connect_screen.write_text(connect_text, encoding="utf-8")
-        print("[VBV Dungeons UI] Added custom background to the real ConnectScreen.")
-    else:
-        print("[VBV Dungeons UI] ConnectScreen background hook already present.")
+
+    # Replace only the vanilla centered connection-status text. The real
+    # ConnectScreen remains active and still owns the network state machine.
+    status_pattern = re.compile(
+        r"graphics\.centeredText\(this\.font,\s*this\.status,\s*this\.width\s*/\s*2,\s*this\.height\s*/\s*2\s*-\s*50,\s*-1\);"
+    )
+    status_replacement = (
+        "com.melonman106.vbvclient.VBVServerLoadingScreen.renderConnectionStatus("
+        "graphics, this.font, this.width, this.height);"
+    )
+    connect_text, status_count = status_pattern.subn(status_replacement, connect_text, count=1)
+    if status_count != 1:
+        raise RuntimeError("Could not replace ConnectScreen status text with VBV animated loading text")
+
+    connect_screen.write_text(connect_text, encoding="utf-8")
+    print("[VBV Dungeons UI] Added custom background and animated connection status to the real ConnectScreen.")
 
 minecraft.write_text(text, encoding="utf-8")
 print("[VBV Dungeons UI] Patched Minecraft screen navigation:", method, param)
