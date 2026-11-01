@@ -84,113 +84,14 @@ def suppress_vanilla_title_branding():
 
 
 def patch_title_screen():
-    files = list(GAME.rglob("VBVDungeonsTitleScreen.java"))
-    if not files:
+    generated = list(GAME.rglob("VBVDungeonsTitleScreen.java"))
+    template = CLIENT / "src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java"
+    if not generated:
         raise RuntimeError("VBVDungeonsTitleScreen.java not found in generated source")
-    path = files[0]
-    source = r'''package com.melonman106.vbvclient;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.PlainTextButton;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.network.chat.Component;
-
-/** Dungeons II-inspired home screen, arranged to match the supplied reference. */
-public final class VBVDungeonsTitleScreen extends TitleScreen {
-    private final Screen parent;
-    private static final int MENU_X = 84;
-    private static final int MENU_Y_OFFSET = 322;
-    private static final int MENU_STEP = 51;
-
-    public VBVDungeonsTitleScreen() {
-        this(null);
-    }
-
-    public VBVDungeonsTitleScreen(Screen parent) {
-        super();
-        this.parent = parent;
-    }
-
-    @Override
-    protected void init() {
-        super.init();
-        clearWidgets();
-
-        int left = Math.max(44, width / 38);
-        int menuTop = Math.max(150, height - MENU_Y_OFFSET);
-        int menuWidth = Math.min(270, Math.max(190, width / 5));
-        int menuHeight = 38;
-
-        addMenuItem("PLAY", left + 40, menuTop, menuWidth, menuHeight,
-            b -> VBVNav.openMultiplayer(this));
-        addMenuItem("JOIN A PARTY", left + 40, menuTop + MENU_STEP, menuWidth, menuHeight,
-            b -> {});
-        addMenuItem("HEROES", left + 40, menuTop + MENU_STEP * 2, menuWidth, menuHeight,
-            b -> {});
-        addMenuItem("DLC", left + 40, menuTop + MENU_STEP * 3, menuWidth, menuHeight,
-            b -> {});
-
-        // Storage is a real native Minecraft widget, only present on the home screen.
-        addRenderableWidget(Button.builder(Component.literal("Storage"), b ->
-            VBVNav.open(new VBVStorageScreen(this)))
-            .bounds(left + 40, height - 52, 112, 24).build());
-
-        addRenderableWidget(Button.builder(Component.literal("Settings"), b ->
-            VBVNav.open(new VBVSettingsScreen(this)))
-            .bounds(left + 164, height - 52, 112, 24).build());
-    }
-
-    private void addMenuItem(String label, int x, int y, int w, int h, Button.OnPress action) {
-        addRenderableWidget(new DungeonsTextButton(x, y, w, h, Component.literal(label), action, font));
-    }
-
-    private static final class DungeonsTextButton extends PlainTextButton {
-        DungeonsTextButton(int x, int y, int width, int height, Component text,
-                Button.OnPress action, Font font) {
-            super(x, y, width, height, text, action, font);
-        }
-
-        @Override
-        public void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float alpha) {
-            boolean hover = isHoveredOrFocused();
-            int color = hover ? 0xFFFFFFFF : 0xFF777777;
-            graphics.text(Minecraft.getInstance().font, getMessage(), getX(), getY() + 8, color, true);
-        }
-    }
-
-    @Override
-    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-
-        // Dungeons-style lower-left corner rail.
-        int railX = Math.max(44, width / 38);
-        int railTop = Math.max(150, height - MENU_Y_OFFSET - 12);
-        graphics.fill(railX, railTop, railX + 2, height - 34, 0x887C8587);
-        graphics.fill(railX, height - 34, railX + 15, height - 32, 0x887C8587);
-        graphics.fill(railX, railTop, railX + 15, railTop + 2, 0x887C8587);
-
-        // Player identity area occupies the same top-right region as the reference party strip.
-        String username = Minecraft.getInstance().getUser().getName();
-        String label = "PLAYER: " + username;
-        int textX = width - font.width(label) - 82;
-        graphics.text(font, label, textX, 27, 0xFF8EDFFF, true);
-        int avatarX = width - 52;
-        graphics.fill(avatarX, 17, avatarX + 30, 47, 0xFF273B58);
-        graphics.fill(avatarX + 3, 20, avatarX + 27, 44, 0xFF8B9FB4);
-        graphics.fill(avatarX + 8, 24, avatarX + 22, 39, 0xFF31435C);
-        graphics.fill(avatarX + 11, 28, avatarX + 13, 30, 0xFFFFFFFF);
-        graphics.fill(avatarX + 18, 28, avatarX + 20, 30, 0xFFFFFFFF);
-        graphics.fill(avatarX + 12, 35, avatarX + 19, 37, 0xFF26303C);
-
-    }
-}
-'''
-    path.write_text(source, encoding="utf-8")
-    print("[VBV Dungeons Home] installed reference-based menu; removed heading and browser overlay controls")
+    if not template.is_file():
+        raise RuntimeError(f"VBV home-screen template is missing: {template}")
+    generated[0].write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+    print("[VBV Dungeons Home] copied the maintained native-button home-screen template")
 
 
 gif = find_slime_gif()
