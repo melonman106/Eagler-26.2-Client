@@ -24,7 +24,14 @@ public final class VBVFirstPersonAnimations {
         return enabled;
     }
 
-    public static void toggle() {\n        setEnabled(!enabled);\n    }\n\n    public static void setEnabled(boolean value) {\n        enabled = value;\n    }\n
+    public static void toggle() {
+        setEnabled(!enabled);
+    }
+
+    public static void setEnabled(boolean value) {
+        enabled = value;
+    }
+
     public static void apply(PoseStack poseStack, AbstractClientPlayer player,
                              float partialTick, float attack, InteractionHand hand,
                              ItemStack itemStack) {
