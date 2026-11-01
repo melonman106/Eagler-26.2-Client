@@ -260,14 +260,14 @@ if backgrounds:
     connect_marker = "VBV_DUNGEONS_CONNECT_BACKGROUND"
     if connect_marker not in connect_text:
         render_pattern = re.compile(
-            r"(\\bextractRenderState\\s*\\(\\s*(?:final\\s+)?(?:[\\w.$]+\\.)?GuiGraphicsExtractor\\s+(\\w+)[^)]*\\)\\s*\\{)"
+            r"(\bextractRenderState\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{)"
         )
         render_match = render_pattern.search(connect_text)
         if not render_match:
             raise RuntimeError("Could not locate ConnectScreen.extractRenderState for custom background")
         graphics_name = render_match.group(2)
         draw_code = (
-            f"\\n        // {connect_marker}\\n"
+            f"\n        // {connect_marker}\n"
             f"        com.melonman106.vbvclient.VBVServerLoadingScreen.renderConnectionBackground({graphics_name}, this.width, this.height);"
         )
         connect_text = connect_text[:render_match.end()] + draw_code + connect_text[render_match.end():]
