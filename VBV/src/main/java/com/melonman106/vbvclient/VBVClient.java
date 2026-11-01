@@ -77,11 +77,7 @@ public final class VBVClient {
             "Hold Shift while hovering a shulker box in an inventory to preview its 27 contents slots.",
             "vbvclient:textures/mods/shulkerboxtooltip.png", false));
 
-        registerMod(new VBVModInfo(
-            "vbv-first-person-animations", "VBV First-Person Animations", "Native Eagler port 1.0.0",
-            "melonman106", "Natural attack swing animation with visible arm movement. Configure with the Mod Menu Config button.",
-            "vbvclient:textures/mods/viabackportvisuals-client.png", false));
-
+        // vbv-first-person-animations is intentionally not registered: the arm animation experiment is disabled.
         VBVGeneratedPackMods.register();
     }
 
