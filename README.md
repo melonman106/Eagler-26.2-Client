@@ -38,7 +38,7 @@ The former JS-mod features have native VBV implementations:
 - Simple HUD Enhanced.
 - Mouse Tweaks.
 - Minimap/world map.
-- Native resource-pack client mods, including MCDW.
+- Native resource-pack client mods from the currently included `ModsPack/` archives.
 
 Shine has been removed because its post-processing path caused unstable rendering in Eagler. These features are registered directly through `VBVClient` and displayed by the native VBV Mods screen. There is no browser fallback that silently loads a converted JavaScript package.
 
