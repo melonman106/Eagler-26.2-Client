@@ -145,3 +145,14 @@ if worldmap_import.is_file():
 dungeons_ui = CLIENT_SIDE / "patch/apply_dungeons_ui.py"
 if dungeons_ui.is_file():
     subprocess.run([sys.executable, str(dungeons_ui), *sys.argv[1:]], check=True)
+
+# Some source assets are AVIF/WebP files carrying a .png name. Vanilla's
+# Minecraft PNG loader rejects those bytes with "Bad PNG Signature" during
+# the initial resource reload, so normalize every PNG-named resource before
+# Gradle/TeaVM packages the assets into assets.epk.
+normalize_png = CLIENT_SIDE / "patch/normalize_png_assets.py"
+if normalize_png.is_file():
+    subprocess.run(
+        [sys.executable, str(normalize_png), str(Path(sys.argv[1]).resolve() / "game" / "src" / "main" / "resources")],
+        check=True,
+    )
