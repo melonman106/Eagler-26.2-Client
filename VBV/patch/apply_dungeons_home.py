@@ -133,7 +133,7 @@ def configure_panorama_overlay():
     )
     replacement = "private static final Identifier[] FRAMES = new Identifier[] {\n            " + entries + "\n    };"
     source, count = re.subn(
-        r"private static final Identifier\[\] FRAMES = new Identifier\[\] \\{.*?\\};",
+        r"private static final Identifier\[\] FRAMES = new Identifier\[\] \{.*?\};",
         replacement, source, count=1, flags=re.S,
     )
     if count != 1:
