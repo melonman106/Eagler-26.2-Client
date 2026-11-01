@@ -146,6 +146,13 @@ dungeons_ui = CLIENT_SIDE / "patch/apply_dungeons_ui.py"
 if dungeons_ui.is_file():
     subprocess.run([sys.executable, str(dungeons_ui), *sys.argv[1:]], check=True)
 
+# Apply the Dungeons-style home layout and optional animated panorama overlay
+# after the main Dungeons patch has copied the VBV screen sources into the
+# generated workspace.
+dungeons_home = CLIENT_SIDE / "patch/apply_dungeons_home.py"
+if dungeons_home.is_file():
+    subprocess.run([sys.executable, str(dungeons_home), *sys.argv[1:]], check=True)
+
 # Some source assets are AVIF/WebP files carrying a .png name. Vanilla's
 # Minecraft PNG loader rejects those bytes with "Bad PNG Signature" during
 # the initial resource reload, so normalize every PNG-named resource before
