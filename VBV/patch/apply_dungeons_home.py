@@ -36,6 +36,11 @@ def patch_loading_animation(count):
         if n!=1: raise RuntimeError("Could not update generated slime frame list")
         path.write_text(source,encoding="utf-8")
 
+def find_slime_gif():
+    for p in (CLIENT/"LoadingScreen/slime.gif",CLIENT/"slime.gif"):
+        if p.is_file(): return p
+    return None
+
 def suppress_vanilla_title_branding():
     candidates=list(GAME.rglob("TitleScreen.java"))
     if not candidates: raise RuntimeError("TitleScreen.java not found")
@@ -76,5 +81,22 @@ def configure_panorama_overlay():
     elif png.is_file():
         dst=RES/"assets/minecraft/textures/gui/title/background/panorama_overlay.png"; dst.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(png,dst)
 
+def remove_oxer_credit():
+    # Keep the fork metadata clean and remove the o_xer credit from the
+    # native Eagler credits screen. The credit can be reintroduced later in
+    # a less intrusive VBV location without changing the home-menu layout.
+    version_files=list((ROOT/"platform/src/main/java").rglob("EaglercraftVersion.java"))
+    for path in version_files:
+        source=path.read_text(encoding="utf-8")
+        source=source.replace('public static final String projectForkVendor = "o_xer";', 'public static final String projectForkVendor = "";')
+        source=source.replace('public static final String mainMenuStringF = "Made by " + projectForkVendor;', 'public static final String mainMenuStringF = "";')
+        path.write_text(source,encoding="utf-8")
+    credit_files=list(GAME.rglob("EaglerCreditsScreen.java"))
+    for path in credit_files:
+        source=path.read_text(encoding="utf-8")
+        source=source.replace('.append(Component.translatableWithFallback("eagler.credits.madeBy", "\\nMade by o_xer").withStyle(ChatFormatting.AQUA))', '')
+        path.write_text(source,encoding="utf-8")
+    print("[VBV] Removed o_xer fork credit from client branding and Eagler credits screen.")
+
 gif=find_slime_gif(); patch_loading_animation(extract_gif(gif,RES/"assets/vbvclient/textures/loadingscreen/slime") if gif else 0)
-suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay()
+suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay(); remove_oxer_credit()
