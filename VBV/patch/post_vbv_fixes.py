@@ -69,20 +69,9 @@ patch_render_distance_limit()
 hud_candidates=list(GAME.rglob("Hud.java"))
 if hud_candidates:
  hud=hud_candidates[0];t=hud.read_text(encoding="utf-8")
- # Remove any stale direct HUD calls left by an earlier patch run.
- legacy_hud_calls = [
-  "VBVSimpleHud.render", "VBVArmorHud.render", "VBVExtraFeatures.renderGammaStatus",
-  "VBVAppleSkin.render", "VBVMiniMap.render", "VBVJadeHud.render",
- ]
- for call_name in legacy_hud_calls:
-  owner, method_name = call_name.split(".", 1)
-  pattern = r"(?m)^\\s*com\\.melonman106\\.vbvclient\\." + owner + r"\\." + method_name + r"\\(\\s*\\w+\\s*\\);\\s*\\n?"
-  t, removed = re.subn(pattern, "", t)
-  if removed:
-   print("[VBV] Removed stale direct hook:", call_name, "x", removed)
  # Migrate the native HUD features from individual extractItemHotbar injections
- # to the shared Fabric-shaped HudRenderCallback. This avoids duplicate drawing
- # and gives every HUD mod the same post-vanilla render phase.
+ # to the shared Fabric-shaped HudRenderCallback. This also removes stale calls
+ # if the post-patch script is run more than once against the same workspace.
  hud_callbacks = [
   ("VBVSimpleHud", "render"),
   ("VBVArmorHud", "render"),
