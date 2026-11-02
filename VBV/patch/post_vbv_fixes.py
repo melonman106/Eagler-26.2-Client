@@ -85,7 +85,7 @@ if hud_candidates:
    g=m.group(1);t=t[:e]+f"\n        // {marker}\n        com.melonman106.vbvclient.VBVLowHealthPulse.render({g});\n    "+t[e:]
  if "VBV_CUSTOM_CROSSHAIR_SUPPRESS" not in t:
   # Wrap only the actual draw call, never the static field declaration.
-  t,n=re.subn(r"(?m)^(\\s*)(graphics\\.blitSprite\\([^;\\n]*CROSSHAIR_SPRITE[^;\\n]*;)",r"\\1if (!com.melonman106.vbvclient.VBVCrosshairConfig.enabled) { /* VBV_CUSTOM_CROSSHAIR_SUPPRESS */\\n\\1    \\2\\n\\1}",t,count=1)
+  t,n=re.subn(r"(?m)^(\s*)(graphics\.blitSprite\([^;\n]*CROSSHAIR_SPRITE[^;\n]*;)",r"\1if (!com.melonman106.vbvclient.VBVCrosshairConfig.enabled) { /* VBV_CUSTOM_CROSSHAIR_SUPPRESS */\n\1    \2\n\1}",t,count=1)
   if n!=1: print("[VBV] Vanilla crosshair draw call not found; leaving it unchanged.")
  cross=re.search(r"(?:private|public|protected)\s+void\s+extractCrosshair\s*\([^)]*GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{",t)
  if cross and "VBV_CUSTOM_CROSSHAIR_RENDER" not in t:
@@ -95,12 +95,12 @@ if hud_candidates:
  # Fabric-shaped HUD render callback: run after native HUD state collection.
  hud_marker="VBV_FABRIC_HUD_RENDER_CALLBACK"
  if hud_marker not in t:
-  method=re.search(r"public\\s+void\\s+extractRenderState\\s*\\(\\s*final\\s+GuiGraphicsExtractor\\s+(\\w+)\\s*,\\s*final\\s+DeltaTracker\\s+(\\w+)\\s*\\)\\s*\\{",t)
+  method=re.search(r"public\s+void\s+extractRenderState\s*\(\s*final\s+GuiGraphicsExtractor\s+(\w+)\s*,\s*final\s+DeltaTracker\s+(\w+)\s*\)\s*\{",t)
   if method:
    b=t.find("{",method.start());e=matching_brace(t,b)
    if e<0: raise RuntimeError("Could not locate Hud.extractRenderState end for Fabric HUD callback")
    graphics_name,delta_name=method.group(1),method.group(2)
-   t=t[:e]+f"\\n        // {hud_marker}\\n        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.fire(this.minecraft, {graphics_name}, {delta_name});\\n    "+t[e:]
+   t=t[:e]+f"\n        // {hud_marker}\n        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.fire(this.minecraft, {graphics_name}, {delta_name});\n    "+t[e:]
  hud.write_text(t,encoding="utf-8")
 
 # Connect Fabric-style screen events to the real 26.2 Screen lifecycle.
@@ -118,19 +118,19 @@ if screen_candidates:
   brace=nonlocal_text.find("{",m.start());end=matching_brace(nonlocal_text,brace)
   if end<0:raise RuntimeError("Could not locate Screen method end: "+marker)
   return nonlocal_text[:brace+1]+before+nonlocal_text[brace+1:end]+after+nonlocal_text[end:]
- st=inject_screen_event(r"public\\s+final\\s+void\\s+init\\s*\\(\\s*final\\s+int\\s+(\\w+)\\s*,\\s*final\\s+int\\s+(\\w+)\\s*\\)\\s*\\{",
+ st=inject_screen_event(r"public\s+final\s+void\s+init\s*\(\s*final\s+int\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*\)\s*\{",
   "VBV_FABRIC_SCREEN_INIT",
-  before="\\n      // VBV_FABRIC_SCREEN_INIT\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireBeforeInit(this, width, height);",
-  after="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterInit(this, width, height);")
- st=inject_screen_event(r"public\\s+void\\s+extractRenderState\\s*\\(\\s*final\\s+GuiGraphicsExtractor\\s+(\\w+)\\s*,\\s*final\\s+int\\s+(\\w+)\\s*,\\s*final\\s+int\\s+(\\w+)\\s*,\\s*final\\s+float\\s+(\\w+)\\s*\\)\\s*\\{",
+  before="\n      // VBV_FABRIC_SCREEN_INIT\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireBeforeInit(this, width, height);",
+  after="\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterInit(this, width, height);")
+ st=inject_screen_event(r"public\s+void\s+extractRenderState\s*\(\s*final\s+GuiGraphicsExtractor\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*,\s*final\s+float\s+(\w+)\s*\)\s*\{",
   "VBV_FABRIC_SCREEN_RENDER",
-  before="\\n      // VBV_FABRIC_SCREEN_RENDER\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireBeforeRender(this, graphics, mouseX, mouseY, a);",
-  after="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterRender(this, graphics, mouseX, mouseY, a);")
- st=inject_screen_event(r"public\\s+void\\s+tick\\s*\\(\\s*\\)\\s*\\{",
-  "VBV_FABRIC_SCREEN_TICK", after="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterTick(this);")
- st=inject_screen_event(r"public\\s+void\\s+removed\\s*\\(\\s*\\)\\s*\\{",
+  before="\n      // VBV_FABRIC_SCREEN_RENDER\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireBeforeRender(this, graphics, mouseX, mouseY, a);",
+  after="\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterRender(this, graphics, mouseX, mouseY, a);")
+ st=inject_screen_event(r"public\s+void\s+tick\s*\(\s*\)\s*\{",
+  "VBV_FABRIC_SCREEN_TICK", after="\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterTick(this);")
+ st=inject_screen_event(r"public\s+void\s+removed\s*\(\s*\)\s*\{",
   "VBV_FABRIC_SCREEN_REMOVE",
-  before="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireRemove(this);")
+  before="\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireRemove(this);")
  screen.write_text(st,encoding="utf-8")
 
 storage=Path(__file__).resolve().parent/"storage_manager.js"
