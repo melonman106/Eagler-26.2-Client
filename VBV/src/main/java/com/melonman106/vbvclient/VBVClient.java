@@ -55,6 +55,9 @@ public final class VBVClient {
         if (callbacksRegistered) return;
         callbacksRegistered = true;
 
+        // Register Gamma Utils and Zoomify through Fabric's native keybinding API.
+        VBVExtraFeatures.initializeKeyBindings();
+
         // Shared post-vanilla HUD phase for the native HUD ports.
         HudRenderCallback.EVENT.register((client, graphics, tickCounter) -> {
             VBVSimpleHud.render(graphics);
@@ -67,7 +70,10 @@ public final class VBVClient {
         });
 
         // The explored map records the local player's current chunk at end tick.
-        ClientTickEvents.END_CLIENT_TICK.register(client -> VBVWorldMap.tick());
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            VBVExtraFeatures.tick(client);
+            VBVWorldMap.tick();
+        });
     }
 
     private static void reg(String id, String name, String version, String authors,
