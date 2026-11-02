@@ -20,7 +20,7 @@ jobs:
           java-version: "25"
 
       - name: Check patch script syntax
-        run: python3 -m py_compile VBV/patch/apply_vbv_patch.py
+        run: python3 -m py_compile VBV/patch/apply_vbv_patch.py VBV/patch/post_vbv_fixes.py
 
       - name: Compile compatibility APIs against minimal Eagler stubs
         shell: bash
