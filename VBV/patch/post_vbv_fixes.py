@@ -46,6 +46,26 @@ if start not in mc:
 if end not in mc:raise RuntimeError("Fabric END tick hook not found")
 minecraft.write_text(mc,encoding="utf-8")
 
+# Raise the client render-distance option ceiling to 128 chunks.
+def patch_render_distance_limit():
+ candidates=java_files_named("GameOptions.java")+java_files_named("Options.java")
+ if not candidates:return
+ path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/Options.java") or p.as_posix().endswith("/net/minecraft/client/GameOptions.java")),candidates[0])
+ text=path.read_text(encoding="utf-8");marker="VBV_RENDER_DISTANCE_128"
+ if marker in text:return
+ m=re.search(r"(viewDistance\s*=\s*new\s+OptionInstance(?:<[^>]+>)?\s*\([^;]*?)(?=;)",text,re.S)
+ if not m:m=re.search(r"(\bviewDistance\b\s*=\s*new\s+[^;]*OptionInstance[^;]*)(?=;)",text,re.S)
+ if not m:
+  print("[VBV] viewDistance initializer not found; leaving cap unchanged.");return
+ block=m.group(1)
+ if not re.search(r"\b32\b",block):
+  print("[VBV] viewDistance initializer has no 32 ceiling; leaving it unchanged.");return
+ block=re.sub(r"\b32\b","128",block,count=1)
+ text=text[:m.start(1)]+block+text[m.end(1):]
+ path.write_text("// "+marker+"\n"+text,encoding="utf-8")
+ print("[VBV] Raised client render-distance option ceiling to 128 chunks in",path)
+patch_render_distance_limit()
+
 hud_candidates=list(GAME.rglob("Hud.java"))
 if hud_candidates:
  hud=hud_candidates[0];t=hud.read_text(encoding="utf-8")
@@ -63,7 +83,6 @@ if hud_candidates:
    m=methods[0];b=t.find("{",m.start());e=matching_brace(t,b)
    if e<0:raise RuntimeError("Could not locate Hud.extractRenderState end")
    g=m.group(1);t=t[:e]+f"\n        // {marker}\n        com.melonman106.vbvclient.VBVLowHealthPulse.render({g});\n    "+t[e:]
- # Replace vanilla crosshair recording only while custom crosshair is enabled.
  if "VBV_CUSTOM_CROSSHAIR_SUPPRESS" not in t:
   t=re.sub(r"(?m)^(\s*)([^\n]*CROSSHAIR_SPRITE[^\n]*;)",r"\1if (!com.melonman106.vbvclient.VBVCrosshairConfig.enabled) { /* VBV_CUSTOM_CROSSHAIR_SUPPRESS */\n\1    \2\n\1}",t,count=1)
  cross=re.search(r"(?:private|public|protected)\s+void\s+extractCrosshair\s*\([^)]*GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{",t)
@@ -78,4 +97,4 @@ if storage.is_file():
  s=storage.read_text(encoding="utf-8")
  s=re.sub(r"\n\s*function addLauncher\(\)\s*\{.*?\n\s*\}\s*\n\s*if \(document\.readyState===\"loading\"\).*?window\.VBVStorage\.initialize\(\);\s*\}\s*else \{.*?\}\(\);","\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", () => window.VBVStorage.initialize());\n  else window.VBVStorage.initialize();",s,flags=re.S)
  storage.write_text(s,encoding="utf-8")
-print("Post-VBV fixes complete: icons, low-health pulse, custom crosshair, and native storage UI.")
+print("Post-VBV fixes complete: icons, 128-chunk client cap, low-health pulse, custom crosshair, and native storage UI.")
