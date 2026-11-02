@@ -119,6 +119,13 @@ jobs:
           grep -R -q 'FabricCompatClient.startTick(this);' eaglercraft-u2/game/src/main/java
           grep -R -q 'FabricCompatClient.endTick(this);' eaglercraft-u2/game/src/main/java/net/minecraft/client
           grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/screen/v1/ScreenEvents.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientResourceEvents.java
+          grep -q 'ScreenEvents.fireBeforeInit' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
+          grep -q 'ScreenEvents.fireAfterRender' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
+          grep -q 'HudRenderCallback.fire' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Hud.java
+          grep -q 'ClientResourceEvents.fireReload' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
