@@ -99,6 +99,12 @@ public final class FabricCompatClient {
         if (initialized) invokeInitializer(initializer);
     }
 
+    /** Register a Fabric-style client entrypoint before or after bootstrap. */
+    public static synchronized void registerClientInitializer(String modId, net.fabricmc.api.ClientModInitializer initializer) {
+        if (initializer == null) throw new IllegalArgumentException("Client initializer must not be null");
+        registerInitializer(modId, initializer::onInitializeClient);
+    }
+
     private static void invokeInitializer(net.fabricmc.api.ModInitializer initializer) {
         if (INVOKED_INITIALIZERS.contains(initializer)) return;
         INVOKED_INITIALIZERS.add(initializer);
