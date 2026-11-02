@@ -142,7 +142,7 @@ if minecraft_candidates:
  if reload_marker not in mt:
   complete="result.complete(null);"
   if mt.count(complete)==1:
-   mt=mt.replace(complete,"net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientResourceEvents.fireReload(this); // "+reload_marker+"\\n                  "+complete,1)
+   mt=mt.replace(complete,"net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientResourceEvents.fireReload(this); // "+reload_marker+"\n                  "+complete,1)
    minecraft.write_text(mt,encoding="utf-8")
   else:
    print("[VBV] Could not uniquely locate successful resource reload completion; resource callback remains manually callable.")
