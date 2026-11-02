@@ -18,7 +18,7 @@ Initial APIs:
 - `ClientTickEvents.START_CLIENT_TICK / END_CLIENT_TICK`: client tick callbacks backed by the shared event factory. The explored world map now records player-chunk visits through `END_CLIENT_TICK`.
 - `ClientLifecycleEvents.CLIENT_STARTED / CLIENT_STOPPING`: client startup/shutdown callbacks backed by the shared event factory.
 - `ClientResourceEvents.RELOAD`: callback after Minecraft successfully reloads client resource packs.
-- `HudRenderCallback.EVENT`: shared post-vanilla HUD rendering callback with the live Eagler render context and tick tracker. AppleSkin, Uku's Armor HUD, Simple HUD Enhanced, Gamma status, VBV Minimap, and Jade now register through this event instead of separate `extractItemHotbar` injections.
+- `HudRenderCallback.EVENT`: shared post-vanilla HUD rendering callback with the live Eagler render context and tick tracker. AppleSkin, Uku's Armor HUD, Simple HUD Enhanced, Gamma status, VBV Minimap, Jade, and Custom Crosshair now register through this event instead of separate `extractItemHotbar` injections.
 - `ScreenEvents`: before/after screen init and render, after screen tick, and screen removal callbacks, wired into the native `Screen` lifecycle.
 - `net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper`: Fabric-shaped registration for native `KeyMapping` objects.
 - `FabricCompatClient.registerClientInitializer(id, initializer)`: manual registration of Fabric-style client entrypoints.
