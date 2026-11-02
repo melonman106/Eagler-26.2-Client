@@ -15,6 +15,7 @@ public final class VBVClient{
   reg("jade","Jade","Eagler port 1.0.0","Snownee","Targeted block/entity tooltip.","vbvclient:textures/mods/jade.png");
   reg("shulkerboxtooltip","ShulkerBoxTooltip","Native Eagler port 1.0.0","MisterPeModder","Shulker box preview.","vbvclient:textures/mods/shulkerboxtooltip.jpeg");
   reg("custom-crosshair","Custom Crosshair","Native Eagler port 1.0.0","melonman106","Draw your own 15x15 crosshair.","vbvclient:textures/mods/viabackportvisuals-client.png");
+  reg("litematica","Litematica","Native Eagler port 1.0.0","masa","Browser-safe .litematic importer and schematic manager.","vbvclient:textures/mods/viabackportvisuals-client.png");
   VBVGeneratedPackMods.register();
  }
  private static void reg(String id,String n,String v,String a,String d,String icon){registerMod(new VBVModInfo(id,n,v,a,d,icon,false));}
