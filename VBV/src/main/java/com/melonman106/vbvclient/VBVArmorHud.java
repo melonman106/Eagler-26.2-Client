@@ -18,8 +18,8 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * Native Eagler port of uku's Armor HUD (ArmorHudMod + ArmorHudRenderer).
- * Fabric, Mixin, Lombok and ukulib are not used; the widget is drawn straight
- * from the hook inserted into Hud.extractItemHotbar by apply_vbv_patch.py.
+ * Fabric Loader, Mixin, Lombok and ukulib are not used at runtime. The widget
+ * is rendered through the shared HudRenderCallback registered by VBVClient.
  */
 public final class VBVArmorHud {
     private static final int STEP = 20;
