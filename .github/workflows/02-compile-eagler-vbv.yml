@@ -129,6 +129,10 @@ jobs:
           grep -q 'ScreenEvents.fireBeforeInit' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
           grep -q 'ScreenEvents.fireAfterRender' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
           grep -q 'HudRenderCallback.fire' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Hud.java
+          grep -q 'HudRenderCallback.EVENT.register' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
+          grep -q 'ClientTickEvents.END_CLIENT_TICK.register' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
+          ! grep -q 'VBVWorldMap.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
+
           grep -q 'ClientResourceEvents.fireReload' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
