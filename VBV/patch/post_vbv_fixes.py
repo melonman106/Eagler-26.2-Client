@@ -79,6 +79,7 @@ if hud_candidates:
   ("VBVAppleSkin", "render"),
   ("VBVMiniMap", "render"),
   ("VBVJadeHud", "render"),
+  ("VBVCrosshair", "render"),
  ]
  for owner, method_name in hud_callbacks:
   pattern = r"(?m)^\s*com\.melonman106\.vbvclient\." + owner + r"\." + method_name + r"\(\s*\w+\s*\);\s*\n?"
@@ -96,11 +97,10 @@ if hud_candidates:
   # Wrap only the actual draw call, never the static field declaration.
   t,n=re.subn(r"(?m)^(\s*)(graphics\.blitSprite\([^;\n]*CROSSHAIR_SPRITE[^;\n]*;)",r"\1if (!com.melonman106.vbvclient.VBVCrosshairConfig.enabled) { /* VBV_CUSTOM_CROSSHAIR_SUPPRESS */\n\1    \2\n\1}",t,count=1)
   if n!=1: print("[VBV] Vanilla crosshair draw call not found; leaving it unchanged.")
- cross=re.search(r"(?:private|public|protected)\s+void\s+extractCrosshair\s*\([^)]*GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{",t)
- if cross and "VBV_CUSTOM_CROSSHAIR_RENDER" not in t:
-  b=t.find("{",cross.start());e=matching_brace(t,b);g=cross.group(1)
-  if e<0:raise RuntimeError("Could not locate extractCrosshair end")
-  t=t[:e]+f"\n        // VBV_CUSTOM_CROSSHAIR_RENDER\n        com.melonman106.vbvclient.VBVCrosshair.render({g});\n    "+t[e:]
+ # Custom crosshair drawing now runs in the shared HUD callback; retain only
+ # the vanilla crosshair suppression guard above.
+ ps = re.sub(r"(?m)^\s*// VBV_CUSTOM_CROSSHAIR_RENDER\s*\n?", "", t)
+ t = re.sub(r"(?m)^\s*com\.melonman106\.vbvclient\.VBVCrosshair\.render\(\s*\w+\s*\);\s*\n?", "", ps)
  # Fabric-shaped HUD render callback: run after native HUD state collection.
  hud_marker="VBV_FABRIC_HUD_RENDER_CALLBACK"
  if hud_marker not in t:
