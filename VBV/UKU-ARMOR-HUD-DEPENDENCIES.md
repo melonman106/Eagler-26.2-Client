@@ -9,6 +9,6 @@ The upstream Uku's Armor HUD 0.12.0+mc26.2 project declares these dependencies:
 
 The upstream Fabric module also declares Fabric Loader `0.19.3` and an optional compile-only Bedrockify compatibility dependency.
 
-For the Eaglercraft client these are handled differently: Eagler does not load Fabric Loader or Mixin at runtime. The Armor HUD is therefore compiled as a native VBV client feature, with the upstream HUD behavior ported into `VBVArmorHud`, `VBVArmorHudConfig`, and `VBVArmorHudConfigScreen`. The existing `extractItemHotbar` hook replaces the upstream Mixin HUD injection.
+For the Eaglercraft client these are handled differently: Eagler does not load Fabric Loader or Mixin at runtime. The Armor HUD is therefore compiled as a native VBV client feature, with the upstream HUD behavior ported into `VBVArmorHud`, `VBVArmorHudConfig`, and `VBVArmorHudConfigScreen`. `VBVClient` registers its renderer with the shared `HudRenderCallback`, replacing the upstream Mixin HUD injection without a per-mod render hook.
 
 No FullBright feature is included.
