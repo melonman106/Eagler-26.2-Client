@@ -20,7 +20,7 @@ Initial APIs:
 - `ClientResourceEvents.RELOAD`: callback after Minecraft successfully reloads client resource packs.
 - `HudRenderCallback.EVENT`: shared post-vanilla HUD rendering callback with the live Eagler render context and tick tracker. AppleSkin, Uku's Armor HUD, Simple HUD Enhanced, Gamma status, VBV Minimap, Jade, and Custom Crosshair now register through this event instead of separate per-feature HUD injections.
 - `ScreenEvents`: before/after screen init and render, after screen tick, and screen removal callbacks, wired into the native `Screen` lifecycle.
-- `net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper`: Fabric-shaped registration for native `KeyMapping` objects. Gamma Utils and Zoomify now use registered key mappings, with click/hold behaviour polled through `ClientTickEvents.END_CLIENT_TICK`.
+- `net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper`: Fabric-shaped registration for native `KeyMapping` objects. Gamma Utils and Zoomify now use registered key mappings, with click/hold behaviour polled through `ClientTickEvents.END_CLIENT_TICK`; Zoomify also uses `ScreenEvents.AFTER_INIT` to restore normal FOV immediately when a screen opens.
 - `FabricCompatClient.registerClientInitializer(id, initializer)`: manual registration of Fabric-style client entrypoints.
 
 Existing native VBV mod metadata is exposed through the compatibility registry. The layer is intentionally browser-safe and has no dependency on Fabric Loader JARs or Mixin.
