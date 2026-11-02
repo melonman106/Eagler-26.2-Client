@@ -47,6 +47,7 @@ public final class VBVModsScreen extends Screen {
     public VBVModsScreen(Screen parent) {
         super(Component.literal("Mods"));
         this.parent = parent;
+        VBVClient.init();
         this.all.addAll(VBVClient.getMods());
     }
 
@@ -132,7 +133,7 @@ public final class VBVModsScreen extends Screen {
             "simple-hud-enhanced".equals(info.id())
             || "ukus-armor-hud".equals(info.id())
             || "vbv-first-person-animations".equals(info.id())
-            || java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade").contains(info.id()));
+            || java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade", "shine").contains(info.id()));
         rebuildDescription();
     }
 
