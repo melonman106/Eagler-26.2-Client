@@ -220,4 +220,32 @@ if sleep_marker not in sleep_text:
     print("[VBV runtime] replaced capturing PlatformRuntime.sleep lambda with token-based timer callback.")
 else:
     print("[VBV runtime] token-based PlatformRuntime.sleep callback already installed.")
+# Respect the explicit worker opt-in on WASM-GC too. The pinned workspace
+# treated wasmGC itself as permission to force serverWorker, overriding the
+# generated HTML's safe single-thread default and leaving Singleplayer on the
+# worker startup path even when ?workers was not requested.
+sp_path = ROOT / "platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java"
+if not sp_path.is_file():
+    raise RuntimeError("ClientPlatformSingleplayer.java not found for server-worker opt-in fix")
+sp_text = sp_path.read_text(encoding="utf-8")
+sp_marker = "VBV_SERVER_WORKER_EXPLICIT_OPT_IN"
+if sp_marker not in sp_text:
+    requested_old = """\t\t\t\t&& (net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC()
+\t\t\t\t\t\t|| isServerWorkerFlagJS());"""
+    requested_new = """\t\t\t\t&& isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
+    if requested_old not in sp_text:
+        raise RuntimeError("Could not find server-worker request gate in ClientPlatformSingleplayer")
+    sp_text = sp_text.replace(requested_old, requested_new, 1)
+    force_old = """\t\tboolean wasmGC = net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC();
+\t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
+\t\t\t\t&& workerSupportedJS() && (wasmGC || isServerWorkerFlagJS());"""
+    force_new = """\t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
+\t\t\t\t&& workerSupportedJS() && isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
+    if force_old not in sp_text:
+        raise RuntimeError("Could not find integrated-server worker force gate in ClientPlatformSingleplayer")
+    sp_text = sp_text.replace(force_old, force_new, 1)
+    sp_path.write_text(sp_text, encoding="utf-8")
+    print("[VBV singleplayer] server workers now require explicit ?workers/serverWorker opt-in; default uses the single-thread controller.")
+else:
+    print("[VBV singleplayer] explicit server-worker opt-in already installed.")
 print("Post-VBV fixes complete: icons, 128-chunk client cap, low-health pulse, custom crosshair, and native storage UI.")
