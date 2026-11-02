@@ -23,7 +23,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int buttonHeight = 18;
         int gap = 4;
         int rowGap = 4;
-        int y = Math.max(64, height - 140);
+        int y = Math.max(64, height - 124);
 
         addNativeButton("PLAY", left, y, mainWidth, buttonHeight,
             b -> VBVNav.openMultiplayer(this));
