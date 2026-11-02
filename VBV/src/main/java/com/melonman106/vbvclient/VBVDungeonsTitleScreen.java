@@ -1,6 +1,5 @@
 package com.melonman106.vbvclient;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -53,7 +52,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         EaglerProfile.readIfNeeded();
         String name = EaglerProfile.getName();
         if(name == null || name.isEmpty()) {
-            name = Minecraft.getInstance().getUser() != null ? Minecraft.getInstance().getUser().getName() : "Player";
+            name = "Player";
         }
         Identifier skin = EaglerProfile.getActiveSkinResourceLocation();
         int nameWidth = font.width(name);
