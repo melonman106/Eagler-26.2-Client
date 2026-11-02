@@ -239,7 +239,8 @@ if sp_marker not in sp_text:
     force_old = """\t\tboolean wasmGC = net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC();
 \t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
 \t\t\t\t&& workerSupportedJS() && (wasmGC || isServerWorkerFlagJS());"""
-    force_new = """\t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
+    force_new = """\t\tboolean wasmGC = net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC();
+\t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
 \t\t\t\t&& workerSupportedJS() && isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
     if force_old not in sp_text:
         raise RuntimeError("Could not find integrated-server worker force gate in ClientPlatformSingleplayer")
