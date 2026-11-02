@@ -11,11 +11,13 @@ Sources are under `src/main/java/com/melonman106/vbvclient/fabriccompat/` and ar
 Initial APIs:
 
 - `net.fabricmc.loader.api.FabricLoader.getInstance()`: environment type, registered mod lookup, `isModLoaded`, `getModContainer`, and `getAllMods`.
-- `net.fabricmc.api.ModInitializer` and `net.fabricmc.api.EnvType`, plus a minimal metadata/version view under `net.fabricmc.loader.api`.
+- `net.fabricmc.api.ModInitializer`, `ClientModInitializer`, and `EnvType`, plus a minimal metadata/version view under `net.fabricmc.loader.api`.
 - `ModMetadata` and `ModContainer`: basic metadata access.
 - `ModInitializer`: familiar initializer contract for manually integrated ports.
-- `ClientTickEvents.START_CLIENT_TICK / END_CLIENT_TICK`: client tick callbacks, dispatched through the existing client lifecycle.
-- `ClientLifecycleEvents.CLIENT_STARTED / CLIENT_STOPPING`: client startup/shutdown callbacks.
+- `net.fabricmc.fabric.api.event.Event` and `EventFactory.createArrayBacked(...)`: listener registration, invoker generation, and listener counts for the common Fabric event pattern.
+- `ClientTickEvents.START_CLIENT_TICK / END_CLIENT_TICK`: client tick callbacks backed by the shared event factory.
+- `ClientLifecycleEvents.CLIENT_STARTED / CLIENT_STOPPING`: client startup/shutdown callbacks backed by the shared event factory.
+- `FabricCompatClient.registerClientInitializer(id, initializer)`: manual registration of Fabric-style client entrypoints.
 - `KeyBinding` and `KeyBindingHelper`: logical key registration and key press/release dispatch primitives.
 
 Existing native VBV mod metadata is exposed through the compatibility registry. The layer is intentionally browser-safe and has no dependency on Fabric Loader JARs or Mixin.
