@@ -44,6 +44,16 @@ public final class VBVFeatureConfigScreen extends Screen {
         } else if ("appleskin".equals(modId)) {
             option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
             option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
+        } else if ("shine".equals(modId)) {
+            option(() -> "Shine effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
+            option(() -> "Screen-space bloom: " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
+            option(() -> "Colored lighting: " + onOff(ShineConfig.coloredLighting()), ShineConfig::toggleColoredLighting);
+            option(() -> "Rim lighting: " + onOff(ShineConfig.rimLighting()), ShineConfig::toggleRimLighting);
+            option(() -> "Disable vanilla shading: " + onOff(ShineConfig.disabledShading()), ShineConfig::toggleDisabledShading);
+            option(() -> "Quality: " + ShineConfig.qualityLabel(), ShineConfig::cycleQuality);
+            option(() -> "Light radius: " + ShineConfig.lightRadius(), ShineConfig::cycleLightRadius);
+            option(() -> "Bloom strength: " + ShineConfig.bloomStrength(), ShineConfig::cycleBloomStrength);
+            option(() -> "Rim strength: " + ShineConfig.rimStrength(), ShineConfig::cycleRimStrength);
         }
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());
     }
