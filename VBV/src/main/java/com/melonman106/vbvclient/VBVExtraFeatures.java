@@ -1,11 +1,18 @@
 package com.melonman106.vbvclient;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.KeyMapping;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 /** Native Eagler equivalents for selected client-side features. */
 public final class VBVExtraFeatures {
+    private static final KeyMapping GAMMA_KEY = KeyBindingHelper.registerKeyBinding(
+        new KeyMapping("key.vbv.gamma", InputConstants.Type.KEYSYM, 71, KeyMapping.Category.MISC));
+    private static final KeyMapping ZOOM_KEY = KeyBindingHelper.registerKeyBinding(
+        new KeyMapping("key.vbv.zoom", InputConstants.Type.KEYSYM, 67, KeyMapping.Category.MISC));
     private static boolean gammaEnabled;
     private static long gammaStatusUntil;
     private static double previousGamma = 0.5D;
@@ -22,28 +29,49 @@ public final class VBVExtraFeatures {
     private static boolean betterF3Enabled = true;
     private static boolean fKeyHeld;
     private VBVExtraFeatures() {}
-    public static void handleKey(int key, int action) {
-        Minecraft minecraft = Minecraft.getInstance();
+    /** Force key mappings to register during client bootstrap, before the first key event. */
+    public static void initializeKeyBindings() {
+        // Static key mappings are registered by their constructors.
+    }
+
+    /** Poll registered mappings from the shared Fabric client-tick event. */
+    public static void tick(Minecraft minecraft) {
         if (minecraft == null) return;
-        // Do not trigger feature hotkeys while a menu, chat, or text field is active.
-        // Still honour releases so zoom and the F3 modifier cannot remain stuck.
         if (minecraft.gui.screen() != null) {
-            if (key == 67 && action == 0 && zooming) stopZoom(minecraft);
-            if (key == 70 && action == 0) fKeyHeld = false;
+            while (GAMMA_KEY.consumeClick()) { }
+            while (ZOOM_KEY.consumeClick()) { }
+            if (zooming) stopZoom(minecraft);
             return;
         }
+
+        if (GAMMA_KEY.consumeClick() && gammaFeatureEnabled) toggleGamma(minecraft);
+
+        if (!zoomEnabled) {
+            while (ZOOM_KEY.consumeClick()) { }
+            if (zooming) stopZoom(minecraft);
+            return;
+        }
+        if (zoomToggleMode) {
+            if (ZOOM_KEY.consumeClick()) {
+                if (zooming) stopZoom(minecraft);
+                else startZoom(minecraft);
+            }
+        } else if (ZOOM_KEY.isDown() && !zooming) {
+            startZoom(minecraft);
+        } else if (!ZOOM_KEY.isDown() && zooming) {
+            stopZoom(minecraft);
+        }
+    }
+
+    /** F3 modifier handling remains on the native keyboard event path. */
+    public static void handleKey(int key, int action) {
         if (key == 70) {
             if (action == 1) fKeyHeld = true;
             else if (action == 0) fKeyHeld = false;
         }
-        if (key == 71 && action == 1 && gammaFeatureEnabled) toggleGamma(minecraft);
-        if (key == 67 && zoomEnabled) {
-            if (zoomToggleMode) {
-                if (action == 1) { if (zooming) stopZoom(minecraft); else startZoom(minecraft); }
-            } else if (action == 1 && !zooming) startZoom(minecraft);
-            else if (action == 0 && zooming) stopZoom(minecraft);
-        } else if (key == 67 && !zoomEnabled && zooming) stopZoom(minecraft);
-        if (betterF3Enabled && action == 1 && (key == 292 || (key == 51 && fKeyHeld))) debugHudEnabled = !debugHudEnabled;
+        if (betterF3Enabled && action == 1 && (key == 292 || (key == 51 && fKeyHeld))) {
+            debugHudEnabled = !debugHudEnabled;
+        }
     }
     private static void toggleGamma(Minecraft minecraft) {
         if (!gammaEnabled) {
