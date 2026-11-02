@@ -54,7 +54,9 @@ jobs:
 
           cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/Minecraft.java <<'JAVA'
           package net.minecraft.client;
-          public class Minecraft {}
+          public class Minecraft {
+              public static Minecraft getInstance() { return new Minecraft(); }
+          }
           JAVA
 
           cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/DeltaTracker.java <<'JAVA'
@@ -90,6 +92,14 @@ jobs:
           public final class VBVClient {
               public static void init() {}
               public static Collection<VBVModInfo> getMods() { return List.of(); }
+          }
+          JAVA
+
+          cat > /tmp/fabric-compat-smoke/stubs/com/melonman106/vbvclient/HerzVBVBridge.java <<'JAVA'
+          package com.melonman106.vbvclient;
+          public final class HerzVBVBridge {
+              public static void initialize() {}
+              public static void register(VBVModInfo info) {}
           }
           JAVA
 
