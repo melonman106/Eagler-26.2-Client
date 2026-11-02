@@ -1,17 +1,22 @@
 package com.melonman106.vbvclient;
 
-import org.teavm.jso.JSBody;
+import net.lax1dude.eaglercraft.v1_8.profile.EaglerProfile;
 
-/** Small persistent player-profile bridge used by the Hero and party UI. */
+/** Bridge to Eagler's persistent username, skin and cape profile. */
 public final class VBVProfile {
     private VBVProfile() {}
 
-    public static String name() { return getNameJS(); }
-    public static void saveName(String name) { saveNameJS(name); }
+    public static String name() {
+        EaglerProfile.readIfNeeded();
+        return EaglerProfile.getName();
+    }
 
-    @JSBody(script = "try { return localStorage.getItem('vbv.profile.name') || (window.minecraft && window.minecraft.user ? String(window.minecraft.user.name) : 'Player'); } catch(e) { return 'Player'; }")
-    private static native String getNameJS();
-
-    @JSBody(params = {"name"}, script = "try { localStorage.setItem('vbv.profile.name', String(name || 'Player')); } catch(e) {}")
-    private static native void saveNameJS(String name);
+    public static void saveName(String name) {
+        EaglerProfile.readIfNeeded();
+        String safe = name == null ? "" : name.trim().replaceAll("[^A-Za-z0-9]", "_");
+        if (safe.length() < 3) safe = (safe + "___").substring(0, 3);
+        if (safe.length() > 16) safe = safe.substring(0, 16);
+        EaglerProfile.setName(safe);
+        EaglerProfile.save();
+    }
 }
