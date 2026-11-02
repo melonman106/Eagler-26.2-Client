@@ -7,6 +7,7 @@ import java.util.Map;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 
 /** Native Eagler client mod registry and shared Fabric-shaped event wiring. */
 public final class VBVClient {
@@ -60,6 +61,9 @@ public final class VBVClient {
 
         // Register Gamma Utils and Zoomify through Fabric's native keybinding API.
         VBVExtraFeatures.initializeKeyBindings();
+
+        // Zoomify restores the player's normal FOV as soon as a screen opens.
+        ScreenEvents.AFTER_INIT.register((screen, width, height) -> VBVExtraFeatures.onScreenOpened());
 
         // Shared post-vanilla HUD phase for the native HUD ports.
         HudRenderCallback.EVENT.register((client, graphics, tickCounter) -> {
