@@ -99,8 +99,7 @@ if hud_candidates:
   if n!=1: print("[VBV] Vanilla crosshair draw call not found; leaving it unchanged.")
  # Custom crosshair drawing now runs in the shared HUD callback; retain only
  # the vanilla crosshair suppression guard above.
- ps = re.sub(r"(?m)^\s*// VBV_CUSTOM_CROSSHAIR_RENDER\s*\n?", "", t)
- t = re.sub(r"(?m)^\s*com\.melonman106\.vbvclient\.VBVCrosshair\.render\(\s*\w+\s*\);\s*\n?", "", ps)
+ t = re.sub(r"(?m)^\s*// VBV_CUSTOM_CROSSHAIR_RENDER\s*\n?", "", t)
  # Fabric-shaped HUD render callback: run after native HUD state collection.
  hud_marker="VBV_FABRIC_HUD_RENDER_CALLBACK"
  if hud_marker not in t:
