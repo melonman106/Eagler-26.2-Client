@@ -29,7 +29,13 @@ jobs:
           test -s VBV/src/main/java/net/fabricmc/api/ModInitializer.java
           test -s VBV/src/main/java/net/fabricmc/loader/api/FabricLoader.java
           test -s VBV/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents.java
+          test -s VBV/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientResourceEvents.java
+          test -s VBV/src/main/java/net/fabricmc/fabric/api/client/screen/v1/ScreenEvents.java
+          test -s VBV/src/main/java/net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback.java
+          test -s VBV/src/main/java/net/fabricmc/fabric/api/client/keybinding/v1/KeyBindingHelper.java
 
+          mkdir -p /tmp/fabric-compat-smoke/stubs/net/minecraft/client/gui/screens
+          mkdir -p /tmp/fabric-compat-smoke/stubs/net/minecraft/client/gui
           mkdir -p /tmp/fabric-compat-smoke/stubs/net/minecraft/client
           mkdir -p /tmp/fabric-compat-smoke/stubs/com/melonman106/vbvclient
           mkdir -p /tmp/fabric-compat-smoke/classes
@@ -37,6 +43,26 @@ jobs:
           cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/Minecraft.java <<'JAVA'
           package net.minecraft.client;
           public class Minecraft {}
+          JAVA
+
+          cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/DeltaTracker.java <<'JAVA'
+          package net.minecraft.client;
+          public class DeltaTracker {}
+          JAVA
+
+          cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/KeyMapping.java <<'JAVA'
+          package net.minecraft.client;
+          public class KeyMapping {}
+          JAVA
+
+          cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/gui/GuiGraphicsExtractor.java <<'JAVA'
+          package net.minecraft.client.gui;
+          public class GuiGraphicsExtractor {}
+          JAVA
+
+          cat > /tmp/fabric-compat-smoke/stubs/net/minecraft/client/gui/screens/Screen.java <<'JAVA'
+          package net.minecraft.client.gui.screens;
+          public class Screen {}
           JAVA
 
           cat > /tmp/fabric-compat-smoke/stubs/com/melonman106/vbvclient/VBVModInfo.java <<'JAVA'
