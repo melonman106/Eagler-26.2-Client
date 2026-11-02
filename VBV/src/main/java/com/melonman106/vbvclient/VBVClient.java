@@ -3,8 +3,6 @@ import java.util.Collection;import java.util.Collections;import java.util.Linked
 public final class VBVClient{
  public static final String MOD_ID="viabackportvisuals-client";public static final String VERSION="1.0.0-26.2";private static final Map<String,VBVModInfo> MODS=new LinkedHashMap<>();private VBVClient(){}
  public static void init(){if(!MODS.isEmpty())return;
-  VBVMaLiLib.initialize();
-  reg("malilib","MaLiLib","Native compatibility core 1.0.0","masa","Browser-safe configuration and key/value support for native masa-mod ports.","vbvclient:textures/mods/viabackportvisuals-client.png");
   reg(MOD_ID,"ViaBackportVisuals Client",VERSION,"melonman106","Native client-side mod suite for Eaglercraft 26.2 u2.","vbvclient:textures/mods/viabackportvisuals-client.png");
   reg("ukus-armor-hud","Uku's Armor HUD","Eagler port 1.0.0","Uku3lig","Armor slots and durability.","vbvclient:textures/mods/ukus-armor-hud.png");
   reg("simple-hud-enhanced","Simple HUD Enhanced","Native Eagler port 1.0.0","SoRadGaming","Coordinates, directions, FPS, TPS, velocity, light, ping, biome, time, day, chunk/sub-chunk, effects and movement.","vbvclient:textures/mods/simple-hud-enhanced.png");
@@ -17,7 +15,6 @@ public final class VBVClient{
   reg("jade","Jade","Eagler port 1.0.0","Snownee","Targeted block/entity tooltip.","vbvclient:textures/mods/jade.png");
   reg("shulkerboxtooltip","ShulkerBoxTooltip","Native Eagler port 1.0.0","MisterPeModder","Shulker box preview.","vbvclient:textures/mods/shulkerboxtooltip.jpeg");
   reg("custom-crosshair","Custom Crosshair","Native Eagler port 1.0.0","melonman106","Draw your own 15x15 crosshair.","vbvclient:textures/mods/viabackportvisuals-client.png");
-  reg("litematica","Litematica","Native Eagler port 1.0.0","masa","Browser-safe .litematic importer and schematic manager.","vbvclient:textures/mods/viabackportvisuals-client.png");
   VBVGeneratedPackMods.register();
  }
  private static void reg(String id,String n,String v,String a,String d,String icon){registerMod(new VBVModInfo(id,n,v,a,d,icon,false));}
