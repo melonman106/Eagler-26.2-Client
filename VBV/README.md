@@ -35,7 +35,7 @@ The intended workflow is to port one small mod feature at a time, add only the A
 
 - Native mod viewer and mod details screens, available from the main menu and the in-game Escape menu.
 - `V` opens the Mods screen; `M` opens the explored-chunk world map.
-- Uku's Armor HUD, Simple HUD Enhanced, AppleSkin-style hunger information, and other native client features.
+- Uku's Armor HUD, Simple HUD Enhanced, AppleSkin-style hunger information, Gamma Utils, Zoomify, Shine lighting/bloom controls, and other native client features.
 - Embedded resource-pack assets are copied into Minecraft's actual `assets/<namespace>/...` resource tree.
 - Client-only explored-chunk world map and waypoints, with an Export Backup download and a visible warning if browser storage writes fail.
 - GitHub Actions compile and single-HTML packaging pipeline.
