@@ -81,7 +81,7 @@ if hud_candidates:
   ("VBVJadeHud", "render"),
  ]
  for owner, method_name in hud_callbacks:
-  pattern = r"(?m)^\\s*com\\.melonman106\\.vbvclient\\." + owner + r"\\." + method_name + r"\\(\\s*\\w+\\s*\\);\\s*\\n?"
+  pattern = r"(?m)^\s*com\.melonman106\.vbvclient\." + owner + r"\." + method_name + r"\(\s*\w+\s*);\s*\n?"
   t, removed = re.subn(pattern, "", t)
   if removed:
    print("[VBV] Migrated", owner, "to HudRenderCallback (removed", removed, "legacy hook(s)).")
@@ -149,7 +149,7 @@ if minecraft_candidates:
  mt=minecraft.read_text(encoding="utf-8")
  # World-map work now runs through ClientTickEvents.END_CLIENT_TICK.
  mt, map_tick_removed = re.subn(
-  r"(?m)^\\s*com\\.melonman106\\.vbvclient\\.VBVWorldMap\\.tick\\(\\);\\s*\\n?", "", mt
+  r"(?m)^\s*com\.melonman106\.vbvclient\.VBVWorldMap\.tick\(\);\s*\n?", "", mt
  )
  if map_tick_removed:
   print("[VBV] Moved explored-map tick onto ClientTickEvents.END_CLIENT_TICK.")
