@@ -10,7 +10,7 @@
     "Worlds", "WorldMap", "Resource Packs", "Resource Packs/Global",
     "Resource Packs/Servers", "Datapacks", "Datapacks/Global",
     "Datapacks/Servers", "Server Profiles", "Backups", "Backups/WorldMap",
-    "Backups/Worlds", "Cache", "Settings"
+    "Backups/Worlds", "Cache", "Settings", "Cache/Litematica"
   ];
   const cache = new Map();
   const pending = new Map();
@@ -33,6 +33,7 @@
   async function dir(path,create){if(!root)throw new Error("Choose an Eaglercraft storage folder first.");let current=root;for(const part of path.split("/").filter(Boolean))current=await current.getDirectoryHandle(part,{create:!!create});return current;}
   async function readFile(path){const slash=path.lastIndexOf("/"),folder=await dir(slash<0?"":path.slice(0,slash),false),handle=await folder.getFileHandle(path.slice(slash+1));return await(await handle.getFile()).text();}
   async function writeFile(path,content,backup){const slash=path.lastIndexOf("/"),folder=await dir(slash<0?"":path.slice(0,slash),true),name=path.slice(slash+1);const handle=await folder.getFileHandle(name,{create:true});const writer=await handle.createWritable();await writer.write(content);await writer.close();}
+  async function writeBlob(path,blob){const slash=path.lastIndexOf("/"),folder=await dir(slash<0?"":path.slice(0,slash),true),name=path.slice(slash+1);const handle=await folder.getFileHandle(name,{create:true});const writer=await handle.createWritable();await writer.write(blob);await writer.close();}
   function queueWrite(path,content){pending.set(path,{content});if(pending.get(path).timer)clearTimeout(pending.get(path).timer);const item=pending.get(path);item.timer=setTimeout(async()=>{const current=pending.get(path);if(!current)return;pending.delete(path);try{await writeFile(path,current.content,false);writeError="";}catch(e){writeError=String(e&&e.message||e);}updateStatus();},350);}
   function pathForKey(key){if(key==="vbv.server-profiles.v1")return "Server Profiles/profiles.json";return "Settings/"+encodeURIComponent(key)+".json";}
   function getTextSync(key){return cache.has(key)?String(cache.get(key)):((()=>{try{return localStorage.getItem(key)||"";}catch(_){return "";}})());}
@@ -40,7 +41,7 @@
   function normalizedAddress(address){return String(address||"").trim().toLowerCase();}
   function profileList(){try{return JSON.parse(getTextSync("vbv.server-profiles.v1")||"[]");}catch(_){return [];}}
   function saveProfiles(list){setTextSync("vbv.server-profiles.v1",JSON.stringify(list,null,2));if(activeAddress)activeProfile=profileList().find(p=>normalizedAddress(p.address)===activeAddress)||null;}
-  function saveProfile(name,address,renderDistance){const addr=normalizedAddress(address);if(!addr)return false;const list=profileList();let p=list.find(x=>normalizedAddress(x.address)===addr);if(!p)p={id:"server-"+Date.now().toString(36),resourcePacks:[],serverResourcePacks:[],datapacks:[],serverDatapacks:[],settings:{}};p.name=String(name||addr).trim()||addr;p.address=addr;p.settings=p.settings||{};p.settings.renderDistance=Number(renderDistance)||16;const i=list.findIndex(x=>x.id===p.id);if(i>=0)list[i]=p;else list.push(p);saveProfiles(list);return true;}
+  function saveProfile(name,address,renderDistance){const addr=normalizedAddress(address);if(!addr)return false;const list=profileList();let p=list.find(x=>normalizedAddress(x.address)===addr);if(!p)p={id:"server-"+Date.now().toString(36),resourcePacks:[],serverResourcePacks:[],datapacks:[],serverDatapacks:[],settings:{}};p.name=String(name||addr).trim()||addr;p.address=addr;p.settings=p.settings||{};p.settings.renderDistance=Math.max(2,Math.min(128,Number(renderDistance)||16));const i=list.findIndex(x=>x.id===p.id);if(i>=0)list[i]=p;else list.push(p);saveProfiles(list);return true;}
   function updateStatus(){const status={connected:!!root,folder:rootName,revision,activeAddress,activeProfile:activeProfile?.name||"",writeError};window.VBVStorageStatus=status;window.dispatchEvent(new CustomEvent("vbv:storage-status",{detail:status}));}
   function matchServer(address){activeAddress=normalizedAddress(address);activeProfile=profileList().find(p=>normalizedAddress(p.address)===activeAddress)||null;updateStatus();}
   async function ensureLayout(){for(const path of LAYOUT)await dir(path,true);}
@@ -48,8 +49,23 @@
   async function connectWithHandle(handle){if(!await permission(handle,true))throw new Error("Folder permission was not granted.");root=handle;rootName=handle.name||"Eaglercraft Storage";await handleSet("root",handle);await ensureLayout();await loadProfiles();revision++;updateStatus();return true;}
   async function chooseFolder(){try{return await connectWithHandle(await window.showDirectoryPicker({mode:"readwrite"}));}catch(e){if(e&&e.name!=="AbortError")alert("Could not choose storage folder: "+e.message);return false;}}
   async function reconnect(ask){try{const h=await handleGet("root");if(h&&await permission(h,!!ask)){root=h;rootName=h.name||"Eaglercraft Storage";await ensureLayout();await loadProfiles();revision++;updateStatus();return true;}}catch(e){console.warn("[VBV Storage] reconnect failed",e);}return false;}
+
+  async function importFile(kind, accept, targetFolder){
+    try {
+      if(!root) { const ok=await chooseFolder(); if(!ok)return false; }
+      const input=document.createElement("input"); input.type="file"; input.accept=accept||"*/*"; input.multiple=false;
+      const picked=await new Promise(resolve=>{input.onchange=()=>resolve(input.files&&input.files[0]||null);input.click();});
+      if(!picked)return false;
+      const safe=picked.name.replace(/[^A-Za-z0-9._() -]/g,"_");
+      const folder=String(targetFolder||"Cache").replace(/^\/+|\/+$/g,"");
+      await writeBlob(folder+"/"+safe,picked);
+      window.VBVStorageLastImport={kind:String(kind||"file"),name:picked.name,size:picked.size,path:folder+"/"+safe};
+      revision++;updateStatus();return true;
+    }catch(e){writeError=String(e&&e.message||e);updateStatus();alert("Import failed: "+writeError);return false;}
+  }
+
   function openUI(){ if(window.VBVStorageNativeRequested){window.dispatchEvent(new CustomEvent("vbv:storage-native-open"));return;} }
 
-  window.VBVStorage={version:2,openUI,chooseFolder,reconnect:(()=>reconnect(true)),getTextSync,setTextSync,revision:()=>revision,refresh:()=>{revision++;updateStatus();},updateServer:matchServer,saveProfile,status:()=>({connected:!!root,folder:rootName,revision,activeAddress,activeProfile,writeError}),async initialize(){try{const saved=await kvLoadAll();for(const [k,v] of saved)cache.set(k,v);}catch(_){}try{const h=await handleGet("root");if(h&&await permission(h,false)){root=h;rootName=h.name||"Eaglercraft Storage";await ensureLayout();await loadProfiles();revision++;}}catch(_){}updateStatus();}};
+  window.VBVStorage={version:3,openUI,chooseFolder,reconnect:(()=>reconnect(true)),getTextSync,setTextSync,revision:()=>revision,refresh:()=>{revision++;updateStatus();},updateServer:matchServer,saveProfile,importFile,status:()=>({connected:!!root,folder:rootName,revision,activeAddress,activeProfile,writeError}),async initialize(){try{const saved=await kvLoadAll();for(const [k,v] of saved)cache.set(k,v);}catch(_){}try{const h=await handleGet("root");if(h&&await permission(h,false)){root=h;rootName=h.name||"Eaglercraft Storage";await ensureLayout();await loadProfiles();revision++;}}catch(_){}updateStatus();}};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>window.VBVStorage.initialize());else window.VBVStorage.initialize();
 })();
