@@ -46,6 +46,9 @@ public final class VBVClient {
             "Shulker box preview.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
         reg("custom-crosshair", "Custom Crosshair", "Native Eagler port 1.0.0", "melonman106",
             "Draw your own 15x15 crosshair.", "vbvclient:textures/mods/viabackportvisuals-client.png");
+        reg("shine", "Shine", "Native Eagler port 1.0.0", "VBV",
+            "Screen-space bloom, colored lighting and rim-light effects.",
+            "vbvclient:textures/mods/shine.png");
 
         registerFabricCallbacks();
         VBVGeneratedPackMods.register();
