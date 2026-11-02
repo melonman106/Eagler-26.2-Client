@@ -69,13 +69,33 @@ patch_render_distance_limit()
 hud_candidates=list(GAME.rglob("Hud.java"))
 if hud_candidates:
  hud=hud_candidates[0];t=hud.read_text(encoding="utf-8")
- call="com.melonman106.vbvclient.VBVAppleSkin.render("
- if call in t:
-  t=re.sub(r"(?m)^\s*com\.melonman106\.vbvclient\.VBVAppleSkin\.render\([^;]+;\s*\n?","",t)
-  food=re.search(r"(?:public|protected|private)\s+void\s+extractFood\s*\([^)]*\)\s*\{",t)
-  if food:
-   b=t.find("{",food.start());e=matching_brace(t,b);p=re.search(r"GuiGraphicsExtractor\s+(\w+)",food.group(0))
-   if e>=0 and p:t=t[:e]+"\n        com.melonman106.vbvclient.VBVAppleSkin.render("+p.group(1)+");\n    "+t[e:]
+ # Remove any stale direct HUD calls left by an earlier patch run.
+ legacy_hud_calls = [
+  "VBVSimpleHud.render", "VBVArmorHud.render", "VBVExtraFeatures.renderGammaStatus",
+  "VBVAppleSkin.render", "VBVMiniMap.render", "VBVJadeHud.render",
+ ]
+ for call_name in legacy_hud_calls:
+  owner, method_name = call_name.split(".", 1)
+  pattern = r"(?m)^\\s*com\\.melonman106\\.vbvclient\\." + owner + r"\\." + method_name + r"\\(\\s*\\w+\\s*\\);\\s*\\n?"
+  t, removed = re.subn(pattern, "", t)
+  if removed:
+   print("[VBV] Removed stale direct hook:", call_name, "x", removed)
+ # Migrate the native HUD features from individual extractItemHotbar injections
+ # to the shared Fabric-shaped HudRenderCallback. This avoids duplicate drawing
+ # and gives every HUD mod the same post-vanilla render phase.
+ hud_callbacks = [
+  ("VBVSimpleHud", "render"),
+  ("VBVArmorHud", "render"),
+  ("VBVExtraFeatures", "renderGammaStatus"),
+  ("VBVAppleSkin", "render"),
+  ("VBVMiniMap", "render"),
+  ("VBVJadeHud", "render"),
+ ]
+ for owner, method_name in hud_callbacks:
+  pattern = r"(?m)^\\s*com\\.melonman106\\.vbvclient\\." + owner + r"\\." + method_name + r"\\(\\s*\\w+\\s*\\);\\s*\\n?"
+  t, removed = re.subn(pattern, "", t)
+  if removed:
+   print("[VBV] Migrated", owner, "to HudRenderCallback (removed", removed, "legacy hook(s)).")
  marker="VBV_LOW_HEALTH_PULSE_HOOK"
  if marker not in t:
   methods=list(re.finditer(r"(?:public|protected|private)\s+void\s+extractRenderState\s*\([^)]*GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{",t))
@@ -138,6 +158,12 @@ minecraft_candidates=java_files_named("Minecraft.java")
 if minecraft_candidates:
  minecraft=next((p for p in minecraft_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")),minecraft_candidates[0])
  mt=minecraft.read_text(encoding="utf-8")
+ # World-map work now runs through ClientTickEvents.END_CLIENT_TICK.
+ mt, map_tick_removed = re.subn(
+  r"(?m)^\\s*com\\.melonman106\\.vbvclient\\.VBVWorldMap\\.tick\\(\\);\\s*\\n?", "", mt
+ )
+ if map_tick_removed:
+  print("[VBV] Moved explored-map tick onto ClientTickEvents.END_CLIENT_TICK.")
  reload_marker="VBV_FABRIC_RESOURCE_RELOAD"
  if reload_marker not in mt:
   complete="result.complete(null);"
