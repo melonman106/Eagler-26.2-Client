@@ -132,6 +132,7 @@ jobs:
           grep -q 'HudRenderCallback.EVENT.register' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
           grep -q 'ClientTickEvents.END_CLIENT_TICK.register' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
           grep -q 'KeyBindingHelper.registerKeyBinding' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVExtraFeatures.java
+          test -s eaglercraft-u2/game/src/main/resources/assets/vbvclient/lang/en_us.json
           ! grep -q 'VBVWorldMap.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
 
           grep -q 'ClientResourceEvents.fireReload' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
