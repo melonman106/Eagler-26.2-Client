@@ -15,7 +15,7 @@ public final class VBVSimpleHud {
         if(!VBVSimpleHudConfig.enabled)return;
         if(VBVExtraFeatures.isBetterF3Enabled()&&VBVExtraFeatures.isDebugHudEnabled())return;
         Minecraft mc=Minecraft.getInstance(); Player p=mc.player; if(p==null||mc.level==null)return;
-        long gameTick=mc.level.getGameTime(), now=System.currentTimeMillis();
+        long gameTick=mc.level.getGameTime(), dayTime=mc.level.getOverworldClockTime(), now=System.currentTimeMillis();
         if(lastTickTime>=0){long dt=gameTick-lastTickTime, dw=now-lastWallTime;if(dw>0&&dt>=0)clientTps=Math.max(0,Math.min(20.0,dt*1000.0/dw));}
         lastTickTime=gameTick;lastWallTime=now;
         int x=6+VBVSimpleHudConfig.hudXOffset,y=6+VBVSimpleHudConfig.hudYOffset,line=Math.max(8,Math.round(11*VBVSimpleHudConfig.hudScale));
@@ -31,8 +31,8 @@ public final class VBVSimpleHud {
         if(VBVSimpleHudConfig.ping&&mc.getConnection()!=null&&mc.getConnection().getPlayerInfo(p.getUUID())!=null)y=text(graphics,"Ping: "+mc.getConnection().getPlayerInfo(p.getUUID()).getLatency()+" ms",x,y,line);
         if(VBVSimpleHudConfig.lightLevel)y=text(graphics,"Light: "+mc.level.getMaxLocalRawBrightness(p.blockPosition()),x,y,line);
         if(VBVSimpleHudConfig.biome){String b="unknown";try{b=mc.level.getBiome(p.blockPosition()).getRegisteredName();}catch(Exception ignored){}y=text(graphics,"Biome: "+b,x,y,line);}
-        if(VBVSimpleHudConfig.gameTime)y=text(graphics,"Game time: "+formatTime(mc.level.getDayTime()),x,y,line);
-        if(VBVSimpleHudConfig.dayCounter)y=text(graphics,"Day: "+(mc.level.getDayTime()/24000L),x,y,line);
+        if(VBVSimpleHudConfig.gameTime)y=text(graphics,"Game time: "+formatTime(dayTime),x,y,line);
+        if(VBVSimpleHudConfig.dayCounter)y=text(graphics,"Day: "+(dayTime/24000L),x,y,line);
         if(VBVSimpleHudConfig.systemTime)y=text(graphics,"System: "+formatSystemTime(),x,y,line);
         if(VBVSimpleHudConfig.netherConversion){boolean nether=mc.level.dimension()==Level.NETHER;double nx=p.getX()*(nether?8.0:0.125),nz=p.getZ()*(nether?8.0:0.125);y=text(graphics,String.format(Locale.ROOT,"Portal: %.0f %.0f",nx,nz),x,y,line);}
         if(VBVSimpleHudConfig.playerName)y=text(graphics,"Player: "+p.getName().getString(),x,y,line);
