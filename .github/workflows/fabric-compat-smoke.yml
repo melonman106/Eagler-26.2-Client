@@ -41,6 +41,7 @@ jobs:
           test -s VBV/src/main/java/net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback.java
           grep -q 'HudRenderCallback.EVENT.register' VBV/src/main/java/com/melonman106/vbvclient/VBVClient.java
           grep -q 'ClientTickEvents.END_CLIENT_TICK.register' VBV/src/main/java/com/melonman106/vbvclient/VBVClient.java
+          grep -q 'KeyBindingHelper.registerKeyBinding' VBV/src/main/java/com/melonman106/vbvclient/VBVExtraFeatures.java
           grep -q 'Migrated' VBV/patch/post_vbv_fixes.py
           test -s VBV/src/main/java/net/fabricmc/fabric/api/client/keybinding/v1/KeyBindingHelper.java
 
