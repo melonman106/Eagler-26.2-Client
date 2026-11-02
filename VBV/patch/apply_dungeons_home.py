@@ -36,11 +36,6 @@ def patch_loading_animation(count):
         if n!=1: raise RuntimeError("Could not update generated slime frame list")
         path.write_text(source,encoding="utf-8")
 
-def find_slime_gif():
-    for p in (CLIENT/"LoadingScreen/slime.gif",CLIENT/"slime.gif"):
-        if p.is_file(): return p
-    return None
-
 def suppress_vanilla_title_branding():
     candidates=list(GAME.rglob("TitleScreen.java"))
     if not candidates: raise RuntimeError("TitleScreen.java not found")
@@ -81,6 +76,59 @@ def configure_panorama_overlay():
     elif png.is_file():
         dst=RES/"assets/minecraft/textures/gui/title/background/panorama_overlay.png"; dst.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(png,dst)
 
+def _matching_brace(text, brace):
+    depth=0; i=brace; quote=None; escaped=False
+    while i<len(text):
+        c=text[i]; n=text[i+1] if i+1<len(text) else ""
+        if quote:
+            if escaped: escaped=False
+            elif c=="\\": escaped=True
+            elif c==quote: quote=None
+        elif c in ('"', "'"): quote=c
+        elif c=="/" and n=="/":
+            i=text.find("\n",i)
+            if i<0:return len(text)-1
+        elif c=="/" and n=="*":
+            i=text.find("*/",i+2)
+            if i<0:return len(text)-1
+            i+=1
+        elif c=="{": depth+=1
+        elif c=="}":
+            depth-=1
+            if depth==0:return i
+        i+=1
+    return -1
+
+def patch_platform_input_raf():
+    """Avoid a captured lambda/boolean[] crossing the WASM-GC JS boundary."""
+    candidates=list((ROOT/"platform-teavm/src/main/java").rglob("PlatformInput.java"))
+    if not candidates:return
+    path=candidates[0]; source=path.read_text(encoding="utf-8")
+    marker="VBV_WASM_GC_RAF_CALLBACK_BRIDGE"
+    if marker in source:return
+    method=re.search(r"private\s+static\s+void\s+armRequestAnimationFrame\s*\(\s*\)\s*\{",source)
+    if not method: raise RuntimeError("PlatformInput.armRequestAnimationFrame() not found")
+    method_open=source.find("{",method.start()); method_end=_matching_brace(source,method_open)
+    if method_end<0: raise RuntimeError("Could not locate armRequestAnimationFrame() end")
+    body=source[method_open+1:method_end]
+    lambda_match=re.search(r"Window\.requestAnimationFrame\s*\(\s*\(d\)\s*->\s*\{",body)
+    if not lambda_match:
+        raise RuntimeError("PlatformInput requestAnimationFrame lambda not found")
+    lambda_open=body.find("{",lambda_match.start()); lambda_end=_matching_brace(body,lambda_open)
+    if lambda_end<0: raise RuntimeError("Could not locate requestAnimationFrame lambda end")
+    callback_body=body[lambda_open+1:lambda_end]
+    callback_body=callback_body.replace("completed[0]", "vsyncCallbackCompleted")
+    callback_decl="\n\tprivate static boolean vsyncCallbackCompleted = false;\n\n\tprivate static final org.teavm.jso.browser.AnimationFrameCallback VBV_VSYNC_CALLBACK = (d) -> {"+callback_body+"\n\t};\n\n"
+    body=body[:lambda_match.start()]+"Window.requestAnimationFrame(VBV_VSYNC_CALLBACK)"+body[lambda_end+1:]
+    body=body.replace("final boolean[] completed = new boolean[] { false };", "vsyncCallbackCompleted = false;")
+    body=body.replace("completed[0]", "vsyncCallbackCompleted")
+    source=source[:method_open+1]+body+source[method_end:]
+    source=source[:method.start()]+callback_decl+source[method.start():]
+    source=source.replace("// "+marker, "// "+marker, 1)
+    source=source.replace("public class PlatformInput {", "public class PlatformInput {\n\n\t// "+marker, 1)
+    path.write_text(source,encoding="utf-8")
+    print("[VBV] Replaced captured PlatformInput rAF lambda with a static AnimationFrameCallback for WASM-GC safety.")
+
 def remove_oxer_credit():
     # Keep the fork metadata clean and remove the o_xer credit from the
     # native Eagler credits screen. The credit can be reintroduced later in
@@ -99,4 +147,4 @@ def remove_oxer_credit():
     print("[VBV] Removed o_xer fork credit from client branding and Eagler credits screen.")
 
 gif=find_slime_gif(); patch_loading_animation(extract_gif(gif,RES/"assets/vbvclient/textures/loadingscreen/slime") if gif else 0)
-suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay(); remove_oxer_credit()
+suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay(); patch_platform_input_raf(); remove_oxer_credit()
