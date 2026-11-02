@@ -209,7 +209,7 @@ if sleep_marker not in sleep_text:
 \t\t}
 \t\ttry {
 \t\t\tWindow.setTimeout(new VBVSleepTimer(id), Math.max(0, millis));
-\t\t}catch(Throwable t) {
+\t\t}catch(RuntimeException | Error t) {
 \t\t\tsynchronized(vbvPendingSleepCallbacks) { vbvPendingSleepCallbacks.remove(id); }
 \t\t\tthrow t;
 \t\t}
