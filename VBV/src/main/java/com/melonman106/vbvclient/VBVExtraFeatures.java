@@ -34,6 +34,15 @@ public final class VBVExtraFeatures {
         // Static key mappings are registered by their constructors.
     }
 
+    /** Stop hold-to-zoom immediately when any screen is initialized. */
+    public static void onScreenOpened() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (zooming) stopZoom(minecraft);
+        ZOOM_KEY.setDown(false);
+        while (ZOOM_KEY.consumeClick()) { }
+        while (GAMMA_KEY.consumeClick()) { }
+    }
+
     /** Poll registered mappings from the shared Fabric client-tick event. */
     public static void tick(Minecraft minecraft) {
         if (minecraft == null) return;
