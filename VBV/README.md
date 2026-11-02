@@ -17,8 +17,11 @@ Initial APIs:
 - `net.fabricmc.fabric.api.event.Event` and `EventFactory.createArrayBacked(...)`: listener registration, invoker generation, and listener counts for the common Fabric event pattern.
 - `ClientTickEvents.START_CLIENT_TICK / END_CLIENT_TICK`: client tick callbacks backed by the shared event factory.
 - `ClientLifecycleEvents.CLIENT_STARTED / CLIENT_STOPPING`: client startup/shutdown callbacks backed by the shared event factory.
+- `ClientResourceEvents.RELOAD`: callback after Minecraft successfully reloads client resource packs.
+- `HudRenderCallback.EVENT`: HUD rendering callback with the live Eagler render context and tick tracker.
+- `ScreenEvents`: before/after screen init and render, after screen tick, and screen removal callbacks, wired into the native `Screen` lifecycle.
+- `net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper`: Fabric-shaped registration for native `KeyMapping` objects.
 - `FabricCompatClient.registerClientInitializer(id, initializer)`: manual registration of Fabric-style client entrypoints.
-- `KeyBinding` and `KeyBindingHelper`: logical key registration and key press/release dispatch primitives.
 
 Existing native VBV mod metadata is exposed through the compatibility registry. The layer is intentionally browser-safe and has no dependency on Fabric Loader JARs or Mixin.
 
@@ -26,7 +29,7 @@ Existing native VBV mod metadata is exposed through the compatibility registry. 
 
 This is a **porting shim, not a drop-in Fabric runtime**. It does not load mod JARs, parse `fabric.mod.json`, resolve dependencies, apply Mixins, transform bytecode, or implement the full Fabric API. The build patch connects registered keybindings to browser keydown/keyup events. Mod-specific inventory behavior still needs explicit integration, and APIs that rely on unsupported Minecraft internals must be adapted manually.
 
-The intended workflow is to port one small mod feature at a time, add only the API surface it needs, and verify it through the Eaglercraft 26.2 u2 GitHub Actions compile.
+The intended workflow is to port one small mod feature at a time, add only the API surface it needs, and verify it through the Eaglercraft 26.2 u2 GitHub Actions compile. Screen and HUD callbacks are connected to the native render lifecycle; resource reload callbacks fire only after a successful resource-pack reload.
 
 ## Existing client features
 
