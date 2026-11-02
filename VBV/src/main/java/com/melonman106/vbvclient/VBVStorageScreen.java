@@ -5,7 +5,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-/** Native Minecraft-style storage area with tabbed sections. */
+/** Native Minecraft-style storage area with real browser-folder import actions. */
 public final class VBVStorageScreen extends Screen {
     private final Screen parent; private int tab=0;
     private static final String[] TABS={"Overview","Worlds","Resource Packs","Datapacks","Profiles","Backups"};
@@ -14,11 +14,11 @@ public final class VBVStorageScreen extends Screen {
     private void rebuild(){clearWidgets();int tabWidth=Math.min(112,Math.max(78,(width-36)/TABS.length));int total=tabWidth*TABS.length+5*(TABS.length-1);int left=width/2-total/2;for(int i=0;i<TABS.length;i++){final int s=i;addRenderableWidget(Button.builder(Component.literal((tab==i?"■ ":"")+TABS[i]),b->{tab=s;rebuild();}).bounds(left+i*(tabWidth+5),55,tabWidth,20).build());}
         int x=width/2-100;
         if(tab==0){addButton("Choose Storage Folder",x,112,b->VBVStorage.chooseFolder());addButton("Reconnect Existing Folder",x,137,b->VBVStorage.reconnect());}
-        else if(tab==1){addButton("World Storage",x,112,b->show("Worlds","Worlds use Minecraft's native save system; the managed folder is reserved for imported/exported world data."));}
-        else if(tab==2){addButton("Resource Pack Storage",x,112,b->show("Resource Packs","Use the managed Resource Packs/Global and Resource Packs/Servers folders."));}
-        else if(tab==3){addButton("Datapack Storage",x,112,b->show("Datapacks","Use the managed Datapacks/Global and Datapacks/Servers folders."));}
+        else if(tab==1){addButton("Import World",x,112,b->VBVStorage.importWorld());addButton("World Storage Info",x,137,b->show("Worlds","Imported worlds are copied into Worlds/. Minecraft saves remain managed by the native game save system."));}
+        else if(tab==2){addButton("Import Resource Pack",x,112,b->VBVStorage.importResourcePack());addButton("Resource Pack Storage",x,137,b->show("Resource Packs","Imported packs are copied into Resource Packs/Global/. Server-specific packs can be stored under Resource Packs/Servers/."));}
+        else if(tab==3){addButton("Import Datapack",x,112,b->VBVStorage.importDatapack());addButton("Datapack Storage",x,137,b->show("Datapacks","Imported packs are copied into Datapacks/Global/. Server-specific packs can be stored under Datapacks/Servers/."));}
         else if(tab==4){addButton("NEW SERVER PROFILE",x,112,b->VBVNav.open(new VBVStorageProfileScreen(this)));addButton("Refresh Profiles",x,137,b->rebuild());}
-        else{addButton("World Map Backups",x,112,b->show("Backups","World-map and world backups remain separate from active saves."));addButton("Clear Cache",x,137,b->show("Cache","Cache cleanup is handled by the managed storage bridge."));}
+        else{addButton("Import Litematic",x,112,b->VBVStorage.importLitematic());addButton("World Map Backups",x,137,b->show("Backups","World-map and world backups remain separate from active saves."));addButton("Clear Cache",x,162,b->show("Cache","Cache cleanup is handled by the managed storage bridge."));}
         addRenderableWidget(Button.builder(Component.literal("Done"),b->VBVNav.open(parent)).bounds(width/2-100,height-34,200,20).build());}
     private void addButton(String label,int x,int y,Button.OnPress action){addRenderableWidget(Button.builder(Component.literal(label),action).bounds(x,y,200,20).build());}
     private void show(String title,String message){VBVNav.open(new VBVStorageInfoScreen(this,title,message));}
