@@ -116,6 +116,10 @@ jobs:
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/metadata/ModMetadata.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientLifecycleEvents.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientResourceEvents.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/screen/v1/ScreenEvents.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/keybinding/v1/KeyBindingHelper.java
           grep -R -q 'FabricCompatClient.startTick(this);' eaglercraft-u2/game/src/main/java
           grep -R -q 'FabricCompatClient.endTick(this);' eaglercraft-u2/game/src/main/java/net/minecraft/client
           grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
