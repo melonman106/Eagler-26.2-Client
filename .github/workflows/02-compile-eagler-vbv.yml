@@ -136,6 +136,13 @@ jobs:
           ! grep -q 'VBVWorldMap.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
 
           grep -q 'ClientResourceEvents.fireReload' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
+          grep -q 'VBV_DUNGEONS_GUI_TITLE_HOOK' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Gui.java
+          grep -q 'VBV_ASYNC_SLEEP_CALLBACK_BRIDGE' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/PlatformRuntime.java
+          grep -q 'VBV_SERVER_WORKER_EXPLICIT_OPT_IN' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
+          grep -q 'EaglerProfileScreen26' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
+          grep -q 'EaglerProfile.getActiveSkinResourceLocation' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
+          grep -q '"shine"' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVModsScreen.java
+          grep -q 'ShineConfig.save' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/ShineConfig.java || grep -q 'private static void save()' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/ShineConfig.java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
