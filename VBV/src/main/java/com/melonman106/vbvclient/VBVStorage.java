@@ -15,6 +15,10 @@ public final class VBVStorage {
     public static boolean connected() { return connectedJS(); }
     public static String folderName() { return folderNameJS(); }
     public static boolean saveProfile(String name,String address,int renderDistance) { return saveProfileJS(name,address,renderDistance); }
+    public static void importWorld() { importFileJS("world", ".zip,.mcworld", "Worlds"); }
+    public static void importResourcePack() { importFileJS("resource-pack", ".zip,.jar", "Resource Packs/Global"); }
+    public static void importDatapack() { importFileJS("datapack", ".zip", "Datapacks/Global"); }
+    public static void importLitematic() { importFileJS("litematic", ".litematic", "Cache/Litematica"); }
 
     @JSBody(script="try { if(window.VBVStorage) window.VBVStorage.chooseFolder(); } catch(e){console.error(e);}") private static native void chooseFolderJS();
     @JSBody(script="try { if(window.VBVStorage) window.VBVStorage.reconnect(); } catch(e){console.error(e);}") private static native void reconnectJS();
@@ -26,4 +30,5 @@ public final class VBVStorage {
     @JSBody(script="try { return !!(window.VBVStorage&&window.VBVStorage.status().connected); } catch(e){ return false; }") private static native boolean connectedJS();
     @JSBody(script="try { return window.VBVStorage ? String(window.VBVStorage.status().folder||'') : ''; } catch(e){ return ''; }") private static native String folderNameJS();
     @JSBody(params={"name","address","distance"},script="try { return !!(window.VBVStorage&&window.VBVStorage.saveProfile(name,address,distance)); } catch(e){ return false; }") private static native boolean saveProfileJS(String name,String address,int distance);
+    @JSBody(params={"kind","accept","folder"},script="try { if(window.VBVStorage&&window.VBVStorage.importFile) window.VBVStorage.importFile(kind,accept,folder); } catch(e){ console.error(e); }") private static native void importFileJS(String kind,String accept,String folder);
 }
