@@ -18,7 +18,7 @@ public final class VBVStorageScreen extends Screen {
         else if(tab==2){addButton("Import Resource Pack",x,112,b->VBVStorage.importResourcePack());addButton("Resource Pack Storage",x,137,b->show("Resource Packs","Imported packs are copied into Resource Packs/Global/. Server-specific packs can be stored under Resource Packs/Servers/."));}
         else if(tab==3){addButton("Import Datapack",x,112,b->VBVStorage.importDatapack());addButton("Datapack Storage",x,137,b->show("Datapacks","Imported packs are copied into Datapacks/Global/. Server-specific packs can be stored under Datapacks/Servers/."));}
         else if(tab==4){addButton("NEW SERVER PROFILE",x,112,b->VBVNav.open(new VBVStorageProfileScreen(this)));addButton("Refresh Profiles",x,137,b->rebuild());}
-        else{addButton("Import Litematic",x,112,b->VBVStorage.importLitematic());addButton("World Map Backups",x,137,b->show("Backups","World-map and world backups remain separate from active saves."));addButton("Clear Cache",x,162,b->show("Cache","Cache cleanup is handled by the managed storage bridge."));}
+        else{addButton("World Map Backups",x,112,b->show("Backups","World-map and world backups remain separate from active saves."));addButton("Clear Cache",x,137,b->show("Cache","Cache cleanup is handled by the managed storage bridge."));}
         addRenderableWidget(Button.builder(Component.literal("Done"),b->VBVNav.open(parent)).bounds(width/2-100,height-34,200,20).build());}
     private void addButton(String label,int x,int y,Button.OnPress action){addRenderableWidget(Button.builder(Component.literal(label),action).bounds(x,y,200,20).build());}
     private void show(String title,String message){VBVNav.open(new VBVStorageInfoScreen(this,title,message));}
