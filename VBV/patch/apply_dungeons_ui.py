@@ -56,8 +56,34 @@ def configure_navigation_helpers(method):
     def fqcn(class_name):return class_name if "." in class_name else imports.get(class_name,f"{title_package}.{class_name}")
     def body(name):
         target=targets[name]
+        if name == "openMultiplayer":
+            return f"""if (net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.isActive()) {{
+            net.lax1dude.eaglercraft.v1_8.sp.SingleplayerServerController26.prepareForRemoteMultiplayer();
+        }}
+        net.minecraft.client.gui.screens.Screen targetScreen =
+            Minecraft.getInstance().options.skipMultiplayerWarning
+                ? new {fqcn("JoinMultiplayerScreen")}(parent)
+                : new {fqcn("SafetyScreen")}(parent);
+        Minecraft.getInstance().{method}(targetScreen);"""
+        if name == "openSingleplayer":
+            if not target:
+                raise RuntimeError("Could not locate SelectWorldScreen constructor for Dungeons navigation")
+            class_name,args=target
+            return f"""if (net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.isActive()) {{
+            net.lax1dude.eaglercraft.v1_8.mesh.MeshWorkerRuntime.prewarm();
+            net.lax1dude.eaglercraft.v1_8.sp.SingleplayerServerController26.prewarmServerWorker();
+        }}
+        if (net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.isActive()
+                && net.lax1dude.eaglercraft.v1_8.sp.internal.ClientPlatformSingleplayer.isServerWorkerModeRequested()
+                && net.lax1dude.eaglercraft.v1_8.sp.SingleplayerServerController26.getState()
+                    != net.lax1dude.eaglercraft.v1_8.sp.SingleplayerServerController26.STATE_WORKER_IDLE) {{
+            Minecraft.getInstance().{method}(new net.lax1dude.eaglercraft.v1_8.sp.gui.EaglerIntegratedServerStartupScreen(parent));
+        }} else {{
+            Minecraft.getInstance().{method}(new {fqcn(class_name)}({args}));
+        }}"""
         if not target:return "open(parent);"
-        class_name,args=target;return f"Minecraft.getInstance().{method}(new {fqcn(class_name)}({args}));"
+        class_name,args=target
+        return f" Minecraft.getInstance().{method}(new {fqcn(class_name)}({args}));"
     generated=f'''package com.melonman106.vbvclient;\n\nimport net.minecraft.client.Minecraft;\nimport net.minecraft.client.gui.screens.Screen;\n\npublic final class VBVNav {{\n    private VBVNav() {{}}\n    public static void open(Screen screen) {{ Minecraft.getInstance().{method}(screen); }}\n    public static void openMultiplayer(Screen parent) {{ {body("openMultiplayer")} }}\n    public static void openSingleplayer(Screen parent) {{ {body("openSingleplayer")} }}\n    public static void openOptions(Screen parent) {{ {body("openOptions")} }}\n}}\n'''
     nav_files[0].write_text(generated,encoding="utf-8")
 
@@ -111,6 +137,26 @@ def force_initial_dungeons_screen(text):
     return text
 
 minecraft=find_minecraft();text=minecraft.read_text(encoding="utf-8");method,param=find_screen_method(text);text=make_screen_parameter_assignable(text,method,param);configure_navigation_helpers(method)
+# Gui.setScreen is also used for the very first screen during boot. Hooking only
+# Minecraft.setScreenAndShow misses that direct initial assignment, so the
+# Dungeons menu otherwise appears only after a later navigation action.
+gui_candidates=list(GAME.rglob("Gui.java"))
+if not gui_candidates:raise RuntimeError("Gui.java not found for initial Dungeons title-screen hook")
+gui=next((p for p in gui_candidates if p.as_posix().endswith("/net/minecraft/client/gui/Gui.java")),gui_candidates[0])
+gui_text=gui.read_text(encoding="utf-8")
+gui_marker="VBV_DUNGEONS_GUI_TITLE_HOOK"
+if gui_marker not in gui_text:
+    gui_anchor="      this.screen = screen;"
+    if gui_text.count(gui_anchor)!=1:raise RuntimeError("Could not uniquely locate Gui.setScreen assignment for Dungeons title hook")
+    gui_hook="""      // VBV_DUNGEONS_GUI_TITLE_HOOK
+      if (screen instanceof net.minecraft.client.gui.screens.TitleScreen
+            && !(screen instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) {
+         screen = new com.melonman106.vbvclient.VBVDungeonsTitleScreen();
+      }
+"""
+    gui_text=gui_text.replace(gui_anchor,gui_hook+gui_anchor,1)
+    gui.write_text(gui_text,encoding="utf-8")
+    print("[VBV Dungeons UI] Hooked Gui.setScreen so the custom menu is active on the first boot.")
 title_marker="VBV_DUNGEONS_TITLE_HOOK";title_code=f"// {title_marker}\nif ({param} instanceof net.minecraft.client.gui.screens.TitleScreen && !({param} instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) {{\n    this.{method}(new com.melonman106.vbvclient.VBVDungeonsTitleScreen());\n    return;\n}}";text=inject_once(text,title_marker,title_code,method,param);text=force_initial_dungeons_screen(text)
 backgrounds=prepare_assets();configure_loading_class(backgrounds);configure_slime_frames()
 if backgrounds:
