@@ -81,7 +81,7 @@ if hud_candidates:
   ("VBVJadeHud", "render"),
  ]
  for owner, method_name in hud_callbacks:
-  pattern = r"(?m)^\s*com\.melonman106\.vbvclient\." + owner + r"\." + method_name + r"\(\s*\w+\s*);\s*\n?"
+  pattern = r"(?m)^\s*com\.melonman106\.vbvclient\." + owner + r"\." + method_name + r"\(\s*\w+\s*\);\s*\n?"
   t, removed = re.subn(pattern, "", t)
   if removed:
    print("[VBV] Migrated", owner, "to HudRenderCallback (removed", removed, "legacy hook(s)).")
