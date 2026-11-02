@@ -90,7 +90,8 @@ jobs:
       - name: Inject VBV + Herz and embedded resource-pack mods
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          trap 'status=$?; echo "::error::Injection step failed at line ${LINENO}: ${BASH_COMMAND} (exit ${status})"; exit "$status"' ERR
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
