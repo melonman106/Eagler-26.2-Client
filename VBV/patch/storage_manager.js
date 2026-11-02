@@ -6,7 +6,7 @@
   const DB_NAME = "vbv-storage-handles-v1";
   const STORE = "handles";
   const KV_STORE = "data";
-  const LAYOUT = ["Worlds","WorldMap","Resource Packs","Resource Packs/Global","Resource Packs/Servers","Datapacks","Datapacks/Global","Datapacks/Servers","Server Profiles","Backups","Backups/WorldMap","Backups/Worlds","Cache","Settings","Cache/Litematica"];
+  const LAYOUT = ["Worlds","WorldMap","Resource Packs","Resource Packs/Global","Resource Packs/Servers","Datapacks","Datapacks/Global","Datapacks/Servers","Server Profiles","Backups","Backups/WorldMap","Backups/Worlds","Cache","Settings"];
   const cache = new Map(); const pending = new Map();
   let root = null, rootName = "", revision = 0, activeAddress = "", activeProfile = null, writeError = "", dbPromise;
   function openDB(){if(dbPromise)return dbPromise;dbPromise=new Promise((resolve,reject)=>{if(!( "indexedDB" in window))return reject(new Error("IndexedDB is unavailable"));const request=indexedDB.open(DB_NAME,2);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE);if(!db.objectStoreNames.contains(KV_STORE))db.createObjectStore(KV_STORE);};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error("Could not open storage metadata"));});return dbPromise;}
