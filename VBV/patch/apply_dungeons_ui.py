@@ -44,7 +44,9 @@ def _pick_screen_expression(title_text,preferred_names):
     for class_name,args in expressions:
         if class_name.rsplit('.',1)[-1].lower() not in preferred:continue
         adapted=re.sub(r"\bthis\.minecraft\.options\b","Minecraft.getInstance().options",args);adapted=re.sub(r"\bthis\.options\b","Minecraft.getInstance().options",adapted);adapted=re.sub(r"\bminecraft\.options\b","Minecraft.getInstance().options",adapted);adapted=re.sub(r"\bthis\b","parent",adapted)
-        if not re.search(r"\b(?:this|minecraft|options)\b",adapted):return class_name,adapted
+        # OptionsScreen's valid constructor includes Minecraft.getInstance().options.
+        # Reject only unresolved instance references; the options field is intentional.
+        if not re.search(r"\bthis\b",adapted):return class_name,adapted
     return None
 
 def _screen_imports(title_text):return {simple:full for full,simple in re.findall(r"^\s*import\s+([\w.$]+\.([A-Za-z_$][\w$]*));",title_text,re.M)}
