@@ -133,6 +133,20 @@ if screen_candidates:
   before="\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireRemove(this);")
  screen.write_text(st,encoding="utf-8")
 
+# Fire the client resource reload event after Minecraft reports a successful pack reload.
+minecraft_candidates=java_files_named("Minecraft.java")
+if minecraft_candidates:
+ minecraft=next((p for p in minecraft_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")),minecraft_candidates[0])
+ mt=minecraft.read_text(encoding="utf-8")
+ reload_marker="VBV_FABRIC_RESOURCE_RELOAD"
+ if reload_marker not in mt:
+  complete="result.complete(null);"
+  if mt.count(complete)==1:
+   mt=mt.replace(complete,"net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientResourceEvents.fireReload(this); // "+reload_marker+"\\n                  "+complete,1)
+   minecraft.write_text(mt,encoding="utf-8")
+  else:
+   print("[VBV] Could not uniquely locate successful resource reload completion; resource callback remains manually callable.")
+
 storage=Path(__file__).resolve().parent/"storage_manager.js"
 if storage.is_file():
  s=storage.read_text(encoding="utf-8")
