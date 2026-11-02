@@ -84,13 +84,54 @@ if hud_candidates:
    if e<0:raise RuntimeError("Could not locate Hud.extractRenderState end")
    g=m.group(1);t=t[:e]+f"\n        // {marker}\n        com.melonman106.vbvclient.VBVLowHealthPulse.render({g});\n    "+t[e:]
  if "VBV_CUSTOM_CROSSHAIR_SUPPRESS" not in t:
-  t=re.sub(r"(?m)^(\s*)([^\n]*CROSSHAIR_SPRITE[^\n]*;)",r"\1if (!com.melonman106.vbvclient.VBVCrosshairConfig.enabled) { /* VBV_CUSTOM_CROSSHAIR_SUPPRESS */\n\1    \2\n\1}",t,count=1)
+  # Wrap only the actual draw call, never the static field declaration.
+  t,n=re.subn(r"(?m)^(\\s*)(graphics\\.blitSprite\\([^;\\n]*CROSSHAIR_SPRITE[^;\\n]*;)",r"\\1if (!com.melonman106.vbvclient.VBVCrosshairConfig.enabled) { /* VBV_CUSTOM_CROSSHAIR_SUPPRESS */\\n\\1    \\2\\n\\1}",t,count=1)
+  if n!=1: print("[VBV] Vanilla crosshair draw call not found; leaving it unchanged.")
  cross=re.search(r"(?:private|public|protected)\s+void\s+extractCrosshair\s*\([^)]*GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{",t)
  if cross and "VBV_CUSTOM_CROSSHAIR_RENDER" not in t:
   b=t.find("{",cross.start());e=matching_brace(t,b);g=cross.group(1)
   if e<0:raise RuntimeError("Could not locate extractCrosshair end")
   t=t[:e]+f"\n        // VBV_CUSTOM_CROSSHAIR_RENDER\n        com.melonman106.vbvclient.VBVCrosshair.render({g});\n    "+t[e:]
+ # Fabric-shaped HUD render callback: run after native HUD state collection.
+ hud_marker="VBV_FABRIC_HUD_RENDER_CALLBACK"
+ if hud_marker not in t:
+  method=re.search(r"public\\s+void\\s+extractRenderState\\s*\\(\\s*final\\s+GuiGraphicsExtractor\\s+(\\w+)\\s*,\\s*final\\s+DeltaTracker\\s+(\\w+)\\s*\\)\\s*\\{",t)
+  if method:
+   b=t.find("{",method.start());e=matching_brace(t,b)
+   if e<0: raise RuntimeError("Could not locate Hud.extractRenderState end for Fabric HUD callback")
+   graphics_name,delta_name=method.group(1),method.group(2)
+   t=t[:e]+f"\\n        // {hud_marker}\\n        net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.fire(this.minecraft, {graphics_name}, {delta_name});\\n    "+t[e:]
  hud.write_text(t,encoding="utf-8")
+
+# Connect Fabric-style screen events to the real 26.2 Screen lifecycle.
+screen_candidates=java_files_named("Screen.java")
+if screen_candidates:
+ screen=next((p for p in screen_candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/Screen.java")),screen_candidates[0])
+ st=screen.read_text(encoding="utf-8")
+ def inject_screen_event(pattern, marker, before="", after=""):
+  nonlocal_text=st
+  if marker in nonlocal_text:return nonlocal_text
+  m=re.search(pattern,nonlocal_text)
+  if not m:
+   print("[VBV] Screen hook target not found:",marker)
+   return nonlocal_text
+  brace=nonlocal_text.find("{",m.start());end=matching_brace(nonlocal_text,brace)
+  if end<0:raise RuntimeError("Could not locate Screen method end: "+marker)
+  return nonlocal_text[:brace+1]+before+nonlocal_text[brace+1:end]+after+nonlocal_text[end:]
+ st=inject_screen_event(r"public\\s+final\\s+void\\s+init\\s*\\(\\s*final\\s+int\\s+(\\w+)\\s*,\\s*final\\s+int\\s+(\\w+)\\s*\\)\\s*\\{",
+  "VBV_FABRIC_SCREEN_INIT",
+  before="\\n      // VBV_FABRIC_SCREEN_INIT\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireBeforeInit(this, width, height);",
+  after="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterInit(this, width, height);")
+ st=inject_screen_event(r"public\\s+void\\s+extractRenderState\\s*\\(\\s*final\\s+GuiGraphicsExtractor\\s+(\\w+)\\s*,\\s*final\\s+int\\s+(\\w+)\\s*,\\s*final\\s+int\\s+(\\w+)\\s*,\\s*final\\s+float\\s+(\\w+)\\s*\\)\\s*\\{",
+  "VBV_FABRIC_SCREEN_RENDER",
+  before="\\n      // VBV_FABRIC_SCREEN_RENDER\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireBeforeRender(this, graphics, mouseX, mouseY, a);",
+  after="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterRender(this, graphics, mouseX, mouseY, a);")
+ st=inject_screen_event(r"public\\s+void\\s+tick\\s*\\(\\s*\\)\\s*\\{",
+  "VBV_FABRIC_SCREEN_TICK", after="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireAfterTick(this);")
+ st=inject_screen_event(r"public\\s+void\\s+removed\\s*\\(\\s*\\)\\s*\\{",
+  "VBV_FABRIC_SCREEN_REMOVE",
+  before="\\n      net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.fireRemove(this);")
+ screen.write_text(st,encoding="utf-8")
 
 storage=Path(__file__).resolve().parent/"storage_manager.js"
 if storage.is_file():
