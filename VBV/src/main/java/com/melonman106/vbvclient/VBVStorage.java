@@ -18,7 +18,6 @@ public final class VBVStorage {
     public static void importWorld() { importFileJS("world", ".zip,.mcworld", "Worlds"); }
     public static void importResourcePack() { importFileJS("resource-pack", ".zip,.jar", "Resource Packs/Global"); }
     public static void importDatapack() { importFileJS("datapack", ".zip", "Datapacks/Global"); }
-    public static void importLitematic() { importFileJS("litematic", ".litematic", "Cache/Litematica"); }
 
     @JSBody(script="try { if(window.VBVStorage) window.VBVStorage.chooseFolder(); } catch(e){console.error(e);}") private static native void chooseFolderJS();
     @JSBody(script="try { if(window.VBVStorage) window.VBVStorage.reconnect(); } catch(e){console.error(e);}") private static native void reconnectJS();
