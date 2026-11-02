@@ -4,10 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 
-/**
- * Simple client-side hotkeys. These are handled from KeyboardHandler so they
- * work even though this Eagler port does not load Fabric's KeyMapping system.
- */
+/** Mods-screen and world-map navigation hotkeys on the native keyboard event bridge. */
 public final class VBVKeybinds {
     private static final int KEY_V = 86;
     private static final int KEY_M = 77;
