@@ -22,8 +22,8 @@ if "public static void renderHeldArm(" not in helper_text:
 
 text = renderer.read_text(encoding="utf-8")
 needle = "this.renderItem(\n               player,\n               itemStack,"
-hook = """if (VBVFirstPersonAnimations.isEnabled()) {
-               VBVFirstPersonAnimations.renderHeldArm(
+hook = """if (com.melonman106.vbvclient.VBVFirstPersonAnimations.isEnabled()) {
+               com.melonman106.vbvclient.VBVFirstPersonAnimations.renderHeldArm(
                   poseStack, submitNodeCollector, lightCoords, player, arm, this.entityRenderDispatcher
                );
             }
@@ -34,7 +34,7 @@ hook = """if (VBVFirstPersonAnimations.isEnabled()) {
 count = text.count(needle)
 
 if count == 0:
-    if text.count("VBVFirstPersonAnimations.renderHeldArm(") == 2:
+    if text.count("com.melonman106.vbvclient.VBVFirstPersonAnimations.renderHeldArm(") == 2:
         print("[VBV first-person arms] Existing two arm hooks verified; no changes needed.")
         raise SystemExit(0)
     raise SystemExit("::error::Could not locate the two vanilla held-item render sites")
