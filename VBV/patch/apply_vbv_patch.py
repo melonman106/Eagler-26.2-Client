@@ -7,9 +7,37 @@ import os
 import subprocess
 import sys
 import zipfile
+import ast
 
 CLIENT_SIDE = Path(__file__).resolve().parent.parent
 REPO_ROOT = CLIENT_SIDE.parent
+
+# Fail before modifying the generated workspace if any patch script has a
+# Python syntax error or a required stage is missing.
+PATCH_DIR = CLIENT_SIDE / "patch"
+REQUIRED_PATCH_SCRIPTS = (
+    "sanitize_modpacks.py",
+    "post_vbv_fixes.py",
+    "restore_upstream_sleep.py",
+    "patch_wasm_runtime.py",
+    "patch_wasm_i64_guard.py",
+    "patch_teavm_version.py",
+    "patch_final_runtime_resolver.py",
+    "patch_worldmap_import_js.py",
+    "apply_dungeons_ui.py",
+    "apply_dungeons_home.py",
+    "remove_storage_launcher.py",
+    "normalize_png_assets.py",
+)
+missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
+if missing_scripts:
+    raise SystemExit("::error::Required patch scripts are missing: " + ", ".join(missing_scripts))
+for script in sorted(PATCH_DIR.rglob("*.py")):
+    try:
+        ast.parse(script.read_text(encoding="utf-8"), filename=str(script))
+    except SyntaxError as exc:
+        raise SystemExit(f"::error::Patch script syntax error in {script}: {exc}") from exc
+print(f"[VBV preflight] Python syntax validated for {len(list(PATCH_DIR.rglob('*.py')))} patch scripts.")
 
 
 def _materialize_eagler_overlay() -> None:
