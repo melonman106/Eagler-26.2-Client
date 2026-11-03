@@ -10,6 +10,8 @@ public final class VBVStorage {
     public static void updateServer(String address) { if(address!=null) updateServerJS(address); }
     public static String getText(String key) { return getTextJS(key); }
     public static boolean putText(String key,String value) { return putTextJS(key,value); }
+    // A Java long is a wasm i64 on TeaVM WASM-GC and may only cross the JS boundary as a BigInt. The JS side returns a
+    // plain Number, so the native method returns double and the long is made here, in Java.
     public static long revision() { return (long) revisionJS(); }
     public static boolean writeFailed() { return writeFailedJS(); }
     public static boolean connected() { return connectedJS(); }
