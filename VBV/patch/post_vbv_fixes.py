@@ -166,60 +166,29 @@ if storage.is_file():
  s=storage.read_text(encoding="utf-8")
  s=re.sub(r"\n\s*function addLauncher\(\)\s*\{.*?\n\s*\}\s*\n\s*if \(document\.readyState===\"loading\"\).*?window\.VBVStorage\.initialize\(\);\s*\}\s*else \{.*?\}\(\);","\n  if (document.readyState === \"loading\") document.addEventListener(\"DOMContentLoaded\", () => window.VBVStorage.initialize());\n  else window.VBVStorage.initialize();",s,flags=re.S)
  storage.write_text(s,encoding="utf-8")
-# TeaVM 0.13 WASM-GC can mis-handle the captured AsyncCallback reference in
-# PlatformRuntime.sleep's TimerHandler lambda. Keep the callback in a static
-# token map and let the JS timer handler capture only a 32-bit token; this also
-# supports multiple concurrent sleeps without sharing/overwriting one callback.
+# Keep the upstream TeaVM async sleep callback. The custom VBVSleepTimer
+# token-map bridge was introduced as a workaround, but the runtime later
+# crashed inside VBVSleepTimer.onTimer with a Number/BigInt conversion error.
+# Background-tab throttling can delay setTimeout; it does not itself explain
+# a Number-to-BigInt type mismatch. Retain the original TimerHandler lambda.
 sleep_path = ROOT / "platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/PlatformRuntime.java"
 if not sleep_path.is_file():
-    raise RuntimeError("platform-teavm PlatformRuntime.java not found for async sleep bridge")
+    raise RuntimeError("platform-teavm PlatformRuntime.java not found for sleep callback validation")
 sleep_text = sleep_path.read_text(encoding="utf-8")
 sleep_marker = "VBV_ASYNC_SLEEP_CALLBACK_BRIDGE"
-if sleep_marker not in sleep_text:
-    old_sleep = """private static void sleep(int millis, final AsyncCallback<Void> callback) {
+custom_start = sleep_text.find("private static final java.util.Map<Integer, AsyncCallback<Void>> vbvPendingSleepCallbacks")
+if custom_start >= 0 or sleep_marker in sleep_text:
+    method_end = sleep_text.find("\n\tpublic static void postCreate()", custom_start)
+    if custom_start < 0 or method_end < 0:
+        raise RuntimeError("Found a partial custom VBVSleepTimer bridge; refusing unsafe partial removal")
+    upstream_sleep = """private static void sleep(int millis, final AsyncCallback<Void> callback) {
 \t\tWindow.setTimeout(() -> callback.complete(null), millis);
 \t}"""
-    if old_sleep not in sleep_text:
-        raise RuntimeError("Could not find the expected PlatformRuntime.sleep TimerHandler lambda")
-    replacement_sleep = """private static final java.util.Map<Integer, AsyncCallback<Void>> vbvPendingSleepCallbacks = new HashMap<>();
-\tprivate static int vbvNextSleepCallbackId = 1;
-
-\tprivate static final class VBVSleepTimer implements org.teavm.jso.browser.TimerHandler {
-\t\tprivate final int id;
-\t\tprivate VBVSleepTimer(int id) { this.id = id; }
-\t\t@Override public void onTimer() {
-\t\t\tAsyncCallback<Void> callback;
-\t\t\tsynchronized(vbvPendingSleepCallbacks) {
-\t\t\t\tcallback = vbvPendingSleepCallbacks.remove(id);
-\t\t\t}
-\t\t\tif(callback != null) callback.complete(null);
-\t\t}
-\t}
-
-\tprivate static void sleep(int millis, final AsyncCallback<Void> callback) {
-\t\tfinal int id;
-\t\tsynchronized(vbvPendingSleepCallbacks) {
-\t\t\tint candidate;
-\t\t\tdo {
-\t\t\t\tcandidate = vbvNextSleepCallbackId++;
-\t\t\t\tif(vbvNextSleepCallbackId <= 0) vbvNextSleepCallbackId = 1;
-\t\t\t} while(vbvPendingSleepCallbacks.containsKey(candidate));
-\t\t\tid = candidate;
-\t\t\tvbvPendingSleepCallbacks.put(id, callback);
-\t\t}
-\t\ttry {
-\t\t\tWindow.setTimeout(new VBVSleepTimer(id), Math.max(0, millis));
-\t\t}catch(RuntimeException | Error t) {
-\t\t\tsynchronized(vbvPendingSleepCallbacks) { vbvPendingSleepCallbacks.remove(id); }
-\t\t\tthrow t;
-\t\t}
-\t}
-\t// VBV_ASYNC_SLEEP_CALLBACK_BRIDGE"""
-    sleep_text = sleep_text.replace(old_sleep, replacement_sleep, 1)
+    sleep_text = sleep_text[:custom_start] + upstream_sleep + "\n\n" + sleep_text[method_end:]
     sleep_path.write_text(sleep_text, encoding="utf-8")
-    print("[VBV runtime] replaced capturing PlatformRuntime.sleep lambda with token-based timer callback.")
-else:
-    print("[VBV runtime] token-based PlatformRuntime.sleep callback already installed.")
+elif "private static void sleep(int millis, final AsyncCallback<Void> callback)" not in sleep_text:
+    raise RuntimeError("Expected upstream PlatformRuntime.sleep implementation was not found")
+print("[VBV runtime] using upstream TeaVM async sleep callback; custom VBVSleepTimer bridge is disabled.")
 # Respect the explicit worker opt-in on WASM-GC too. The pinned workspace
 # treated wasmGC itself as permission to force serverWorker, overriding the
 # generated HTML's safe single-thread default and leaving Singleplayer on the
