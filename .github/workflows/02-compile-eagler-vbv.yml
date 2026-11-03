@@ -159,8 +159,8 @@ jobs:
           grep -q 'VBVFirstPersonAnimations.toggle()' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimationsConfigScreen.java
           held_renderer='eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java'
           held_arm_helper='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimations.java'
-          grep -q 'com.melonman106.vbvclient.VBVFirstPersonAnimations.renderHeldArm' "$held_renderer"
-          test "$(grep -c 'com.melonman106.vbvclient.VBVFirstPersonAnimations.renderHeldArm' "$held_renderer")" -eq 2
+          grep -q 'VBV_FIRST_PERSON_HELD_ARM' "$held_renderer"
+          grep -q 'this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, attack, arm)' "$held_renderer"
           grep -q 'return enabled;' "$held_arm_helper"
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
