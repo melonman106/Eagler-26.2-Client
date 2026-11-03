@@ -124,6 +124,10 @@ def patch_platform_input_raf():
     body=body.replace("completed[0]", "vsyncCallbackCompleted")
     source=source[:method_open+1]+body+source[method_end:]
     source=source[:method.start()]+callback_decl+source[method.start():]
+    # A previous patch stage can leave an escaped Java member-access dot.
+    # Normalize it here so the generated Java source can never contain
+    # the invalid token `Window\.requestAnimationFrame(...)`.
+    source=source.replace("Window\\.requestAnimationFrame", "Window.requestAnimationFrame")
     source=source.replace("// "+marker, "// "+marker, 1)
     source=source.replace("public class PlatformInput {", "public class PlatformInput {\n\n\t// "+marker, 1)
     path.write_text(source,encoding="utf-8")
