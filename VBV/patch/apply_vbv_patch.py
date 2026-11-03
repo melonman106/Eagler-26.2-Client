@@ -28,6 +28,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "apply_dungeons_home.py",
     "remove_storage_launcher.py",
     "normalize_png_assets.py",
+    "check_js_long_boundary.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -55,6 +56,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(dungeons_home)",
     "subprocess.run([sys.executable, str(storage_ui)",
     "subprocess.run(\n        [sys.executable, str(normalize_png)",
+    "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
 if execution_start < 0:
@@ -240,3 +242,15 @@ if normalize_png.is_file():
         [sys.executable, str(normalize_png), str(Path(sys.argv[1]).resolve() / "game" / "src" / "main" / "resources")],
         check=True,
     )
+
+# Scan both VBV sources and the fully patched generated workspace. This runs
+# after every source-injection stage and before Gradle/TeaVM compilation.
+js_long_checker = PATCH_DIR / "check_js_long_boundary.py"
+generated_root = Path(sys.argv[1]).resolve() if len(sys.argv) >= 2 else None
+java_roots = [CLIENT_SIDE / "src" / "main" / "java"]
+if generated_root is not None:
+    java_roots.append(generated_root / "game" / "src" / "main" / "java")
+scan_roots = [str(root) for root in java_roots if root.is_dir()]
+if not scan_roots:
+    raise SystemExit("::error::No Java source roots found for the TeaVM JS-boundary check")
+subprocess.run([sys.executable, str(js_long_checker), *scan_roots], check=True)
