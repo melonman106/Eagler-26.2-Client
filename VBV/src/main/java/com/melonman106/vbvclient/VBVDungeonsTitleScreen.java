@@ -60,18 +60,6 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         graphics.fill(left - 14, menuTop - 18, left + menuWidth + 14, Math.min(height - 34, menuTop + 146), 0x66000000);
         graphics.fill(left - 10, menuTop - 14, left + menuWidth + 10, menuTop - 10, 0xAAFFFFFF);
 
-        // Dungeons II-inspired title treatment. Keep the actual client identity underneath it.
-        int titleCenter = width / 2;
-        String titleA = "MINECRAFT";
-        String titleB = "DUNGEONS II";
-        int titleAWidth = font.width(titleA);
-        int titleBWidth = font.width(titleB);
-        graphics.text(font, titleA, titleCenter - titleAWidth / 2 + 2, 22, 0xAA000000, true);
-        graphics.text(font, titleA, titleCenter - titleAWidth / 2, 20, 0xFFFFFFFF, true);
-        graphics.text(font, titleB, titleCenter - titleBWidth / 2 + 2, 37, 0xAA000000, true);
-        graphics.text(font, titleB, titleCenter - titleBWidth / 2, 35, 0xFFFFC34D, true);
-        graphics.text(font, "VBV EDITION", titleCenter - font.width("VBV EDITION") / 2, 51, 0xFFE8E8E8, false);
-
         // Small status/profile area, similar to the player-facing corner UI used by Dungeons.
         String name = EaglerProfile.getName();
         if (name == null || name.isEmpty()) name = "Player";
