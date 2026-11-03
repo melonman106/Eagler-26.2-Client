@@ -8,7 +8,7 @@ import net.minecraft.resources.Identifier;
 import net.lax1dude.eaglercraft.v1_8.profile.EaglerProfile;
 import net.minecraft.network.chat.Component;
 
-/** VBV home screen with native Minecraft widgets and Dungeons-inspired layout. */
+/** VBV home screen with a compact Dungeons-inspired layout. */
 public final class VBVDungeonsTitleScreen extends TitleScreen {
     public VBVDungeonsTitleScreen() { super(); }
 
@@ -17,59 +17,69 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         VBVClient.init();
         EaglerProfile.readIfNeeded();
         clearWidgets();
-        int left = Math.max(24, width / 24);
-        int mainWidth = 178;
-        int smallWidth = 86;
-        int buttonHeight = 18;
-        int gap = 4;
-        int rowGap = 4;
-        int y = Math.max(64, height - 124);
+
+        int left = Math.max(26, width / 24);
+        int mainWidth = Math.min(218, Math.max(190, width / 5));
+        int smallWidth = (mainWidth - 6) / 2;
+        int buttonHeight = 20;
+        int gap = 5;
+        int y = Math.max(76, height - 136);
 
         addNativeButton("PLAY", left, y, mainWidth, buttonHeight,
             b -> VBVNav.openMultiplayer(this));
-        y += buttonHeight + rowGap;
+        y += buttonHeight + gap;
         addNativeButton("SINGLEPLAYER", left, y, smallWidth, buttonHeight,
             b -> VBVNav.openSingleplayer(this));
         addNativeButton("PARTY", left + smallWidth + gap, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new VBVPartyScreen(this)));
-        y += buttonHeight + rowGap;
+        y += buttonHeight + gap;
         addNativeButton("MODS", left, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new VBVModsScreen(this)));
         addNativeButton("OPTIONS", left + smallWidth + gap, y, smallWidth, buttonHeight,
             b -> VBVNav.openOptions(this));
-        y += buttonHeight + rowGap;
+        y += buttonHeight + gap;
         addNativeButton("HERO", left, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new net.lax1dude.eaglercraft.v1_8.profile.EaglerProfileScreen26(this)));
 
-        addNativeButton("STORAGE", width - 108, height - 26, 84, 18,
+        addNativeButton("STORAGE", width - 112, height - 28, 88, 20,
             b -> VBVNav.open(new VBVStorageScreen(this)));
     }
 
-    private void addNativeButton(String label,int x,int y,int w,int h,Button.OnPress action){addRenderableWidget(Button.builder(Component.literal(label),action).bounds(x,y,w,h).build());}
+    private void addNativeButton(String label, int x, int y, int w, int h, Button.OnPress action) {
+        addRenderableWidget(Button.builder(Component.literal(label), action).bounds(x, y, w, h).build());
+    }
 
-    @Override public void extractRenderState(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float partialTick){
-        super.extractRenderState(graphics,mouseX,mouseY,partialTick);
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         EaglerProfile.readIfNeeded();
+
+        // Main-menu identity and hierarchy.
+        graphics.text(font, "VBV", 26, 24, 0xFFFFFFFF, true);
+        graphics.text(font, "EAGLERCRAFT 26.2", 26, 37, 0xFFD0D0D0, false);
+        graphics.text(font, "PLAY  •  EXPLORE  •  BUILD", 26, 51, 0xFFB8B8B8, false);
+        graphics.text(font, "MODDED CLIENT", 26, Math.max(62, height - 148), 0xFFFFFFFF, true);
+
         String name = EaglerProfile.getName();
-        if(name == null || name.isEmpty()) {
-            name = "Player";
-        }
+        if (name == null || name.isEmpty()) name = "Player";
         Identifier skin = EaglerProfile.getActiveSkinResourceLocation();
         int nameWidth = font.width(name);
         int textX = width - 12 - nameWidth;
         int headX = textX - 25;
         int headY = 10;
-        // Draw the actual selected Eagler skin face and hat overlay, without a panel.
         graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 8, 8, 20, 20, 8, 8, 64, 64);
         graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 40, 8, 20, 20, 8, 8, 64, 64);
         graphics.text(font, name, textX, headY + 6, 0xFFFFFFFF, true);
-        String[] party=VBVParty.players();
-        int py=headY+26;
-        for(int i=0;i<Math.min(4,party.length);i++){
-            String member=party[i];
-            graphics.fill(width-170,py,width-10,py+20,0x55000000);
-            graphics.text(font,member,width-160,py+6,0xFFE8E8E8,false);
-            py+=22;
+
+        String[] party = VBVParty.players();
+        int py = headY + 26;
+        for (int i = 0; i < Math.min(4, party.length); i++) {
+            String member = party[i];
+            graphics.fill(width - 170, py, width - 10, py + 20, 0x55000000);
+            graphics.text(font, member, width - 160, py + 6, 0xFFE8E8E8, false);
+            py += 22;
         }
+
+        graphics.text(font, "VBV CLIENT", 26, height - 18, 0xFF9E9E9E, false);
+        graphics.text(font, "26.2", width - 52, height - 18, 0xFF9E9E9E, false);
     }
 }
