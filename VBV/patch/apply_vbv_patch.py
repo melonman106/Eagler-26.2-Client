@@ -29,6 +29,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "remove_storage_launcher.py",
     "normalize_png_assets.py",
     "check_js_long_boundary.py",
+    "patch_first_person_arms.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -56,6 +57,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(dungeons_home)",
     "subprocess.run([sys.executable, str(storage_ui)",
     "subprocess.run(\n        [sys.executable, str(normalize_png)",
+    "subprocess.run([sys.executable, str(first_person_arms)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -242,6 +244,12 @@ if normalize_png.is_file():
         [sys.executable, str(normalize_png), str(Path(sys.argv[1]).resolve() / "game" / "src" / "main" / "resources")],
         check=True,
     )
+
+# Add skin-textured first-person arms after vanilla has been injected. The
+# patch only submits the arm mesh; vanilla retains every held-item transform.
+first_person_arms = PATCH_DIR / "patch_first_person_arms.py"
+if first_person_arms.is_file():
+    subprocess.run([sys.executable, str(first_person_arms), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.
