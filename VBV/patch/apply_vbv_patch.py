@@ -54,7 +54,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(dungeons_ui)",
     "subprocess.run([sys.executable, str(dungeons_home)",
     "subprocess.run([sys.executable, str(storage_ui)",
-    "subprocess.run(\\n        [sys.executable, str(normalize_png)",
+    "subprocess.run(\n        [sys.executable, str(normalize_png)",
 )
 order_positions = [runner_source.find(token) for token in required_order_tokens]
 if any(position < 0 for position in order_positions):
