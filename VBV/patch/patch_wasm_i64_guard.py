@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install a final JS-side guard for TeaVM WASM-GC i64 export calls."""
+"""Install final JS-side guards for TeaVM WASM-GC i64 boundaries."""
 from pathlib import Path
 import json
 import sys
@@ -64,6 +64,31 @@ function vbvWrapWasmInstance(instance) {
   });
 }
 
+/* VBV_WASM_GC_TABLE_I64_GET_BRIDGE_V1
+ *
+ * WASM-GC tables with a 64-bit address type require WebAssembly.Table#get()
+ * to receive a BigInt. TeaVM's generated async continuation path can hand the
+ * table accessor a safe JS Number (for example continuation index 1). Chrome
+ * then throws "Cannot convert 1 to a BigInt" before the WASM function runs.
+ *
+ * Retry only a safe integer after the native Number call rejects. This keeps
+ * normal Number-indexed tables unchanged and only activates the BigInt ABI
+ * when the browser proves that the table requires it.
+ */
+const vbvNativeTableGet = WebAssembly.Table.prototype.get;
+WebAssembly.Table.prototype.get = function(index) {
+  try {
+    return vbvNativeTableGet.call(this, index);
+  } catch (error) {
+    const message = String(error && error.message || error);
+    if (error instanceof TypeError && typeof index === "number" &&
+        Number.isSafeInteger(index) && /BigInt|bigint/i.test(message)) {
+      return vbvNativeTableGet.call(this, BigInt(index));
+    }
+    throw error;
+  }
+}
+
 const vbvNativeInstance = WebAssembly.Instance;
 WebAssembly.Instance = new Proxy(vbvNativeInstance, {
   construct(target, args) { return vbvWrapWasmInstance(Reflect.construct(target, args)); },
@@ -106,4 +131,4 @@ fs.writeFileSync = function(file, data, ...args) {
 
 text = text[:pos] + patch + text[pos:]
 PACKAGER.write_text(text, encoding="utf-8")
-print("[VBV i64 guard] installed final HTML WASM export boundary guard")
+print("[VBV i64 guard] installed final HTML WASM export + WASM-GC table i64 boundary guards")
