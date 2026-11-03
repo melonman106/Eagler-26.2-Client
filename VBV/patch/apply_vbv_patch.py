@@ -39,6 +39,30 @@ for script in sorted(PATCH_DIR.rglob("*.py")):
         raise SystemExit(f"::error::Patch script syntax error in {script}: {exc}") from exc
 print(f"[VBV preflight] Python syntax validated for {len(list(PATCH_DIR.rglob('*.py')))} patch scripts.")
 
+# Guard the order of transformations that depend on earlier generated files.
+runner_source = Path(__file__).read_text(encoding="utf-8")
+required_order_tokens = (
+    "subprocess.run([sys.executable, str(sanitize)",
+    "subprocess.run([sys.executable, str(upstream_path)",
+    "subprocess.run([sys.executable, str(post)",
+    "subprocess.run([sys.executable, str(sleep_restore)",
+    "subprocess.run([sys.executable, str(runtime_patch)",
+    "subprocess.run([sys.executable, str(i64_guard)",
+    "subprocess.run([sys.executable, str(teavm_version)",
+    "subprocess.run([sys.executable, str(final_runtime)",
+    "subprocess.run([sys.executable, str(worldmap_import)",
+    "subprocess.run([sys.executable, str(dungeons_ui)",
+    "subprocess.run([sys.executable, str(dungeons_home)",
+    "subprocess.run([sys.executable, str(storage_ui)",
+    "subprocess.run(\\n        [sys.executable, str(normalize_png)",
+)
+order_positions = [runner_source.find(token) for token in required_order_tokens]
+if any(position < 0 for position in order_positions):
+    raise SystemExit("::error::Patch runner is missing a required ordered stage")
+if order_positions != sorted(order_positions):
+    raise SystemExit("::error::Patch runner stage order has changed; refusing to build")
+print("[VBV preflight] Patch execution order validated.")
+
 
 def _materialize_eagler_overlay() -> None:
     """Apply the verified native Eagler resource overlay before patching."""
