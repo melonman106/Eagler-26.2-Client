@@ -112,21 +112,19 @@ def patch_platform_input_raf():
     if method_end<0: raise RuntimeError("Could not locate armRequestAnimationFrame() end")
     body=source[method_open+1:method_end]
     lambda_match=re.search(r"Window\.requestAnimationFrame\s*\(\s*\(d\)\s*->\s*\{",body)
-    if not lambda_match:
-        raise RuntimeError("PlatformInput requestAnimationFrame lambda not found")
+    if not lambda_match: raise RuntimeError("PlatformInput requestAnimationFrame lambda not found")
     lambda_open=body.find("{",lambda_match.start()); lambda_end=_matching_brace(body,lambda_open)
     if lambda_end<0: raise RuntimeError("Could not locate requestAnimationFrame lambda end")
     callback_body=body[lambda_open+1:lambda_end]
     callback_body=callback_body.replace("completed[0]", "vsyncCallbackCompleted")
     callback_decl="\n\tprivate static boolean vsyncCallbackCompleted = false;\n\n\tprivate static final org.teavm.jso.browser.AnimationFrameCallback VBV_VSYNC_CALLBACK = (d) -> {"+callback_body+"\n\t};\n\n"
-    body=body[:lambda_match.start()]+"Window.requestAnimationFrame(VBV_VSYNC_CALLBACK)"+body[lambda_end+1:]
+    # Replace the complete requestAnimationFrame(...) call, including its
+    # original closing parenthesis. Keeping that ')' would generate '));'.
+    body=body[:lambda_match.start()]+"Window.requestAnimationFrame(VBV_VSYNC_CALLBACK)"+body[lambda_end+2:]
     body=body.replace("final boolean[] completed = new boolean[] { false };", "vsyncCallbackCompleted = false;")
     body=body.replace("completed[0]", "vsyncCallbackCompleted")
     source=source[:method_open+1]+body+source[method_end:]
     source=source[:method.start()]+callback_decl+source[method.start():]
-    # A previous patch stage can leave an escaped Java member-access dot.
-    # Normalize it here so the generated Java source can never contain
-    # the invalid token `Window\.requestAnimationFrame(...)`.
     source=source.replace("Window\\.requestAnimationFrame", "Window.requestAnimationFrame")
     source=source.replace("// "+marker, "// "+marker, 1)
     source=source.replace("public class PlatformInput {", "public class PlatformInput {\n\n\t// "+marker, 1)
@@ -134,9 +132,6 @@ def patch_platform_input_raf():
     print("[VBV] Replaced captured PlatformInput rAF lambda with a static AnimationFrameCallback for WASM-GC safety.")
 
 def remove_oxer_credit():
-    # Keep the fork metadata clean and remove the o_xer credit from the
-    # native Eagler credits screen. The credit can be reintroduced later in
-    # a less intrusive VBV location without changing the home-menu layout.
     version_files=list((ROOT/"platform/src/main/java").rglob("EaglercraftVersion.java"))
     for path in version_files:
         source=path.read_text(encoding="utf-8")
