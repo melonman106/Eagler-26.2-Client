@@ -10,7 +10,7 @@ public final class VBVStorage {
     public static void updateServer(String address) { if(address!=null) updateServerJS(address); }
     public static String getText(String key) { return getTextJS(key); }
     public static boolean putText(String key,String value) { return putTextJS(key,value); }
-    public static long revision() { return revisionJS(); }
+    public static long revision() { return (long) revisionJS(); }
     public static boolean writeFailed() { return writeFailedJS(); }
     public static boolean connected() { return connectedJS(); }
     public static String folderName() { return folderNameJS(); }
@@ -24,7 +24,7 @@ public final class VBVStorage {
     @JSBody(params={"address"},script="try { if(window.VBVStorage) window.VBVStorage.updateServer(address); } catch(e){ }") private static native void updateServerJS(String address);
     @JSBody(params={"key"},script="try { if(window.VBVStorage) return window.VBVStorage.getTextSync(key); return localStorage.getItem(key)||''; } catch(e){ return ''; }") private static native String getTextJS(String key);
     @JSBody(params={"key","value"},script="try { if(window.VBVStorage) return !!window.VBVStorage.setTextSync(key,value); localStorage.setItem(key,value); return true; } catch(e){ return false; }") private static native boolean putTextJS(String key,String value);
-    @JSBody(script="try { return window.VBVStorage ? Number(window.VBVStorage.revision())||0 : 0; } catch(e){ return 0; }") private static native long revisionJS();
+    @JSBody(script="try { return window.VBVStorage ? Number(window.VBVStorage.revision())||0 : 0; } catch(e){ return 0; }") private static native double revisionJS();
     @JSBody(script="try { return !!(window.VBVStorage&&window.VBVStorage.status().writeError); } catch(e){ return false; }") private static native boolean writeFailedJS();
     @JSBody(script="try { return !!(window.VBVStorage&&window.VBVStorage.status().connected); } catch(e){ return false; }") private static native boolean connectedJS();
     @JSBody(script="try { return window.VBVStorage ? String(window.VBVStorage.status().folder||'') : ''; } catch(e){ return ''; }") private static native String folderNameJS();
