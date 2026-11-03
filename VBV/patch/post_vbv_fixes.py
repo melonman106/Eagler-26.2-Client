@@ -218,4 +218,4 @@ if sp_marker not in sp_text:
     print("[VBV singleplayer] server workers now require explicit ?workers/serverWorker opt-in; default uses the single-thread controller.")
 else:
     print("[VBV singleplayer] explicit server-worker opt-in already installed.")
-print("Post-VBV fixes complete: icons, client cap, HUD, storage, token-based async sleep bridge, and explicit singleplayer worker opt-in.")
+print("Post-VBV fixes complete: icons, client cap, HUD, storage, upstream async sleep callback, and explicit singleplayer worker opt-in.")
