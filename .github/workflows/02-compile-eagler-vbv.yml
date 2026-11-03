@@ -157,7 +157,11 @@ jobs:
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
           grep -q 'VBVFirstPersonAnimations.toggle()' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimationsConfigScreen.java
-          # The first-person animation renderer hook is not part of the current pinned U2 patch; do not fail the entire build on this optional hook.
+          held_renderer='eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java'
+          held_arm_helper='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimations.java'
+          grep -q 'com.melonman106.vbvclient.VBVFirstPersonAnimations.renderHeldArm' "$held_renderer"
+          test "$(grep -c 'com.melonman106.vbvclient.VBVFirstPersonAnimations.renderHeldArm' "$held_renderer")" -eq 2
+          grep -q 'return enabled;' "$held_arm_helper"
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
           for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
