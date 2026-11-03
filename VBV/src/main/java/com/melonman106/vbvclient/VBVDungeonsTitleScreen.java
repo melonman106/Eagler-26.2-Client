@@ -8,7 +8,7 @@ import net.minecraft.resources.Identifier;
 import net.lax1dude.eaglercraft.v1_8.profile.EaglerProfile;
 import net.minecraft.network.chat.Component;
 
-/** VBV home screen with a compact Dungeons-inspired layout. */
+/** VBV home screen styled after the cinematic Minecraft Dungeons II menu layout. */
 public final class VBVDungeonsTitleScreen extends TitleScreen {
     public VBVDungeonsTitleScreen() { super(); }
 
@@ -18,14 +18,15 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         EaglerProfile.readIfNeeded();
         clearWidgets();
 
-        int left = Math.max(26, width / 24);
-        int mainWidth = Math.min(218, Math.max(190, width / 5));
-        int smallWidth = (mainWidth - 6) / 2;
-        int buttonHeight = 20;
-        int gap = 5;
-        int y = Math.max(76, height - 136);
+        // Dungeons-style left navigation: one dominant action followed by compact utility rows.
+        int left = Math.max(28, width / 22);
+        int menuWidth = Math.min(270, Math.max(220, width / 4));
+        int smallWidth = (menuWidth - 6) / 2;
+        int buttonHeight = 24;
+        int gap = 6;
+        int y = Math.max(154, height / 2 - 18);
 
-        addNativeButton("PLAY", left, y, mainWidth, buttonHeight,
+        addNativeButton("PLAY", left, y, menuWidth, buttonHeight,
             b -> VBVNav.openMultiplayer(this));
         y += buttonHeight + gap;
         addNativeButton("SINGLEPLAYER", left, y, smallWidth, buttonHeight,
@@ -33,15 +34,14 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         addNativeButton("PARTY", left + smallWidth + gap, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new VBVPartyScreen(this)));
         y += buttonHeight + gap;
-        addNativeButton("MODS", left, y, smallWidth, buttonHeight,
-            b -> VBVNav.open(new VBVModsScreen(this)));
-        addNativeButton("OPTIONS", left + smallWidth + gap, y, smallWidth, buttonHeight,
-            b -> VBVNav.openOptions(this));
-        y += buttonHeight + gap;
         addNativeButton("HERO", left, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new net.lax1dude.eaglercraft.v1_8.profile.EaglerProfileScreen26(this)));
-
-        addNativeButton("STORAGE", width - 112, height - 28, 88, 20,
+        addNativeButton("MODS", left + smallWidth + gap, y, smallWidth, buttonHeight,
+            b -> VBVNav.open(new VBVModsScreen(this)));
+        y += buttonHeight + gap;
+        addNativeButton("OPTIONS", left, y, smallWidth, buttonHeight,
+            b -> VBVNav.openOptions(this));
+        addNativeButton("STORAGE", left + smallWidth + gap, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new VBVStorageScreen(this)));
     }
 
@@ -53,33 +53,53 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         EaglerProfile.readIfNeeded();
 
-        // Main-menu identity and hierarchy.
-        graphics.text(font, "VBV", 26, 24, 0xFFFFFFFF, true);
-        graphics.text(font, "EAGLERCRAFT 26.2", 26, 37, 0xFFD0D0D0, false);
-        graphics.text(font, "PLAY  •  EXPLORE  •  BUILD", 26, 51, 0xFFB8B8B8, false);
-        graphics.text(font, "MODDED CLIENT", 26, Math.max(62, height - 148), 0xFFFFFFFF, true);
+        // Cinematic dark panels keep the panorama visible while giving the menu the layered Dungeons look.
+        int left = Math.max(28, width / 22);
+        int menuWidth = Math.min(270, Math.max(220, width / 4));
+        int menuTop = Math.max(148, height / 2 - 24);
+        graphics.fill(left - 14, menuTop - 18, left + menuWidth + 14, Math.min(height - 34, menuTop + 146), 0x66000000);
+        graphics.fill(left - 10, menuTop - 14, left + menuWidth + 10, menuTop - 10, 0xAAFFFFFF);
 
+        // Dungeons II-inspired title treatment. Keep the actual client identity underneath it.
+        int titleCenter = width / 2;
+        String titleA = "MINECRAFT";
+        String titleB = "DUNGEONS II";
+        int titleAWidth = font.width(titleA);
+        int titleBWidth = font.width(titleB);
+        graphics.text(font, titleA, titleCenter - titleAWidth / 2 + 2, 22, 0xAA000000, true);
+        graphics.text(font, titleA, titleCenter - titleAWidth / 2, 20, 0xFFFFFFFF, true);
+        graphics.text(font, titleB, titleCenter - titleBWidth / 2 + 2, 37, 0xAA000000, true);
+        graphics.text(font, titleB, titleCenter - titleBWidth / 2, 35, 0xFFFFC34D, true);
+        graphics.text(font, "VBV EDITION", titleCenter - font.width("VBV EDITION") / 2, 51, 0xFFE8E8E8, false);
+
+        // Small status/profile area, similar to the player-facing corner UI used by Dungeons.
         String name = EaglerProfile.getName();
         if (name == null || name.isEmpty()) name = "Player";
         Identifier skin = EaglerProfile.getActiveSkinResourceLocation();
         int nameWidth = font.width(name);
-        int textX = width - 12 - nameWidth;
+        int textX = width - 16 - nameWidth;
         int headX = textX - 25;
-        int headY = 10;
+        int headY = 12;
         graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 8, 8, 20, 20, 8, 8, 64, 64);
         graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 40, 8, 20, 20, 8, 8, 64, 64);
         graphics.text(font, name, textX, headY + 6, 0xFFFFFFFF, true);
 
         String[] party = VBVParty.players();
-        int py = headY + 26;
-        for (int i = 0; i < Math.min(4, party.length); i++) {
-            String member = party[i];
-            graphics.fill(width - 170, py, width - 10, py + 20, 0x55000000);
-            graphics.text(font, member, width - 160, py + 6, 0xFFE8E8E8, false);
-            py += 22;
+        int py = headY + 28;
+        if (party.length > 0) {
+            graphics.fill(width - 188, py - 4, width - 10, py + Math.min(4, party.length) * 22 + 2, 0x55000000);
+            graphics.text(font, "PARTY", width - 176, py, 0xFFFFFFFF, true);
+            py += 14;
+            for (int i = 0; i < Math.min(4, party.length); i++) {
+                graphics.text(font, party[i], width - 166, py, 0xFFE8E8E8, false);
+                py += 18;
+            }
         }
 
-        graphics.text(font, "VBV CLIENT", 26, height - 18, 0xFF9E9E9E, false);
-        graphics.text(font, "26.2", width - 52, height - 18, 0xFF9E9E9E, false);
+        // Menu section labels and a subtle footer keep the screen readable without covering the world.
+        graphics.text(font, "ADVENTURE", left, menuTop - 30, 0xFFFFFFFF, true);
+        graphics.text(font, "EXPLORE THE WORLD", left + 82, menuTop - 30, 0xFFCCCCCC, false);
+        graphics.text(font, "VBV CLIENT  •  EAGLERCRAFT 26.2", left, height - 18, 0xCCFFFFFF, false);
+        graphics.text(font, "PROFILE", width - 72, height - 18, 0xCCFFFFFF, false);
     }
 }
