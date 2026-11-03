@@ -119,13 +119,14 @@ try:
 finally:
     upstream_path.unlink(missing_ok=True)
 
+post = CLIENT_SIDE / "patch/post_vbv_fixes.py"
+if post.is_file():
+    subprocess.run([sys.executable, str(post), *sys.argv[1:]], check=True)
+
 sleep_restore = CLIENT_SIDE / "patch/restore_upstream_sleep.py"
 if sleep_restore.is_file():
     subprocess.run([sys.executable, str(sleep_restore), *sys.argv[1:]], check=True)
 
-post = CLIENT_SIDE / "patch/post_vbv_fixes.py"
-if post.is_file():
-    subprocess.run([sys.executable, str(post), *sys.argv[1:]], check=True)
 
 runtime_patch = CLIENT_SIDE / "patch/patch_wasm_runtime.py"
 if runtime_patch.is_file():
