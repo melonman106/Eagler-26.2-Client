@@ -131,6 +131,12 @@ i64_guard = CLIENT_SIDE / "patch/patch_wasm_i64_guard.py"
 if i64_guard.is_file():
     subprocess.run([sys.executable, str(i64_guard), *sys.argv[1:]], check=True)
 
+# Upgrade the generated U2 workspace from TeaVM 0.13.0 to 0.13.1 before
+# Gradle compiles the game. This is required for the WASM-GC async-method fix.
+teavm_version = CLIENT_SIDE / "patch/patch_teavm_version.py"
+if teavm_version.is_file():
+    subprocess.run([sys.executable, str(teavm_version), *sys.argv[1:]], check=True)
+
 # TeaVM's generated standalone runtime contains a dynamic global resolver.
 # Apply the CSP-safe/property-walking replacement after the packager hook is
 # installed, so the final HTML cannot reach new Function() for global lookup.
