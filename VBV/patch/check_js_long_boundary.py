@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Fail if a Java `long` / `Long` crosses the TeaVM JavaScript boundary.
+"""Fail if a Java \`long\` / \`Long\` crosses the TeaVM JavaScript boundary.
 
-Why this matters (TeaVM WebAssembly-GC): a Java `long` is a wasm i64, and a wasm i64 can only be
-exchanged with JavaScript as a BigInt. A `@JSBody` that returns a normal JS Number (for example
-`return 0;`) for a `long` result - or JS that receives a `long` parameter as a BigInt it did not
+Why this matters (TeaVM WebAssembly-GC): a Java \`long\` is a wasm i64, and a wasm i64 can only be
+exchanged with JavaScript as a BigInt. A \`@JSBody\` that returns a normal JS Number (for example
+\`return 0;\`) for a \`long\` result - or JS that receives a \`long\` parameter as a BigInt it did not
 expect - throws "TypeError: Cannot convert 0 to a BigInt" at runtime, and nothing in javac or Gradle
-warns about it. Use `double` (or `int`) at the boundary and convert in Java.
+warns about it. Use \`double\` (or \`int\`) at the boundary and convert in Java.
 
 Checks, per .java file:
-  * `native` methods (the @JSBody pattern): return type or any parameter is long/Long.
+  * \`native\` methods (the @JSBody pattern): return type or any parameter is long/Long.
   * Abstract methods of interfaces/classes that extend/implement a JSObject type (JSO interfaces):
     same rule.
 Strings and comments are blanked first, so braces/keywords inside @JSBody script text cannot confuse it.
@@ -39,18 +39,18 @@ def blank_strings_and_comments(src: str) -> str:
             j = n if j < 0 else j + 2
             out.append("".join(ch if ch == "\n" else " " for ch in src[i:j]))
             i = j
-        elif src.startswith('\"\"\"', i):
-            j = src.find('\"\"\"', i + 3)
+        elif src.startswith('"""', i):
+            j = src.find('"""', i + 3)
             j = n if j < 0 else j + 3
-            out.append('\"\"\"' + "".join(ch if ch == "\n" else " " for ch in src[i + 3:j - 3]) + '\"\"\"')
+            out.append('"""' + "".join(ch if ch == "\n" else " " for ch in src[i + 3:j - 3]) + '"""')
             i = j
-        elif c == '\"' or c == "'":
+        elif c == '"' or c == "'":
             q = c
             j = i + 1
             while j < n and src[j] != q:
                 if src[j] == "\\":
                     j += 1
-                if j < n and src[j] == "\\n":
+                if j < n and src[j] == "\n":
                     break
                 j += 1
             j = min(j + 1, n)
@@ -110,11 +110,11 @@ def scan_file(path: Path):
     findings = []
 
     def line_of(idx):
-        return text.count("\\n", 0, idx) + 1
+        return text.count("\n", 0, idx) + 1
 
     def check(kind, ret, name, params, idx):
         bad = []
-        if LONG.match(re.sub(r"\\s+", "", ret)):
+        if LONG.match(re.sub(r"\s+", "", ret)):
             bad.append(f"returns {ret.strip()}")
         for p in split_params(params):
             if LONG.match(param_type(p)):
