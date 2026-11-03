@@ -144,7 +144,10 @@ jobs:
           grep -q 'SelectWorldScreen' "$nav_src"
           grep -q 'EaglerIntegratedServerStartupScreen' "$nav_src"
           grep -q 'OptionsScreen' "$nav_src"
-          grep -q 'VBV_ASYNC_SLEEP_CALLBACK_BRIDGE' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/PlatformRuntime.java
+          sleep_src='eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/PlatformRuntime.java'
+          grep -Fq 'Window.setTimeout(() -> callback.complete(null), millis);' "$sleep_src"
+          ! grep -q 'VBVSleepTimer' "$sleep_src"
+          ! grep -q 'vbvPendingSleepCallbacks' "$sleep_src"
           grep -q 'VBV_SERVER_WORKER_EXPLICIT_OPT_IN' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
           grep -q 'EaglerProfileScreen26' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
           grep -q 'EaglerProfile.getActiveSkinResourceLocation' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
