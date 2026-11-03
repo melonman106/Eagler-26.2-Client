@@ -56,9 +56,10 @@ def configure_panorama_overlay():
     animated=mp4 if mp4.is_file() else gif if gif.is_file() else None
     frame_dir=RES/"assets/vbvclient/textures/panorama_overlay"; frame_dir.mkdir(parents=True,exist_ok=True)
     for old in frame_dir.glob("frame_*.png"): old.unlink()
-    screen_files=list(GAME.rglob("Screen.java"))
+    screen_files=list(GAME.rglob("Screen.java")); title_files=list(GAME.rglob("TitleScreen.java"))
     if not screen_files: raise RuntimeError("Screen.java not found")
     screen=next((p for p in screen_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/Screen.java")),screen_files[0])
+    title=next((p for p in title_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")),title_files[0]) if title_files else None
     if animated:
         ffmpeg=shutil.which("ffmpeg")
         if not ffmpeg: raise RuntimeError("panorama_overlay.gif/mp4 is present but FFmpeg is unavailable")
@@ -75,6 +76,8 @@ def configure_panorama_overlay():
             source=re.sub(r"private static final Identifier\[\] FRAMES = new Identifier\[\] \{.*?\};","private static final Identifier[] FRAMES = new Identifier[] {\n        Identifier.parse(\"vbvclient:textures/panorama_overlay/frame_0001.png\")\n    };",source,count=1,flags=re.S); java.write_text(source,encoding="utf-8")
     else:
         return
+
+    # All ordinary menu screens receive the panorama from the base Screen.
     source=screen.read_text(encoding="utf-8"); marker="VBV_GLOBAL_PANORAMA_BACKGROUND"
     if marker not in source:
         method=re.search(r"public\s+void\s+extractRenderState\s*\(\s*final\s+GuiGraphicsExtractor\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*,\s*final\s+float\s+(\w+)\s*\)\s*\{",source)
@@ -83,6 +86,16 @@ def configure_panorama_overlay():
         if brace<0: raise RuntimeError("Could not locate Screen.extractRenderState body")
         hook=f"\n        // {marker}\n        if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) {{\n            com.melonman106.vbvclient.VBVPanoramaOverlay.render({graphics}, this.width, this.height);\n        }}"
         screen.write_text(source[:brace+1]+hook+source[brace+1:],encoding="utf-8")
+
+    # TitleScreen has its own panorama pass after the base Screen pass, so it
+    # needs the VBV layer after extractPanorama to keep the custom scene visible.
+    if title is not None:
+        ts=title.read_text(encoding="utf-8"); marker="VBV_PANORAMA_OVERLAY_RENDER"
+        if marker not in ts:
+            anchor="this.extractPanorama(graphics, a);"
+            if ts.count(anchor)!=1: raise RuntimeError("Could not locate title panorama render call")
+            hook=anchor+f"\n      // {marker}\n      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);"
+            title.write_text(ts.replace(anchor,hook,1),encoding="utf-8")
 
 def _matching_brace(text, brace):
     depth=0; i=brace; quote=None; escaped=False
@@ -108,18 +121,15 @@ def _matching_brace(text, brace):
     return -1
 
 def patch_platform_input_raf():
-    """Avoid a captured lambda/boolean[] crossing the WASM-GC JS boundary."""
     candidates=list((ROOT/"platform-teavm/src/main/java").rglob("PlatformInput.java"))
     if not candidates:return
-    path=candidates[0]; source=path.read_text(encoding="utf-8")
-    marker="VBV_WASM_GC_RAF_CALLBACK_BRIDGE"
+    path=candidates[0]; source=path.read_text(encoding="utf-8"); marker="VBV_WASM_GC_RAF_CALLBACK_BRIDGE"
     if marker in source:return
     method=re.search(r"private\s+static\s+void\s+armRequestAnimationFrame\s*\(\s*\)\s*\{",source)
     if not method: raise RuntimeError("PlatformInput.armRequestAnimationFrame() not found")
     method_open=source.find("{",method.start()); method_end=_matching_brace(source,method_open)
     if method_end<0: raise RuntimeError("Could not locate armRequestAnimationFrame() end")
-    body=source[method_open+1:method_end]
-    lambda_match=re.search(r"Window\.requestAnimationFrame\s*\(\s*\(d\)\s*->\s*\{",body)
+    body=source[method_open+1:method_end]; lambda_match=re.search(r"Window\.requestAnimationFrame\s*\(\s*\(d\)\s*->\s*\{",body)
     if not lambda_match: raise RuntimeError("PlatformInput requestAnimationFrame lambda not found")
     lambda_open=body.find("{",lambda_match.start()); lambda_end=_matching_brace(body,lambda_open)
     if lambda_end<0: raise RuntimeError("Could not locate requestAnimationFrame lambda end")
@@ -127,23 +137,17 @@ def patch_platform_input_raf():
     callback_decl="\n\tprivate static boolean vsyncCallbackCompleted = false;\n\n\tprivate static final org.teavm.jso.browser.AnimationFrameCallback VBV_VSYNC_CALLBACK = (d) -> {"+callback_body+"\n\t};\n\n"
     body=body[:lambda_match.start()]+"Window.requestAnimationFrame(VBV_VSYNC_CALLBACK)"+body[lambda_end+2:]
     body=body.replace("final boolean[] completed = new boolean[] { false };", "vsyncCallbackCompleted = false;").replace("completed[0]", "vsyncCallbackCompleted")
-    source=source[:method_open+1]+body+source[method_end:]
-    source=source[:method.start()]+callback_decl+source[method.start():]
-    source=source.replace("Window\\.requestAnimationFrame", "Window.requestAnimationFrame")
-    source=source.replace("public class PlatformInput {", "public class PlatformInput {\n\n\t// "+marker, 1)
+    source=source[:method_open+1]+body+source[method_end:]; source=source[:method.start()]+callback_decl+source[method.start():]
+    source=source.replace("Window\\.requestAnimationFrame", "Window.requestAnimationFrame"); source=source.replace("public class PlatformInput {", "public class PlatformInput {\n\n\t// "+marker, 1)
     path.write_text(source,encoding="utf-8")
 
 def remove_oxer_credit():
     version_files=list((ROOT/"platform/src/main/java").rglob("EaglercraftVersion.java"))
     for path in version_files:
-        source=path.read_text(encoding="utf-8")
-        source=source.replace('public static final String projectForkVendor = "o_xer";', 'public static final String projectForkVendor = "";')
-        source=source.replace('public static final String mainMenuStringF = "Made by " + projectForkVendor;', 'public static final String mainMenuStringF = "";')
+        source=path.read_text(encoding="utf-8").replace('public static final String projectForkVendor = "o_xer";', 'public static final String projectForkVendor = "";').replace('public static final String mainMenuStringF = "Made by " + projectForkVendor;', 'public static final String mainMenuStringF = "";')
         path.write_text(source,encoding="utf-8")
-    credit_files=list(GAME.rglob("EaglerCreditsScreen.java"))
-    for path in credit_files:
-        source=path.read_text(encoding="utf-8")
-        source=source.replace('.append(Component.translatableWithFallback("eagler.credits.madeBy", "\\nMade by o_xer").withStyle(ChatFormatting.AQUA))', '')
+    for path in GAME.rglob("EaglerCreditsScreen.java"):
+        source=path.read_text(encoding="utf-8").replace('.append(Component.translatableWithFallback("eagler.credits.madeBy", "\\nMade by o_xer").withStyle(ChatFormatting.AQUA))', '')
         path.write_text(source,encoding="utf-8")
 
 gif=find_slime_gif(); patch_loading_animation(extract_gif(gif,RES/"assets/vbvclient/textures/loadingscreen/slime") if gif else 0)
