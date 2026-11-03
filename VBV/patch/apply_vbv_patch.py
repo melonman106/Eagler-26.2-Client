@@ -56,7 +56,10 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(storage_ui)",
     "subprocess.run(\n        [sys.executable, str(normalize_png)",
 )
-order_positions = [runner_source.find(token) for token in required_order_tokens]
+execution_start = runner_source.find("\\n_materialize_eagler_overlay()\\n")
+if execution_start < 0:
+    raise SystemExit("::error::Patch runner resource bootstrap stage is missing")
+order_positions = [runner_source.find(token, execution_start) for token in required_order_tokens]
 if any(position < 0 for position in order_positions):
     raise SystemExit("::error::Patch runner is missing a required ordered stage")
 if order_positions != sorted(order_positions):
