@@ -40,8 +40,14 @@ public final class VBVAppleSkin {
             if (amount <= 0.0F) continue;
             int frame = Math.min(3, Math.max(0, (int)Math.ceil(amount * 4.0F) - 1));
             int iconX = guiWidth / 2 + 82 - i * 8;
-            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top - 1,
+            // Keep the source atlas at 9x9 but scale the destination to 8x8.
+            // The previous 9px draw overlapped the neighboring hunger slot.
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(iconX, top - 1);
+            graphics.pose().scale(8.0F / 9.0F, 8.0F / 9.0F);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, 0, 0,
                 frame * 9, 0, 9, 9, 256, 256);
+            graphics.pose().popMatrix();
         }
 
         if (showText) {
