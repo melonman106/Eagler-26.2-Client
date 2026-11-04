@@ -116,10 +116,10 @@ public final class VBVWorldMap {
             nearbyScanWorld = "";
         } else {
             nearbyPruneTicks++;
-            boolean worldChanged = !world.equals(nearbyScanWorld);
-            boolean restartScan = enteredNewChunk || worldChanged
+            boolean scanWorldChanged = !world.equals(nearbyScanWorld);
+            boolean restartScan = enteredNewChunk || scanWorldChanged
                 || nearbyScanRadius != radius || ++nearbyScanTicks >= 100;
-            if (worldChanged) {
+            if (scanWorldChanged) {
                 pruneUnexploredTerrain(world, chunkX, chunkZ);
                 nearbyPruneTicks = 0;
             }
