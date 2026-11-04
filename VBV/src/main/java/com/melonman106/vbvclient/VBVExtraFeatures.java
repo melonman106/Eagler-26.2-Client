@@ -28,7 +28,10 @@ public final class VBVExtraFeatures {
     static int debugHudX = 6;
     static int debugHudY = 6;
     private static boolean betterF3Enabled = true;
-    private static boolean debugShowPerformance = true;\n    private static boolean debugShowWorld = true;\n    private static boolean debugShowPlayer = true;\n    private static boolean debugCompact = false;
+    private static boolean debugShowPerformance = true;
+    private static boolean debugShowWorld = true;
+    private static boolean debugShowPlayer = true;
+    private static boolean debugCompact = false;
     private static boolean fKeyHeld;
     private VBVExtraFeatures() {}
     /** Force key mappings to register during client bootstrap, before the first key event. */
