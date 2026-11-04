@@ -39,7 +39,7 @@ public final class VBVConfigStore {
         catch (RuntimeException ignored) { return fallback; }
     }
 
-    public static void loadAll() {
+    public static void loadAll() {\n        VBVSimpleHudConfig.load(read("simpleHud", ""));
         VBVMiniMap.loadSettings(
             bool("minimap.enabled", false), integer("minimap.x", 0, -2000, 2000),
             integer("minimap.y", 0, -2000, 2000), integer("minimap.size", 64, 48, 96),
@@ -78,7 +78,7 @@ public final class VBVConfigStore {
             bool("betterF3.player", true), bool("betterF3.compact", false));
     }
 
-    public static void saveAll() {
+    public static void saveAll() {\n        write("simpleHud", VBVSimpleHudConfig.serialize());
         write("minimap.enabled", VBVMiniMap.enabled);
         write("minimap.x", VBVMiniMap.offsetX); write("minimap.y", VBVMiniMap.offsetY);
         write("minimap.size", VBVMiniMap.size); write("minimap.radius", VBVMiniMap.scanRadius);
