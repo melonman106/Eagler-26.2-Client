@@ -37,17 +37,20 @@ public final class VBVMiniMap {
                 int baseX = x + SIZE / 2 + dx * pixelsPerChunk - pixelsPerChunk / 2;
                 int baseY = y + SIZE / 2 + dz * pixelsPerChunk - pixelsPerChunk / 2;
                 int samples = VBVWorldMap.terrainSide();
-                // Downsample the detailed cache to the minimap's six-pixel chunk cells.
-                for (int py = 0; py < pixelsPerChunk; py++) {
-                    for (int px = 0; px < pixelsPerChunk; px++) {
-                        int sampleX = px * samples / pixelsPerChunk;
-                        int sampleZ = py * samples / pixelsPerChunk;
-                        int left = Math.max(x, baseX + px), top = Math.max(y, baseY + py);
-                        int right = Math.min(x + SIZE, baseX + px + 1);
-                        int bottom = Math.min(y + SIZE, baseY + py + 1);
+                // Draw a 2x2 representative sample per chunk. The previous
+                // 8x8 loop issued over 5,000 fill calls every frame; this keeps
+                // the same nearby-chunk coverage with at most 324 terrain fills.
+                int sampleStep = pixelsPerChunk / 2;
+                for (int py = 0; py < 2; py++) {
+                    for (int px = 0; px < 2; px++) {
+                        int sampleX = Math.min(samples - 1, (px * sampleStep + sampleStep / 2) * samples / pixelsPerChunk);
+                        int sampleZ = Math.min(samples - 1, (py * sampleStep + sampleStep / 2) * samples / pixelsPerChunk);
+                        int left = Math.max(x, baseX + px * sampleStep);
+                        int top = Math.max(y, baseY + py * sampleStep);
+                        int right = Math.min(x + SIZE, baseX + (px + 1) * sampleStep);
+                        int bottom = Math.min(y + SIZE, baseY + (py + 1) * sampleStep);
                         if (left < right && top < bottom) {
-                            graphics.fill(left, top, right, bottom,
-                                colors[sampleZ * samples + sampleX]);
+                            graphics.fill(left, top, right, bottom, colors[sampleZ * samples + sampleX]);
                         }
                     }
                 }
