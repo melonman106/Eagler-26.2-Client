@@ -240,7 +240,7 @@ if container_candidates:
 
     wheel_marker = "VBV_MOUSE_TWEAK_WHEEL"
     if wheel_marker not in ct:
-        wheel_method = re.search(r"public\\s+boolean\\s+mouseScrolled\\s*\\([^)]*\\)\\s*\\{", ct)
+        wheel_method = re.search(r"public\s+boolean\s+mouseScrolled\s*\([^)]*\)\s*\{", ct)
         if not wheel_method:
             raise RuntimeError("AbstractContainerScreen.mouseScrolled() not found for Mouse Tweaks")
         wheel_brace = ct.find("{", wheel_method.start())
