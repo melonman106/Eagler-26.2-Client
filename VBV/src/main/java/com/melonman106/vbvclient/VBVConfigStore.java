@@ -48,8 +48,8 @@ public final class VBVConfigStore {
             bool("minimap.marker", true), bool("minimap.north", true));
 
         VBVAppleSkin.loadSettings(
-            bool("appleskin.enabled", true), bool("appleskin.foodText", true),
-            bool("appleskin.saturationText", true), integer("appleskin.x", 4, -2000, 2000),
+            bool("appleskin.enabled", true), bool("appleskin.foodText", false),
+            bool("appleskin.saturationText", false), integer("appleskin.x", 4, -2000, 2000),
             integer("appleskin.y", 4, -2000, 2000));
 
         VBVJadeHud.loadSettings(
