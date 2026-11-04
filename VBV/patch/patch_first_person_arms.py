@@ -31,7 +31,7 @@ if marker in text:
 needle = "poseStack.pushPose();\n         if (itemStack.isEmpty()) {"
 hook = """poseStack.pushPose();
          // VBV_FIRST_PERSON_ITEM_OFFSET: move the hand/item pair slightly forward.
-         if (!itemStack.isEmpty() && !itemStack.has(DataComponents.MAP_ID)) {
+         if (com.melonman106.vbvclient.VBVFirstPersonAnimations.isEnabled() && !itemStack.isEmpty() && !itemStack.has(DataComponents.MAP_ID)) {
             float vbvHandSide = arm == HumanoidArm.RIGHT ? 1.0F : -1.0F;
             poseStack.translate(vbvHandSide * 0.015F, 0.01F, 0.08F);
          }
