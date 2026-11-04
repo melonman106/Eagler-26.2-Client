@@ -48,6 +48,21 @@ minecraft.write_text(mc,encoding="utf-8")
 
 # Raise the client render-distance option ceiling to 128 chunks.
 def patch_render_distance_limit():
+ candidates=java_files_named("Options.java")
+ if not candidates:return
+ path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/Options.java")),candidates[0])
+ text=path.read_text(encoding="utf-8");marker="VBV_RENDER_DISTANCE_128"
+ if marker in text:return
+ # U2 names the field renderDistance (not viewDistance) and uses a
+ # largeDistances ? 32 : 16 cap. Replace only that OptionInstance range.
+ pattern=r'(this\\.renderDistance\\s*=\\s*new\\s+OptionInstance<>\\s*\\(.*?new\\s+OptionInstance\\.IntRange\\(2,\\s*)largeDistances\\s*\\?\\s*32\\s*:\\s*16(\\s*,\\s*false\\s*\\),)'
+ updated,n=re.subn(pattern,r'\\g<1>128\\g<2>',text,count=1,flags=re.S)
+ if n!=1:
+  print("[VBV] U2 renderDistance range did not match; leaving cap unchanged.")
+  return
+ path.write_text("// "+marker+"\\n"+updated,encoding="utf-8")
+ print("[VBV] Raised U2 render-distance option ceiling to 128 chunks in",path)
+patch_render_distance_limit():
  candidates=java_files_named("GameOptions.java")+java_files_named("Options.java")
  if not candidates:return
  path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/Options.java") or p.as_posix().endswith("/net/minecraft/client/GameOptions.java")),candidates[0])
