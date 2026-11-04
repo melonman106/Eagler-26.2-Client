@@ -10,6 +10,8 @@ import net.minecraft.resources.Identifier;
 public final class VBVAppleSkin {
     private static boolean enabled = true;
     private static boolean showText = false;
+    private static boolean showFoodText = true;
+    private static boolean showSaturationText = true;
     private static final Identifier ICONS = Identifier.parse("appleskin:textures/icons.png");
     static int x = 4;
     static int y = 4;
@@ -18,7 +20,15 @@ public final class VBVAppleSkin {
     public static boolean isEnabled() { return enabled; }
     public static void toggleEnabled() { enabled = !enabled; }
     public static boolean isShowText() { return showText; }
-    public static void toggleShowText() { showText = !showText; }
+    public static void toggleShowText() { showText = !showText; showFoodText = showText; showSaturationText = showText; }
+    public static boolean isShowFoodText() { return showFoodText; }
+    public static boolean isShowSaturationText() { return showSaturationText; }
+    public static void toggleFoodText() { showFoodText = !showFoodText; showText = showFoodText || showSaturationText; }
+    public static void toggleSaturationText() { showSaturationText = !showSaturationText; showText = showFoodText || showSaturationText; }
+    public static void loadSettings(boolean active, boolean foodText, boolean saturationText, int xOffset, int yOffset) {
+        enabled = active; showFoodText = foodText; showSaturationText = saturationText;
+        showText = foodText || saturationText; x = xOffset; y = yOffset;
+    }
 
     public static void render(GuiGraphicsExtractor graphics) {
         if (!enabled) return;
@@ -50,9 +60,10 @@ public final class VBVAppleSkin {
             graphics.pose().popMatrix();
         }
 
-        if (showText) {
-            String line = String.format(java.util.Locale.ROOT,
-                "Food: %d/20  Saturation: %.1f", foodLevel, saturation);
+        if (showFoodText || showSaturationText) {
+            String line = (showFoodText ? "Food: " + foodLevel + "/20" : "")
+                + (showFoodText && showSaturationText ? "  " : "")
+                + (showSaturationText ? String.format(java.util.Locale.ROOT, "Saturation: %.1f", saturation) : "");
             graphics.text(minecraft.font, line, x, y, 0xFFFFFFFF, true);
         }
     }
