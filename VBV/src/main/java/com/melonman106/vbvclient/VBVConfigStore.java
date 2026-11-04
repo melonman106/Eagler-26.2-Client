@@ -1,25 +1,50 @@
 package com.melonman106.vbvclient;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import net.lax1dude.eaglercraft.v1_8.EagRuntime;
 
 /** Durable browser-side persistence for the native VBV feature configuration. */
 public final class VBVConfigStore {
-    private static final String PREFIX = "vbv_feature_config_v2.";
+    private static final String STORAGE_KEY = "vbv_feature_config_v2";
+    private static final Map<String, String> VALUES = new HashMap<>();
+    private static boolean loaded;
     private VBVConfigStore() {}
 
-    private static String read(String key, String fallback) {
+    private static void ensureLoaded() {
+        if (loaded) return;
+        loaded = true;
         try {
-            byte[] bytes = EagRuntime.getStorage(PREFIX + key);
-            return bytes == null || bytes.length == 0 ? fallback : new String(bytes, StandardCharsets.UTF_8);
+            byte[] bytes = EagRuntime.getStorage(STORAGE_KEY);
+            if (bytes == null || bytes.length == 0) return;
+            String raw = new String(bytes, StandardCharsets.UTF_8);
+            for (String line : raw.split("\\n")) {
+                int split = line.indexOf('=');
+                if (split > 0) VALUES.put(line.substring(0, split), line.substring(split + 1));
+            }
         } catch (Throwable ignored) {
-            return fallback;
         }
     }
 
+    private static String read(String key, String fallback) {
+        ensureLoaded();
+        return VALUES.getOrDefault(key, fallback);
+    }
+
     private static void write(String key, String value) {
+        ensureLoaded();
+        VALUES.put(key, String.valueOf(value));
+    }
+
+    private static void flush() {
+        ensureLoaded();
         try {
-            EagRuntime.setStorage(PREFIX + key, String.valueOf(value).getBytes(StandardCharsets.UTF_8));
+            StringBuilder raw = new StringBuilder();
+            for (Map.Entry<String, String> entry : VALUES.entrySet()) {
+                raw.append(entry.getKey()).append('=').append(entry.getValue()).append('\n');
+            }
+            EagRuntime.setStorage(STORAGE_KEY, raw.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Throwable ignored) {
         }
     }
@@ -154,5 +179,6 @@ public final class VBVConfigStore {
         write("betterF3.world", VBVExtraFeatures.debugShowWorld());
         write("betterF3.player", VBVExtraFeatures.debugShowPlayer());
         write("betterF3.compact", VBVExtraFeatures.debugCompact());
+        flush();
     }
 }
