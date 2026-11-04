@@ -274,7 +274,7 @@ if renderer_candidates:
     if shine_marker not in rt:
         field_anchor = "private boolean eaglerOptimizedShaderFailed;"
         if field_anchor in rt:
-            rt = rt.replace(field_anchor, field_anchor + "\\n   private boolean vbvShineFailed;", 1)
+            rt = rt.replace(field_anchor, field_anchor + "\n   private boolean vbvShineFailed;", 1)
         anchor = "this.minecraft.levelRenderer.doEntityOutline();"
         if rt.count(anchor) != 1:
             raise RuntimeError("Could not uniquely locate GameRenderer world post-processing point for Shine")
