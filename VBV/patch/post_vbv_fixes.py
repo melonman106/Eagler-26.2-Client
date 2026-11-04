@@ -218,6 +218,21 @@ else:
     print("[VBV singleplayer] explicit server-worker opt-in already installed.")
 
 
+# Make the existing inventory hooks use the container's actual quick-move action.
+container_candidates = java_files_named("AbstractContainerScreen.java")
+if container_candidates:
+    container = next((p for p in container_candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java")), container_candidates[0])
+    ct = container.read_text(encoding="utf-8")
+    wheel_call = "this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, button, ContainerInput.PICKUP);"
+    quick_move_call = "this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ContainerInput.QUICK_MOVE);"
+    if wheel_call in ct:
+        ct = ct.replace(wheel_call, quick_move_call, 1)
+        print("[VBV Mouse Tweaks] Wheel action now transfers the hovered stack between inventories.")
+    if "Minecraft.getInstance().options.keyShift.isDown()" in ct:
+        ct = ct.replace("Minecraft.getInstance().options.keyShift.isDown()", "net.minecraft.client.gui.screens.Screen.hasShiftDown()")
+        print("[VBV ShulkerBoxTooltip] Use the global Shift-key state for preview detection.")
+    container.write_text(ct, encoding="utf-8")
+
 # Activate the bundled Shine bloom post-chain on supported renderers.
 renderer_candidates = java_files_named("GameRenderer.java")
 if renderer_candidates:
