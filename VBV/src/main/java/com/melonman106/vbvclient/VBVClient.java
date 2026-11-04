@@ -49,7 +49,7 @@ public final class VBVClient {
         reg("custom-crosshair", "Custom Crosshair", "1.5.3", "melonman106",
             "Edit a 15×15 pixel crosshair with configurable scale, color, presets and locally saved patterns.", "vbvclient:textures/mods/viabackportvisuals-client.png");
         reg("shine", "Shine", "1.5.3", "VBV",
-            "Experimental visual enhancement controls for bloom, colored lighting, rim lighting, shading and effect quality.",
+            "Experimental WebGL2 screen-space bloom with adjustable quality and intensity; advanced lighting controls remain experimental.",
             "vbvclient:textures/mods/shine.png");
 
         registerFabricCallbacks();
