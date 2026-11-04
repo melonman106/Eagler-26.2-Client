@@ -87,6 +87,7 @@ public final class VBVModsScreen extends Screen {
             if ("simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
             else if ("ukus-armor-hud".equals(selected.id())) VBVNav.open(new VBVArmorHudConfigScreen(this));
             else if ("vbv-first-person-animations".equals(selected.id())) VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this));
+            else if ("custom-crosshair".equals(selected.id())) VBVNav.open(new VBVCrosshairScreen(this));
             else if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade", "shine", "custom-crosshair").contains(selected.id()))
                 VBVNav.open(new VBVFeatureConfigScreen(this, selected.id(), selected.name()));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
