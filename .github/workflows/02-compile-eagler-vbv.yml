@@ -95,7 +95,7 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java VBVConfigStore.java VBVParty.java VBVPartyScreen.java VBVFriendsScreen.java VBVServerProfilesScreen.java VBVStorageProfileScreen.java VBVWorldMap.java VBVJadeHud.java VBVMiniMap.java VBVMouseTweaks.java VBVShulkerViewer.java VBVCrosshairConfig.java VBVCrosshairScreen.java VBVFeatureConfigScreen.java VBVModDetailsScreen.java VBVModsScreen.java VBVDungeonsTitleScreen.java VBVSimpleHudConfig.java VBVArmorHudConfig.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java Actually3DStuffCompat.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java VBVConfigStore.java VBVParty.java VBVPartyScreen.java VBVFriendsScreen.java VBVServerProfilesScreen.java VBVStorageProfileScreen.java VBVWorldMap.java VBVJadeHud.java VBVMiniMap.java VBVMouseTweaks.java VBVShulkerViewer.java VBVCrosshairConfig.java VBVCrosshairScreen.java VBVFeatureConfigScreen.java VBVModDetailsScreen.java VBVModsScreen.java VBVDungeonsTitleScreen.java VBVSimpleHudConfig.java VBVArmorHudConfig.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }
@@ -161,6 +161,8 @@ jobs:
           held_arm_helper='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimations.java'
           grep -q 'VBV_FIRST_PERSON_HELD_ARM' "$held_renderer"
           grep -q 'VBV_FIRST_PERSON_ITEM_OFFSET' "$held_renderer"
+          grep -q 'Actually3DStuffCompat.apply' "$held_renderer"
+          grep -q 'public static void apply(' "$vbv_src/Actually3DStuffCompat.java"
           grep -q 'VBVConfigStore.loadAll' "$vbv_src/VBVClient.java"
           grep -q 'VBVParty.initialize' "$vbv_src/VBVDungeonsTitleScreen.java"
           grep -q 'VBVServerProfilesScreen' "$vbv_src/VBVStorageScreen.java"
