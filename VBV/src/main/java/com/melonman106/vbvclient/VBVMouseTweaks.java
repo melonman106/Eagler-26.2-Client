@@ -12,7 +12,11 @@ public final class VBVMouseTweaks {
     private static boolean quickMoveEnabled = true;
     private static boolean dragEvenlyEnabled = true;
 
-    private VBVMouseTweaks() {}\n\n    public static void loadSettings(boolean wheel, boolean quickMove, boolean dragEvenly) {\n        wheelTweakEnabled = wheel; quickMoveEnabled = quickMove; dragEvenlyEnabled = dragEvenly;\n    }
+    private VBVMouseTweaks() {}
+
+    public static void loadSettings(boolean wheel, boolean quickMove, boolean dragEvenly) {
+        wheelTweakEnabled = wheel; quickMoveEnabled = quickMove; dragEvenlyEnabled = dragEvenly;
+    }
 
     public static boolean isWheelTweakEnabled() {
         return wheelTweakEnabled;
