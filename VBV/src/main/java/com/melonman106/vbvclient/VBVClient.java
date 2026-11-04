@@ -47,7 +47,7 @@ public final class VBVClient {
         reg("shulkerboxtooltip", "ShulkerBoxTooltip", "1.5.3", "MisterPeModder",
             "Previews the contents of shulker boxes in a 9×3 inventory grid when Shift-hovering a box in a container.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
         reg("custom-crosshair", "Custom Crosshair", "1.5.3", "melonman106",
-            "Draw your own 15x15 crosshair.", "vbvclient:textures/mods/viabackportvisuals-client.png");
+            "Edit a 15×15 pixel crosshair with configurable scale, color, presets and locally saved patterns.", "vbvclient:textures/mods/viabackportvisuals-client.png");
         reg("shine", "Shine", "1.5.3", "VBV",
             "Experimental visual enhancement controls for bloom, colored lighting, rim lighting, shading and effect quality.",
             "vbvclient:textures/mods/shine.png");
