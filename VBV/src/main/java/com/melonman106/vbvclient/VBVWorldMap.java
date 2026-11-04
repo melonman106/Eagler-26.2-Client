@@ -39,6 +39,7 @@ public final class VBVWorldMap {
     private static int nearbyScanCenterZ;
     private static String nearbyScanWorld = "";
     private static int nearbyScanRadius = -1;
+    private static int nearbyPruneTicks;
     private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
@@ -88,8 +89,13 @@ public final class VBVWorldMap {
             nearbyScanTicks = 0;
             nearbyScanWorld = "";
         } else {
-            boolean restartScan = enteredNewChunk || !world.equals(nearbyScanWorld)
+            boolean worldChanged = !world.equals(nearbyScanWorld);
+            boolean restartScan = enteredNewChunk || worldChanged
                 || nearbyScanRadius != radius || ++nearbyScanTicks >= 100;
+            if (worldChanged) {
+                pruneUnexploredTerrain(world, chunkX, chunkZ);
+                nearbyPruneTicks = 0;
+            }
             if (restartScan) {
                 nearbyScanTicks = 0;
                 nearbyScanCursor = 0;
@@ -108,7 +114,8 @@ public final class VBVWorldMap {
                     captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
                 }
                 nearbyScanCursor++;
-                if (nearbyScanCursor >= totalNearbyChunks) {
+                if (nearbyScanCursor >= totalNearbyChunks && ++nearbyPruneTicks >= 600) {
+                    nearbyPruneTicks = 0;
                     pruneUnexploredTerrain(world, chunkX, chunkZ);
                 }
             }
