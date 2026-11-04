@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove resource-pack assets that are incompatible with the native Eagler UI."""
+"""Remove resource-pack assets that are incompatible with the native Eagler UI and WebGL2 pipeline."""
 from pathlib import Path
 import os
 import shutil
@@ -32,6 +32,13 @@ for source in sorted(MODS.glob("*.zip")):
                     or "/assets/minecraft/font/" in lower
                     or lower.startswith("assets/minecraft/textures/font/")
                     or "/assets/minecraft/textures/font/" in lower
+                    # OptiFine/Iris shader assets cannot run in the Eagler WebGL2 pipeline.
+                    or lower.startswith("assets/minecraft/shaders/")
+                    or "/assets/minecraft/shaders/" in lower
+                    or lower.startswith("assets/minecraft/post_effect/")
+                    or "/assets/minecraft/post_effect/" in lower
+                    or lower.startswith("assets/optifine/shaders/")
+                    or "/assets/optifine/shaders/" in lower
                 )
                 if blocked:
                     changed = True
