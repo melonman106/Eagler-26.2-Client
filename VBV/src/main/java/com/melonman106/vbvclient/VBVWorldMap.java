@@ -37,7 +37,8 @@ public final class VBVWorldMap {
     private static int nearbyScanCursor = 81;
     private static int nearbyScanCenterX;
     private static int nearbyScanCenterZ;
-    private static String nearbyScanWorld = "";\n    private static int nearbyScanRadius = -1;
+    private static String nearbyScanWorld = "";
+    private static int nearbyScanRadius = -1;
     private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
