@@ -238,6 +238,6 @@ if pack_registry.is_dir():
                 f"Client-side Eaglercraft 26.2 resource pack. {data.get('name', 'This pack')} "
                 "provides its bundled textures, models and audio assets through the native resource pipeline."
             )
-        metadata.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        metadata.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 print("Post-VBV fixes complete: icons, client cap, HUD, storage, upstream async sleep callback, and explicit singleplayer worker opt-in.")
