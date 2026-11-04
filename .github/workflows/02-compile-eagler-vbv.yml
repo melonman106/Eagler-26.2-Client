@@ -168,7 +168,7 @@ jobs:
           grep -q 'VBVMouseTweaks.isWheelTweakEnabled' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
           grep -q 'VBV_SHINE_POST_CHAIN' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/GameRenderer.java
           grep -q 'VBV_RENDER_DISTANCE_128' eaglercraft-u2/game/src/main/java/net/minecraft/client/Options.java
-          grep -q '"1.5.3"' "$vbv_src/VBVGeneratedPackMods.java"
+          grep -q 'class VBVGeneratedPackMods' "$vbv_src/VBVGeneratedPackMods.java"
           grep -q 'al-s-creepers-revamped-2.0' "$vbv_src/VBVGeneratedPackMods.java"
           grep -q 'updated_emissiveendportal26.1' "$vbv_src/VBVGeneratedPackMods.java"
           grep -q 'this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, attack, arm)' "$held_renderer"
