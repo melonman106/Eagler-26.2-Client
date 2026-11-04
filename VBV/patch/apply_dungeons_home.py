@@ -133,13 +133,22 @@ def patch_platform_input_raf():
     path.write_text(source,encoding="utf-8")
 
 def remove_oxer_credit():
-    version_files=list((ROOT/"platform/src/main/java").rglob("EaglercraftVersion.java"))
-    for path in version_files:
-        source=path.read_text(encoding="utf-8").replace('public static final String projectForkVendor = "o_xer";', 'public static final String projectForkVendor = "";').replace('public static final String mainMenuStringF = "Made by " + projectForkVendor;', 'public static final String mainMenuStringF = "";')
-        path.write_text(source,encoding="utf-8")
-    for path in GAME.rglob("EaglerCreditsScreen.java"):
-        source=path.read_text(encoding="utf-8").replace('.append(Component.translatableWithFallback("eagler.credits.madeBy", "\\nMade by o_xer").withStyle(ChatFormatting.AQUA))', '')
-        path.write_text(source,encoding="utf-8")
+    # The upstream source has used more than one credits implementation.
+    # Remove the vendor from the version constants and every generated Java
+    # source string so it cannot reappear through the menu or credits screen.
+    roots = [ROOT/"platform/src/main/java", GAME]
+    for root in roots:
+        if not root.exists():
+            continue
+        for path in root.rglob("*.java"):
+            source = path.read_text(encoding="utf-8")
+            source = source.replace('public static final String projectForkVendor = "o_xer";',
+                                    'public static final String projectForkVendor = "";')
+            source = source.replace('public static final String mainMenuStringF = "Made by " + projectForkVendor;',
+                                    'public static final String mainMenuStringF = "";')
+            source = source.replace("Made by o_xer", "")
+            source = source.replace("o_xer", "")
+            path.write_text(source, encoding="utf-8")
 
 gif=find_slime_gif(); patch_loading_animation(extract_gif(gif,RES/"assets/vbvclient/textures/loadingscreen/slime") if gif else 0)
 suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay(); patch_platform_input_raf(); remove_oxer_credit()
