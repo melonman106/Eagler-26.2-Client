@@ -29,19 +29,20 @@ public final class VBVHudEditorScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Reset position"), b -> {
             if (editJade) { VBVJadeHud.offsetX = 0; VBVJadeHud.offsetY = 0; }
             else { VBVMiniMap.offsetX = 0; VBVMiniMap.offsetY = 0; }
+            VBVConfigStore.saveAll();
         }).bounds(width / 2 - 105, height - 30, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), b -> VBVNav.open(parent))
             .bounds(width / 2 + 5, height - 30, 100, 20).build());
     }
 
     private String editLabel() { return "Edit: " + (editJade ? "Jade overlay" : "Minimap"); }
-    private int mapX() { return editJade ? width / 2 - 90 + VBVJadeHud.offsetX : width - 64 - 8 + VBVMiniMap.offsetX; }
+    private int mapX() { return editJade ? width / 2 - 90 + VBVJadeHud.offsetX : width - VBVMiniMap.size - 8 + VBVMiniMap.offsetX; }
     private int mapY() { return 8 + (editJade ? VBVJadeHud.offsetY : VBVMiniMap.offsetY); }
 
     @Override public boolean mouseClicked(MouseButtonEvent click, boolean doubleClick) {
         if (super.mouseClicked(click, doubleClick)) return true;
-        int w = editJade ? 180 : 64;
-        int h = editJade ? 46 : 64;
+        int w = editJade ? 180 : VBVMiniMap.size;
+        int h = editJade ? 46 : VBVMiniMap.size;
         if (click.x() >= mapX() - 4 && click.x() <= mapX() + w
             && click.y() >= mapY() - 4 && click.y() <= mapY() + h) {
             dragging = true;
@@ -52,6 +53,7 @@ public final class VBVHudEditorScreen extends Screen {
 
     @Override public boolean mouseReleased(MouseButtonEvent click) {
         dragging = false;
+        VBVConfigStore.saveAll();
         return super.mouseReleased(click);
     }
 
