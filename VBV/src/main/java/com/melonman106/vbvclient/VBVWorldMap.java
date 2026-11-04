@@ -114,10 +114,10 @@ public final class VBVWorldMap {
                     captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
                 }
                 nearbyScanCursor++;
-                if (nearbyScanCursor >= totalNearbyChunks && ++nearbyPruneTicks >= 600) {
-                    nearbyPruneTicks = 0;
-                    pruneUnexploredTerrain(world, chunkX, chunkZ);
-                }
+            }
+            if (nearbyScanCursor >= totalNearbyChunks && ++nearbyPruneTicks >= 600) {
+                nearbyPruneTicks = 0;
+                pruneUnexploredTerrain(world, chunkX, chunkZ);
             }
         }
     }
