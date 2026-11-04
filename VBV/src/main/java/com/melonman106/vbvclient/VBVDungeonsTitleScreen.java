@@ -15,6 +15,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     @Override protected void init() {
         super.init();
         VBVClient.init();
+        VBVParty.initialize();
         EaglerProfile.readIfNeeded();
         clearWidgets();
 
