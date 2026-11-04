@@ -257,6 +257,76 @@ jobs:
           test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_0.png
           test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_5.png
 
+      - name: Patch generated U2 files after VBV injection
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Fix broken Screen path
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java")
+          text = path.read_text(encoding="utf-8")
+          bad = "net.minecraft.client.net.minecraft.client.gui.screens.Screen.hasShiftDown()"
+          good = "net.minecraft.client.gui.screens.Screen.hasShiftDown()"
+         if bad in text:
+         text = text.replace(bad, good)
+         path.write_text(text, encoding="utf-8")
+         print("Fixed Screen.hasShiftDown() path")
+         PY
+
+          # Add overloads so VBVConfigStore can write booleans/ints/doubles
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVConfigStore.java")
+          text = path.read_text(encoding="utf-8")
+
+if 'private static void write(String key, boolean value)' not in text:
+              marker = "private static void write(String key, String value)"
+     idx = text.find(marker)
+     if idx == -1:
+        raise SystemExit("Could not find write(String, String) in VBVConfigStore.java")
+
+    start = text.find("{", idx)
+    if start == -1:
+        raise SystemExit("Could not find method body start")
+
+    depth = 0
+    end = None
+    for i in range(start, len(text)):
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                break
+
+    if end is None:
+        raise SystemExit("Could not find end of write(String, String)")
+
+    insert = """
+
+    private static void write(String key, boolean value) {
+        write(key, Boolean.toString(value));
+    }
+
+    private static void write(String key, int value) {
+        write(key, Integer.toString(value));
+    }
+
+    private static void write(String key, double value) {
+        write(key, Double.toString(value));
+    }
+"""
+    text = text[:end] + insert + text[end:]
+    path.write_text(text, encoding="utf-8")
+    print("Added write overloads to VBVConfigStore")
+else:
+    print("Write overloads already present")
+PY
+
       - name: Compile game Java after injection
         working-directory: eaglercraft-u2
         run: ./gradlew :game:processResources :game:compileJava --console=plain --no-daemon --build-cache --stacktrace
