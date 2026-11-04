@@ -12,7 +12,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 /** Native Eagler client mod registry and shared Fabric-shaped event wiring. */
 public final class VBVClient {
     public static final String MOD_ID = "viabackportvisuals-client";
-    public static final String VERSION = "1.0.0-26.2";
+    public static final String VERSION = "1.5.3";
     private static final Map<String, VBVModInfo> MODS = new LinkedHashMap<>();
     private static boolean callbacksRegistered;
 
@@ -22,33 +22,33 @@ public final class VBVClient {
         if (!MODS.isEmpty()) return;
 
         reg(MOD_ID, "ViaBackportVisuals Client", VERSION, "melonman106",
-            "Native client-side mod suite for Eaglercraft 26.2 u2.",
+            "A native Eaglercraft 26.2 client enhancement suite with performance, interface, rendering and quality-of-life features.",
             "vbvclient:textures/mods/viabackportvisuals-client.png");
-        reg("ukus-armor-hud", "Uku's Armor HUD", "Eagler port 1.0.0", "Uku3lig",
-            "Armor slots and durability.", "vbvclient:textures/mods/ukus-armor-hud.png");
-        reg("simple-hud-enhanced", "Simple HUD Enhanced", "Native Eagler port 1.0.0", "SoRadGaming",
-            "Coordinates, directions, FPS, TPS, velocity, light, ping, biome, time, day, chunk/sub-chunk, effects and movement.",
+        reg("ukus-armor-hud", "Uku's Armor HUD", "1.5.3", "Uku3lig",
+            "Displays equipped armor pieces and their remaining durability directly on the HUD.", "vbvclient:textures/mods/ukus-armor-hud.png");
+        reg("simple-hud-enhanced", "Simple HUD Enhanced", "Native 1.5.3", "SoRadGaming",
+            "A configurable information HUD for coordinates, direction, FPS, server tick rate, velocity, light level, ping, biome, world time, day count, chunk position, active effects and movement statistics.",
             "vbvclient:textures/mods/simple-hud-enhanced.png");
-        reg("mouse-tweaks", "Mouse Tweaks", "Native Eagler port 1.0.0", "YaLTeR",
-            "Browser-safe inventory helpers.", "vbvclient:textures/mods/mouse-tweaks.png");
-        reg("appleskin", "AppleSkin", "Eagler port 1.0.0", "Eagler client port",
-            "Food and hunger information.", "vbvclient:textures/mods/appleskin.png");
-        reg("gamma-utils", "Gamma Utils", "Eagler port 1.0.0", "Sjouwer",
-            "Brightness toggle.", "vbvclient:textures/mods/gamma-utils.png");
-        reg("zoomify", "Zoomify", "Eagler port 1.0.0", "Xander",
-            "Zoom controls.", "vbvclient:textures/mods/zoomify.png");
-        reg("betterf3", "BetterF3", "Eagler port 1.0.0", "TreyRuffy",
-            "Debug information.", "vbvclient:textures/mods/betterf3.png");
-        reg("vbv-minimap", "VBV Minimap", "Native Eagler port 1.0.0", "melonman106",
-            "Nearby terrain minimap.", "vbvclient:textures/mods/vbv-minimap.png");
-        reg("jade", "Jade", "Eagler port 1.0.0", "Snownee",
-            "Targeted block/entity tooltip.", "vbvclient:textures/mods/jade.png");
-        reg("shulkerboxtooltip", "ShulkerBoxTooltip", "Native Eagler port 1.0.0", "MisterPeModder",
-            "Shulker box preview.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
-        reg("custom-crosshair", "Custom Crosshair", "Native Eagler port 1.0.0", "melonman106",
+        reg("mouse-tweaks", "Mouse Tweaks", "Native 1.5.3", "YaLTeR",
+            "Inventory interaction helpers for wheel-based slot movement, quick item transfers and evenly distributed drag operations.", "vbvclient:textures/mods/mouse-tweaks.png");
+        reg("appleskin", "AppleSkin", "1.5.3", "Eagler client port",
+            "Adds food-level, saturation and hunger-preview information to the in-game HUD using the AppleSkin-style icon atlas.", "vbvclient:textures/mods/appleskin.png");
+        reg("gamma-utils", "Gamma Utils", "1.5.3", "Sjouwer",
+            "Provides adjustable gamma and brightness controls for clearer visibility in dark environments.", "vbvclient:textures/mods/gamma-utils.png");
+        reg("zoomify", "Zoomify", "1.5.3", "Xander",
+            "Adds configurable hold or toggle zoom with adjustable field of view.", "vbvclient:textures/mods/zoomify.png");
+        reg("betterf3", "BetterF3", "1.5.3", "TreyRuffy",
+            "Reorganizes technical debug information into a clearer, configurable on-screen layout.", "vbvclient:textures/mods/betterf3.png");
+        reg("vbv-minimap", "VBV Minimap", "Native 1.5.3", "melonman106",
+            "Displays a compact map of cached nearby terrain and the player position, with a low-overhead rendering mode.", "vbvclient:textures/mods/vbv-minimap.png");
+        reg("jade", "Jade", "1.5.3", "Snownee",
+            "Shows contextual information about the block or entity under the crosshair, including optional coordinates.", "vbvclient:textures/mods/jade.png");
+        reg("shulkerboxtooltip", "ShulkerBoxTooltip", "Native 1.5.3", "MisterPeModder",
+            "Previews the contents of shulker boxes in a 9×3 inventory grid when Shift-hovering a box in a container.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
+        reg("custom-crosshair", "Custom Crosshair", "Native 1.5.3", "melonman106",
             "Draw your own 15x15 crosshair.", "vbvclient:textures/mods/viabackportvisuals-client.png");
-        reg("shine", "Shine", "Native Eagler port 1.0.0", "VBV",
-            "Screen-space bloom, colored lighting and rim-light effects.",
+        reg("shine", "Shine", "Native 1.5.3", "VBV",
+            "Experimental visual enhancement controls for bloom, colored lighting, rim lighting, shading and effect quality.",
             "vbvclient:textures/mods/shine.png");
 
         registerFabricCallbacks();
