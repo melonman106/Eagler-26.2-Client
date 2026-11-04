@@ -57,6 +57,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         // Cinematic dark panels keep the panorama visible while giving the menu the layered Dungeons look.
         int left = Math.max(28, width / 22);
         int menuWidth = Math.min(270, Math.max(220, width / 4));
+        int menuTop = Math.max(148, height / 2 - 24);
 
         // Small status/profile area, similar to the player-facing corner UI used by Dungeons.
         String name = EaglerProfile.getName();
