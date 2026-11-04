@@ -1,10 +1,12 @@
 package com.melonman106.vbvclient;
 
-import org.teavm.jso.JSBody;\nimport net.minecraft.client.Minecraft;
+import org.teavm.jso.JSBody;
+import net.minecraft.client.Minecraft;
 
 /** Browser filesystem bridge with localStorage fallback. */
 public final class VBVStorage {
-    private static String lastAppliedServer = "";\n    private VBVStorage() {}
+    private static String lastAppliedServer = "";
+    private VBVStorage() {}
     public static void chooseFolder() { chooseFolderJS(); }
     public static void reconnect() { reconnectJS(); }
     public static void updateServer(String address) {
