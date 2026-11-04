@@ -40,6 +40,8 @@ public final class VBVWorldMap {
     private static String nearbyScanWorld = "";
     private static int nearbyScanRadius = -1;
     private static int nearbyPruneTicks;
+    private static boolean worldMapDirty;
+    private static int worldMapSaveTicks;
     private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
@@ -50,7 +52,18 @@ public final class VBVWorldMap {
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (!(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) return;
+        if (minecraft == null) return;
+        if (!(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) {
+            if (worldMapDirty && !lastWorld.isEmpty()) {
+                saveWorld(lastWorld);
+                worldMapDirty = storageWriteFailed;
+            }
+            worldMapSaveTicks = 0;
+            lastChunk = Long.MIN_VALUE;
+            lastWorld = "";
+            nearbyScanWorld = "";
+            return;
+        }
         BlockPos pos = player.blockPosition();
         if (!minecraft.level.hasChunkAt(pos)) return;
 
@@ -62,15 +75,21 @@ public final class VBVWorldMap {
         } else {
             VBVStorage.updateServer("");
         }
+        boolean worldChanged = !world.equals(lastWorld);
+        if (worldChanged && worldMapDirty && !lastWorld.isEmpty()) {
+            saveWorld(lastWorld);
+            worldMapDirty = storageWriteFailed;
+            worldMapSaveTicks = 0;
+        }
         loadWorld(world);
         long key = pack(chunkX, chunkZ);
-        boolean enteredNewChunk = key != lastChunk || !world.equals(lastWorld);
+        boolean enteredNewChunk = key != lastChunk || worldChanged;
 
         if (enteredNewChunk) {
             lastChunk = key;
             lastWorld = world;
             // Only the chunk the player actually enters is marked explored.
-            if (exploredSet(world, true).add(key)) saveWorld(world);
+            if (exploredSet(world, true).add(key)) worldMapDirty = true;
         }
         // Retry the player's current chunk until its terrain data is actually
         // available. A one-time failed capture must not leave the map blank forever.
@@ -84,6 +103,12 @@ public final class VBVWorldMap {
         int radius = minimapRadius();
         int diameter = radius * 2 + 1;
         int totalNearbyChunks = diameter * diameter;
+        if (worldMapDirty && ++worldMapSaveTicks >= 100) {
+            saveWorld(world);
+            worldMapDirty = storageWriteFailed;
+            worldMapSaveTicks = 0;
+        }
+
         if (!VBVMiniMap.enabled) {
             nearbyScanCursor = 0;
             nearbyScanTicks = 0;
