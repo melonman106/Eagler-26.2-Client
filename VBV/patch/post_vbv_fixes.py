@@ -273,7 +273,7 @@ if renderer_candidates:
         print("[VBV Shine] Bloom post-chain hook installed.")
 
 # Keep every generated resource-pack entry on the same client release version.
-generated_pack_class = TARGET / "com" / "melonman106" / "vbvclient" / "VBVGeneratedPackMods.java"
+generated_pack_class = GAME / "com" / "melonman106" / "vbvclient" / "VBVGeneratedPackMods.java"
 if generated_pack_class.is_file():
     pack_source = generated_pack_class.read_text(encoding="utf-8")
     pack_source = pack_source.replace('"1.0.0-26.2"', '"1.5.3"')
