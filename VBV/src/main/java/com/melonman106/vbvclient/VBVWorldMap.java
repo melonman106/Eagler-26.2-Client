@@ -34,6 +34,10 @@ public final class VBVWorldMap {
     private static long lastChunk = Long.MIN_VALUE;
     private static String lastWorld = "";
     private static int nearbyScanTicks;
+    private static int nearbyScanCursor = 81;
+    private static int nearbyScanCenterX;
+    private static int nearbyScanCenterZ;
+    private static String nearbyScanWorld = "";
     private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
@@ -72,21 +76,36 @@ public final class VBVWorldMap {
             captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
         }
 
-        // Refresh the nearby terrain cache periodically so newly loaded chunks
-        // appear on the minimap even when the player stands still. This never
-        // adds nearby chunks to EXPLORED, so the world map keeps its fog of war.
-        if (VBVMiniMap.enabled && (enteredNewChunk || ++nearbyScanTicks >= 100)) {
+        // Spread the 9x9 nearby scan across individual ticks. Capturing 81
+        // chunks in one tick caused a visible frame hitch (20,736 block samples).
+        // One chunk per tick keeps the minimap responsive while the cache fills.
+        if (!VBVMiniMap.enabled) {
+            nearbyScanCursor = 81;
             nearbyScanTicks = 0;
-            for (int dz = -MINIMAP_CACHE_RADIUS; dz <= MINIMAP_CACHE_RADIUS; dz++) {
-                for (int dx = -MINIMAP_CACHE_RADIUS; dx <= MINIMAP_CACHE_RADIUS; dx++) {
-                    int cx = chunkX + dx, cz = chunkZ + dz;
-                    long nearbyKey = pack(cx, cz);
-                    if (!hasTerrain(world, nearbyKey)) {
-                        captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
-                    }
+        } else {
+            boolean restartScan = enteredNewChunk || !world.equals(nearbyScanWorld)
+                || ++nearbyScanTicks >= 100;
+            if (restartScan) {
+                nearbyScanTicks = 0;
+                nearbyScanCursor = 0;
+                nearbyScanCenterX = chunkX;
+                nearbyScanCenterZ = chunkZ;
+                nearbyScanWorld = world;
+            }
+            if (nearbyScanCursor < 81) {
+                int dx = nearbyScanCursor % 9 - MINIMAP_CACHE_RADIUS;
+                int dz = nearbyScanCursor / 9 - MINIMAP_CACHE_RADIUS;
+                int cx = nearbyScanCenterX + dx;
+                int cz = nearbyScanCenterZ + dz;
+                long nearbyKey = pack(cx, cz);
+                if (!hasTerrain(world, nearbyKey)) {
+                    captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
+                }
+                nearbyScanCursor++;
+                if (nearbyScanCursor >= 81) {
+                    pruneUnexploredTerrain(world, chunkX, chunkZ);
                 }
             }
-            pruneUnexploredTerrain(world, chunkX, chunkZ);
         }
     }
 
