@@ -40,6 +40,24 @@ public final class VBVConfigStore {
     }
 
     public static void loadAll() {
+        VBVArmorHudConfig.enabled = bool("armor.enabled", true);
+        VBVArmorHudConfig.anchor = integer("armor.anchor", 4, 0, 4);
+        VBVArmorHudConfig.side = integer("armor.side", 0, 0, 1);
+        VBVArmorHudConfig.offsetX = integer("armor.x", 0, -2000, 2000);
+        VBVArmorHudConfig.offsetY = integer("armor.y", 8, -2000, 2000);
+        VBVArmorHudConfig.style = integer("armor.style", 0, 0, 3);
+        VBVArmorHudConfig.orientation = integer("armor.orientation", 0, 0, 1);
+        VBVArmorHudConfig.widgetShown = integer("armor.widgetShown", 0, 0, 3);
+        VBVArmorHudConfig.offhandBehavior = integer("armor.offhandBehavior", 1, 0, 2);
+        VBVArmorHudConfig.durabilityDisplay = integer("armor.durabilityDisplay", 0, 0, 2);
+        VBVArmorHudConfig.offHandDurability = bool("armor.offHandDurability", true);
+        VBVArmorHudConfig.mainHandDurability = bool("armor.mainHandDurability", false);
+        VBVArmorHudConfig.reversed = bool("armor.reversed", false);
+        VBVArmorHudConfig.iconsShown = bool("armor.iconsShown", true);
+        VBVArmorHudConfig.warningShown = bool("armor.warningShown", true);
+        VBVArmorHudConfig.minDurabilityValue = integer("armor.minDurabilityValue", 20, 0, 100000);
+        VBVArmorHudConfig.minDurabilityPercent = integer("armor.minDurabilityPercent", 10, 0, 100);
+        VBVArmorHudConfig.warningBobIntensity = integer("armor.warningBobIntensity", 3, 0, 10);
         VBVSimpleHudConfig.load(read("simpleHud", ""));
         VBVMiniMap.loadSettings(
             bool("minimap.enabled", false), integer("minimap.x", 0, -2000, 2000),
@@ -80,6 +98,20 @@ public final class VBVConfigStore {
     }
 
     public static void saveAll() {
+        write("armor.enabled", VBVArmorHudConfig.enabled);
+        write("armor.anchor", VBVArmorHudConfig.anchor); write("armor.side", VBVArmorHudConfig.side);
+        write("armor.x", VBVArmorHudConfig.offsetX); write("armor.y", VBVArmorHudConfig.offsetY);
+        write("armor.style", VBVArmorHudConfig.style); write("armor.orientation", VBVArmorHudConfig.orientation);
+        write("armor.widgetShown", VBVArmorHudConfig.widgetShown);
+        write("armor.offhandBehavior", VBVArmorHudConfig.offhandBehavior);
+        write("armor.durabilityDisplay", VBVArmorHudConfig.durabilityDisplay);
+        write("armor.offHandDurability", VBVArmorHudConfig.offHandDurability);
+        write("armor.mainHandDurability", VBVArmorHudConfig.mainHandDurability);
+        write("armor.reversed", VBVArmorHudConfig.reversed); write("armor.iconsShown", VBVArmorHudConfig.iconsShown);
+        write("armor.warningShown", VBVArmorHudConfig.warningShown);
+        write("armor.minDurabilityValue", VBVArmorHudConfig.minDurabilityValue);
+        write("armor.minDurabilityPercent", VBVArmorHudConfig.minDurabilityPercent);
+        write("armor.warningBobIntensity", VBVArmorHudConfig.warningBobIntensity);
         write("simpleHud", VBVSimpleHudConfig.serialize());
         write("minimap.enabled", VBVMiniMap.enabled);
         write("minimap.x", VBVMiniMap.offsetX); write("minimap.y", VBVMiniMap.offsetY);
