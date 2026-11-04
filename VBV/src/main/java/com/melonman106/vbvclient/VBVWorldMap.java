@@ -87,8 +87,10 @@ public final class VBVWorldMap {
         if (!VBVMiniMap.enabled) {
             nearbyScanCursor = 0;
             nearbyScanTicks = 0;
+            nearbyPruneTicks = 0;
             nearbyScanWorld = "";
         } else {
+            nearbyPruneTicks++;
             boolean worldChanged = !world.equals(nearbyScanWorld);
             boolean restartScan = enteredNewChunk || worldChanged
                 || nearbyScanRadius != radius || ++nearbyScanTicks >= 100;
@@ -115,7 +117,7 @@ public final class VBVWorldMap {
                 }
                 nearbyScanCursor++;
             }
-            if (nearbyScanCursor >= totalNearbyChunks && ++nearbyPruneTicks >= 600) {
+            if (nearbyScanCursor >= totalNearbyChunks && nearbyPruneTicks >= 600) {
                 nearbyPruneTicks = 0;
                 pruneUnexploredTerrain(world, chunkX, chunkZ);
             }
