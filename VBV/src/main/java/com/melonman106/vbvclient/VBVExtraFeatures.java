@@ -17,7 +17,8 @@ public final class VBVExtraFeatures {
     private static long gammaStatusUntil;
     private static double previousGamma = 0.5D;
     private static double gammaLevel = 4.0D;
-    private static boolean gammaFeatureEnabled = true;\n    private static boolean gammaStatusEnabled = true;
+    private static boolean gammaFeatureEnabled = true;
+    private static boolean gammaStatusEnabled = true;
     private static boolean zoomEnabled = true;
     private static boolean zooming;
     private static boolean zoomToggleMode;
@@ -26,7 +27,8 @@ public final class VBVExtraFeatures {
     private static boolean debugHudEnabled;
     static int debugHudX = 6;
     static int debugHudY = 6;
-    private static boolean betterF3Enabled = true;\n    private static boolean debugShowPerformance = true;\n    private static boolean debugShowWorld = true;\n    private static boolean debugShowPlayer = true;\n    private static boolean debugCompact = false;
+    private static boolean betterF3Enabled = true;
+    private static boolean debugShowPerformance = true;\n    private static boolean debugShowWorld = true;\n    private static boolean debugShowPlayer = true;\n    private static boolean debugCompact = false;
     private static boolean fKeyHeld;
     private VBVExtraFeatures() {}
     /** Force key mappings to register during client bootstrap, before the first key event. */
