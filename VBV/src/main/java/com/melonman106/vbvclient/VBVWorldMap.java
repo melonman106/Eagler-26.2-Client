@@ -37,14 +37,14 @@ public final class VBVWorldMap {
     private static int nearbyScanCursor = 81;
     private static int nearbyScanCenterX;
     private static int nearbyScanCenterZ;
-    private static String nearbyScanWorld = "";
+    private static String nearbyScanWorld = "";\n    private static int nearbyScanRadius = -1;
     private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
 
     private static final int TERRAIN_SIDE = 16;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
-    private static final int MINIMAP_CACHE_RADIUS = 4;
+    private static int minimapRadius() { return Math.max(3, Math.min(5, VBVMiniMap.scanRadius)); }
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
@@ -76,25 +76,30 @@ public final class VBVWorldMap {
             captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
         }
 
-        // Spread the 9x9 nearby scan across individual ticks. Capturing 81
-        // chunks in one tick caused a visible frame hitch (20,736 block samples).
-        // One chunk per tick keeps the minimap responsive while the cache fills.
+        // Spread the configurable nearby scan across individual ticks.
+        // One chunk is sampled per tick instead of processing the whole radius
+        // in one frame, avoiding the old 20k+ block-read spikes.
+        int radius = minimapRadius();
+        int diameter = radius * 2 + 1;
+        int totalNearbyChunks = diameter * diameter;
         if (!VBVMiniMap.enabled) {
-            nearbyScanCursor = 81;
+            nearbyScanCursor = 0;
             nearbyScanTicks = 0;
+            nearbyScanWorld = "";
         } else {
             boolean restartScan = enteredNewChunk || !world.equals(nearbyScanWorld)
-                || ++nearbyScanTicks >= 100;
+                || nearbyScanRadius != radius || ++nearbyScanTicks >= 100;
             if (restartScan) {
                 nearbyScanTicks = 0;
                 nearbyScanCursor = 0;
                 nearbyScanCenterX = chunkX;
                 nearbyScanCenterZ = chunkZ;
                 nearbyScanWorld = world;
+                nearbyScanRadius = radius;
             }
-            if (nearbyScanCursor < 81) {
-                int dx = nearbyScanCursor % 9 - MINIMAP_CACHE_RADIUS;
-                int dz = nearbyScanCursor / 9 - MINIMAP_CACHE_RADIUS;
+            if (nearbyScanCursor < totalNearbyChunks) {
+                int dx = nearbyScanCursor % diameter - radius;
+                int dz = nearbyScanCursor / diameter - radius;
                 int cx = nearbyScanCenterX + dx;
                 int cz = nearbyScanCenterZ + dz;
                 long nearbyKey = pack(cx, cz);
@@ -102,7 +107,7 @@ public final class VBVWorldMap {
                     captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
                 }
                 nearbyScanCursor++;
-                if (nearbyScanCursor >= 81) {
+                if (nearbyScanCursor >= totalNearbyChunks) {
                     pruneUnexploredTerrain(world, chunkX, chunkZ);
                 }
             }
@@ -119,7 +124,7 @@ public final class VBVWorldMap {
         Map<Long, int[]> terrain = TERRAIN.get(world);
         if (terrain == null) return;
         Set<Long> explored = exploredSet(world, false);
-        int keepRadius = MINIMAP_CACHE_RADIUS + 2;
+        int keepRadius = minimapRadius() + 2;
         terrain.keySet().removeIf(key -> {
             if (explored.contains(key)) return false;
             return Math.abs(chunkX(key) - playerChunkX) > keepRadius
