@@ -10,8 +10,8 @@ import net.minecraft.resources.Identifier;
 public final class VBVAppleSkin {
     private static boolean enabled = true;
     private static boolean showText = false;
-    private static boolean showFoodText = true;
-    private static boolean showSaturationText = true;
+    private static boolean showFoodText = false;
+    private static boolean showSaturationText = false;
     private static final Identifier ICONS = Identifier.parse("appleskin:textures/icons.png");
     static int x = 4;
     static int y = 4;
