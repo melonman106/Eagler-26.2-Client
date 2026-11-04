@@ -33,12 +33,10 @@ for source in sorted(MODS.glob("*.zip")):
                     or lower.startswith("assets/minecraft/textures/font/")
                     or "/assets/minecraft/textures/font/" in lower
                     # OptiFine/Iris shader assets cannot run in the Eagler WebGL2 pipeline.
-                    or lower.startswith("assets/minecraft/shaders/")
-                    or "/assets/minecraft/shaders/" in lower
-                    or lower.startswith("assets/minecraft/post_effect/")
-                    or "/assets/minecraft/post_effect/" in lower
-                    or lower.startswith("assets/optifine/shaders/")
-                    or "/assets/optifine/shaders/" in lower
+                    or lower.startswith("shaders/")
+                    or "/shaders/" in lower
+                    or lower.startswith("post_effect/")
+                    or "/post_effect/" in lower
                 )
                 if blocked:
                     changed = True
