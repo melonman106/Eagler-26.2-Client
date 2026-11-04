@@ -217,4 +217,27 @@ if sp_marker not in sp_text:
 else:
     print("[VBV singleplayer] explicit server-worker opt-in already installed.")
 
+
+# Keep every generated resource-pack entry on the same client release version.
+generated_pack_class = TARGET / "com" / "melonman106" / "vbvclient" / "VBVGeneratedPackMods.java"
+if generated_pack_class.is_file():
+    pack_source = generated_pack_class.read_text(encoding="utf-8")
+    pack_source = pack_source.replace('"1.0.0-26.2"', '"1.5.3"')
+    generated_pack_class.write_text(pack_source, encoding="utf-8")
+pack_registry = ROOT / "game" / "src" / "main" / "resources" / "assets" / "vbvclient" / "mods"
+if pack_registry.is_dir():
+    for metadata in pack_registry.rglob("mod.json"):
+        try:
+            data = json.loads(metadata.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        data["version"] = "1.5.3"
+        description = str(data.get("description", ""))
+        if description.startswith("Resource-pack client mod imported from "):
+            data["description"] = (
+                f"Client-side Eaglercraft 26.2 resource pack. {data.get('name', 'This pack')} "
+                "provides its bundled textures, models and audio assets through the native resource pipeline."
+            )
+        metadata.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+
 print("Post-VBV fixes complete: icons, client cap, HUD, storage, upstream async sleep callback, and explicit singleplayer worker opt-in.")
