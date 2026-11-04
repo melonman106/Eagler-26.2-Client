@@ -56,9 +56,6 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         // Cinematic dark panels keep the panorama visible while giving the menu the layered Dungeons look.
         int left = Math.max(28, width / 22);
         int menuWidth = Math.min(270, Math.max(220, width / 4));
-        int menuTop = Math.max(148, height / 2 - 24);
-        graphics.fill(left - 14, menuTop - 18, left + menuWidth + 14, Math.min(height - 34, menuTop + 146), 0x66000000);
-        graphics.fill(left - 10, menuTop - 14, left + menuWidth + 10, menuTop - 10, 0xAAFFFFFF);
 
         // Small status/profile area, similar to the player-facing corner UI used by Dungeons.
         String name = EaglerProfile.getName();
@@ -87,7 +84,5 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         // Menu section labels and a subtle footer keep the screen readable without covering the world.
         graphics.text(font, "ADVENTURE", left, menuTop - 30, 0xFFFFFFFF, true);
         graphics.text(font, "EXPLORE THE WORLD", left + 82, menuTop - 30, 0xFFCCCCCC, false);
-        graphics.text(font, "VBV CLIENT  •  EAGLERCRAFT 26.2", left, height - 18, 0xCCFFFFFF, false);
-        graphics.text(font, "PROFILE", width - 72, height - 18, 0xCCFFFFFF, false);
     }
 }
