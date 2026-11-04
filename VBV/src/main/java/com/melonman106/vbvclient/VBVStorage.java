@@ -1,13 +1,37 @@
 package com.melonman106.vbvclient;
 
 import org.teavm.jso.JSBody;
+import net.minecraft.client.Minecraft;
 
 /** Browser filesystem bridge with localStorage fallback. */
 public final class VBVStorage {
+    private static String lastAppliedServer = "";
     private VBVStorage() {}
     public static void chooseFolder() { chooseFolderJS(); }
     public static void reconnect() { reconnectJS(); }
-    public static void updateServer(String address) { if(address!=null) updateServerJS(address); }
+    public static void updateServer(String address) {
+        if (address == null) address = "";
+        updateServerJS(address);
+        String normalized = address.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!normalized.equals(lastAppliedServer)) {
+            lastAppliedServer = normalized;
+            if (!normalized.isEmpty()) applyProfile(address);
+        }
+    }
+    public static String[] profiles() {
+        String raw = getProfilesTextJS();
+        return raw == null || raw.isEmpty() ? new String[0] : raw.split("\\n");
+    }
+    public static boolean deleteProfile(String address) { return deleteProfileJS(address); }
+    public static void applyProfile(String address) {
+        if (address == null || address.trim().isEmpty()) return;
+        int distance = profileRenderDistanceJS(address);
+        Minecraft minecraft = Minecraft.getInstance();
+        if (distance >= 2 && minecraft != null && minecraft.options != null) {
+            minecraft.options.renderDistance().set(Math.max(2, Math.min(128, distance)));
+            minecraft.options.save();
+        }
+    }
     public static String getText(String key) { return getTextJS(key); }
     public static boolean putText(String key,String value) { return putTextJS(key,value); }
     // A Java long is a wasm i64 on TeaVM WASM-GC and may only cross the JS boundary as a BigInt. The JS side returns a
@@ -31,5 +55,11 @@ public final class VBVStorage {
     @JSBody(script="try { return !!(window.VBVStorage&&window.VBVStorage.status().connected); } catch(e){ return false; }") private static native boolean connectedJS();
     @JSBody(script="try { return window.VBVStorage ? String(window.VBVStorage.status().folder||'') : ''; } catch(e){ return ''; }") private static native String folderNameJS();
     @JSBody(params={"name","address","distance"},script="try { return !!(window.VBVStorage&&window.VBVStorage.saveProfile(name,address,distance)); } catch(e){ return false; }") private static native boolean saveProfileJS(String name,String address,int distance);
+    @JSBody(script="try { return window.VBVStorage ? String(window.VBVStorage.getProfilesText()||'') : ''; } catch(e){ return ''; }")
+    private static native String getProfilesTextJS();
+    @JSBody(params={"address"},script="try { return window.VBVStorage ? Number(window.VBVStorage.profileRenderDistance(address))||0 : 0; } catch(e){ return 0; }")
+    private static native int profileRenderDistanceJS(String address);
+    @JSBody(params={"address"},script="try { return !!(window.VBVStorage&&window.VBVStorage.deleteProfile(address)); } catch(e){ return false; }")
+    private static native boolean deleteProfileJS(String address);
     @JSBody(params={"kind","accept","folder"},script="try { if(window.VBVStorage&&window.VBVStorage.importFile) window.VBVStorage.importFile(kind,accept,folder); } catch(e){ console.error(e); }") private static native void importFileJS(String kind,String accept,String folder);
 }

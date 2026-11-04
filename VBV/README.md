@@ -50,3 +50,26 @@ The intended workflow is to port one small mod feature at a time, add only the A
 - Better Clouds or Low Fire.
 
 The client project preserves normal 26.2 textures rather than replacing them with 26.3 placeholders.
+
+
+## 26.2 U2 client fixes and configuration
+
+- The animated panorama is attached only to the custom title screen; it is not installed on the base `Screen` class, so inventory, chat, pause, HUD editor, crafting and furnace screens remain unaffected.
+- The title screen no longer draws the temporary black menu panels, profile footer label, VBV/Eaglercraft footer or upstream `o_xer` credit.
+- The native crosshair editor has a dedicated Mod Menu entry and now supports pattern editing, 1x–4x scale, color presets and persistent settings.
+- First-person arms use the vanilla attack swing transform, receive the eating/drinking use transform, and share a small forward alignment offset with the held item.
+- The minimap scans one nearby chunk per tick rather than sampling the whole area in a single frame. Its map size, scan radius, frame, player marker and north indicator are configurable. Explored-chunk saves are batched every 100 ticks and flushed when leaving a world to avoid a full-map storage write on every chunk entry.
+- Jade, AppleSkin, BetterF3, Gamma, Mouse Tweaks, ShulkerBoxTooltip, Simple HUD, first-person animation and Armor HUD settings are persisted through the Eagler runtime storage API. Uku's Armor HUD screen layout is unchanged.
+- Server profiles can be listed, applied and deleted. Their saved render-distance setting is applied when the matching server is joined; the profile editor supports up to 128 chunks.
+- The U2 render-distance option ceiling is raised to 128. Actual server view distance and browser/GPU memory limits can still impose a lower effective distance.
+- Shine now attempts its bundled screen-space bloom post-chain on the supported renderer. It disables itself after a renderer error; other lighting controls remain experimental.
+
+## Resource-pack compatibility
+
+Every ZIP under `ModsPack/` is imported automatically during the build, including the newer Creepers Revamped and Emissive End Portal packs. The sanitizer preserves normal textures, models, sounds and language files while removing incompatible font overrides and third-party shader/post-effect files that cannot run in the Eagler WebGL2 pipeline. Generated pack entries use the client release version `1.5.3`.
+
+## Online party service
+
+The client party manager uses the existing Eagler relay Worker HTTP endpoint at `/party`. The D1-backed Worker implementation and SQL schema are in the companion `melonman106/Wisp-Relay` repository branch `vbv-party-d1-2026-11-04`. Before parties can connect, deploy that Worker code, create the D1 database, run `cloudflare/schema/0001_vbv_parties.sql`, and bind the database as `VBV_PARTIES`. The client polls every five seconds; inactive members are removed after 30 seconds and a stale host causes the party to be deleted.
+
+**Storage limitation:** server profiles and feature settings use the VBV storage bridge, but Minecraft singleplayer world saves still use the native Eagler filesystem/IndexedDB backend. The selected external folder is currently for VBV files, backups and imports; it does not yet replace the native world-save backend.

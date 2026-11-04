@@ -34,17 +34,36 @@ public final class VBVWorldMap {
     private static long lastChunk = Long.MIN_VALUE;
     private static String lastWorld = "";
     private static int nearbyScanTicks;
+    private static int nearbyScanCursor = 81;
+    private static int nearbyScanCenterX;
+    private static int nearbyScanCenterZ;
+    private static String nearbyScanWorld = "";
+    private static int nearbyScanRadius = -1;
+    private static int nearbyPruneTicks;
+    private static boolean worldMapDirty;
+    private static int worldMapSaveTicks;
     private static boolean storageWriteFailed;
 
     private VBVWorldMap() {}
 
     private static final int TERRAIN_SIDE = 16;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
-    private static final int MINIMAP_CACHE_RADIUS = 4;
+    private static int minimapRadius() { return Math.max(3, Math.min(5, VBVMiniMap.scanRadius)); }
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (!(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) return;
+        if (minecraft == null) return;
+        if (!(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) {
+            if (worldMapDirty && !lastWorld.isEmpty()) {
+                saveWorld(lastWorld);
+                worldMapDirty = storageWriteFailed;
+            }
+            worldMapSaveTicks = 0;
+            lastChunk = Long.MIN_VALUE;
+            lastWorld = "";
+            nearbyScanWorld = "";
+            return;
+        }
         BlockPos pos = player.blockPosition();
         if (!minecraft.level.hasChunkAt(pos)) return;
 
@@ -56,15 +75,21 @@ public final class VBVWorldMap {
         } else {
             VBVStorage.updateServer("");
         }
+        boolean worldChanged = !world.equals(lastWorld);
+        if (worldChanged && worldMapDirty && !lastWorld.isEmpty()) {
+            saveWorld(lastWorld);
+            worldMapDirty = storageWriteFailed;
+            worldMapSaveTicks = 0;
+        }
         loadWorld(world);
         long key = pack(chunkX, chunkZ);
-        boolean enteredNewChunk = key != lastChunk || !world.equals(lastWorld);
+        boolean enteredNewChunk = key != lastChunk || worldChanged;
 
         if (enteredNewChunk) {
             lastChunk = key;
             lastWorld = world;
             // Only the chunk the player actually enters is marked explored.
-            if (exploredSet(world, true).add(key)) saveWorld(world);
+            if (exploredSet(world, true).add(key)) worldMapDirty = true;
         }
         // Retry the player's current chunk until its terrain data is actually
         // available. A one-time failed capture must not leave the map blank forever.
@@ -72,21 +97,55 @@ public final class VBVWorldMap {
             captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
         }
 
-        // Refresh the nearby terrain cache periodically so newly loaded chunks
-        // appear on the minimap even when the player stands still. This never
-        // adds nearby chunks to EXPLORED, so the world map keeps its fog of war.
-        if (VBVMiniMap.enabled && (enteredNewChunk || ++nearbyScanTicks >= 100)) {
+        // Spread the configurable nearby scan across individual ticks.
+        // One chunk is sampled per tick instead of processing the whole radius
+        // in one frame, avoiding the old 20k+ block-read spikes.
+        int radius = minimapRadius();
+        int diameter = radius * 2 + 1;
+        int totalNearbyChunks = diameter * diameter;
+        if (worldMapDirty && ++worldMapSaveTicks >= 100) {
+            saveWorld(world);
+            worldMapDirty = storageWriteFailed;
+            worldMapSaveTicks = 0;
+        }
+
+        if (!VBVMiniMap.enabled) {
+            nearbyScanCursor = 0;
             nearbyScanTicks = 0;
-            for (int dz = -MINIMAP_CACHE_RADIUS; dz <= MINIMAP_CACHE_RADIUS; dz++) {
-                for (int dx = -MINIMAP_CACHE_RADIUS; dx <= MINIMAP_CACHE_RADIUS; dx++) {
-                    int cx = chunkX + dx, cz = chunkZ + dz;
-                    long nearbyKey = pack(cx, cz);
-                    if (!hasTerrain(world, nearbyKey)) {
-                        captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
-                    }
-                }
+            nearbyPruneTicks = 0;
+            nearbyScanWorld = "";
+        } else {
+            nearbyPruneTicks++;
+            boolean scanWorldChanged = !world.equals(nearbyScanWorld);
+            boolean restartScan = enteredNewChunk || scanWorldChanged
+                || nearbyScanRadius != radius || ++nearbyScanTicks >= 100;
+            if (scanWorldChanged) {
+                pruneUnexploredTerrain(world, chunkX, chunkZ);
+                nearbyPruneTicks = 0;
             }
-            pruneUnexploredTerrain(world, chunkX, chunkZ);
+            if (restartScan) {
+                nearbyScanTicks = 0;
+                nearbyScanCursor = 0;
+                nearbyScanCenterX = chunkX;
+                nearbyScanCenterZ = chunkZ;
+                nearbyScanWorld = world;
+                nearbyScanRadius = radius;
+            }
+            if (nearbyScanCursor < totalNearbyChunks) {
+                int dx = nearbyScanCursor % diameter - radius;
+                int dz = nearbyScanCursor / diameter - radius;
+                int cx = nearbyScanCenterX + dx;
+                int cz = nearbyScanCenterZ + dz;
+                long nearbyKey = pack(cx, cz);
+                if (!hasTerrain(world, nearbyKey)) {
+                    captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
+                }
+                nearbyScanCursor++;
+            }
+            if (nearbyScanCursor >= totalNearbyChunks && nearbyPruneTicks >= 600) {
+                nearbyPruneTicks = 0;
+                pruneUnexploredTerrain(world, chunkX, chunkZ);
+            }
         }
     }
 
@@ -100,7 +159,7 @@ public final class VBVWorldMap {
         Map<Long, int[]> terrain = TERRAIN.get(world);
         if (terrain == null) return;
         Set<Long> explored = exploredSet(world, false);
-        int keepRadius = MINIMAP_CACHE_RADIUS + 2;
+        int keepRadius = minimapRadius() + 2;
         terrain.keySet().removeIf(key -> {
             if (explored.contains(key)) return false;
             return Math.abs(chunkX(key) - playerChunkX) > keepRadius

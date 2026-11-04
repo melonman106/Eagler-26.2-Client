@@ -51,7 +51,12 @@ public final class VBVModDetailsScreen extends Screen {
             labelY += 28;
         }
 
-        if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade").contains(info.id())) {
+        if ("custom-crosshair".equals(info.id())) {
+            addRenderableWidget(Button.builder(Component.literal("Open Editor"),
+                button -> VBVNav.open(new VBVCrosshairScreen(this)))
+                .bounds(width / 2 - 50, labelY + 4, 100, 20).build());
+            labelY += 28;
+        } else if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "appleskin", "vbv-minimap", "jade", "shine", "shulkerboxtooltip").contains(info.id())) {
             addRenderableWidget(Button.builder(Component.literal("Config"),
                 button -> VBVNav.open(new VBVFeatureConfigScreen(this, info.id(), info.name())))
                 .bounds(width / 2 - 50, labelY + 4, 100, 20).build());

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inject the skin-textured arm layer while retaining vanilla item rendering."""
+"""Animate the skin-textured first-person arm and improve held-item alignment."""
 from pathlib import Path
 import sys
 
@@ -30,13 +30,26 @@ if marker in text:
 
 needle = "poseStack.pushPose();\n         if (itemStack.isEmpty()) {"
 hook = """poseStack.pushPose();
-         // VBV_FIRST_PERSON_HELD_ARM: draw the skin arm with vanilla's arm
-         // transform, without changing the held item's own animation path.
+         // VBV_FIRST_PERSON_ITEM_OFFSET: move the hand/item pair slightly forward.
+         if (com.melonman106.vbvclient.VBVFirstPersonAnimations.isEnabled() && !itemStack.isEmpty() && !itemStack.has(DataComponents.MAP_ID)) {
+            float vbvHandSide = arm == HumanoidArm.RIGHT ? 1.0F : -1.0F;
+            poseStack.translate(vbvHandSide * 0.015F, 0.01F, 0.08F);
+         }
+         // VBV_FIRST_PERSON_HELD_ARM: keep the skin arm attached to the item.
+         // Vanilla renderPlayerArm already animates attacks; eating and drinking
+         // need their use transform applied before the arm is drawn.
          if (com.melonman106.vbvclient.VBVFirstPersonAnimations.isEnabled()
                && !itemStack.isEmpty()
                && !itemStack.has(DataComponents.MAP_ID)
                && !player.isInvisible()) {
             poseStack.pushPose();
+            if (player.isUsingItem() && player.getUseItemRemainingTicks() > 0
+                  && player.getUsedItemHand() == hand
+                  && (itemStack.getUseAnimation() == ItemUseAnimation.EAT
+                      || itemStack.getUseAnimation() == ItemUseAnimation.DRINK)) {
+               this.applyEatTransform(poseStack, frameInterp, arm, itemStack, player);
+               this.applyItemArmTransform(poseStack, arm, inverseArmHeight);
+            }
             this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, attack, arm);
             poseStack.popPose();
          }

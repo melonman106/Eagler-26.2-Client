@@ -17,6 +17,7 @@ public final class VBVFeatureConfigScreen extends Screen {
         if ("gamma-utils".equals(modId)) {
             option(() -> "Gamma feature: " + onOff(VBVExtraFeatures.isGammaFeatureEnabled()), VBVExtraFeatures::toggleGammaFeature);
             option(() -> "Brightness strength: " + (int) VBVExtraFeatures.gammaLevel(), VBVExtraFeatures::cycleGammaLevel);
+            option(() -> "Status notification: " + onOff(VBVExtraFeatures.isGammaStatusEnabled()), VBVExtraFeatures::toggleGammaStatus);
         } else if ("zoomify".equals(modId)) {
             option(() -> "Zoom: " + onOff(VBVExtraFeatures.isZoomEnabled()), VBVExtraFeatures::toggleZoomEnabled);
             option(() -> "Zoom FOV: " + VBVExtraFeatures.zoomFov(), VBVExtraFeatures::cycleZoomFov);
@@ -24,12 +25,21 @@ public final class VBVFeatureConfigScreen extends Screen {
         } else if ("betterf3".equals(modId)) {
             option(() -> "BetterF3: " + onOff(VBVExtraFeatures.isBetterF3Enabled()), VBVExtraFeatures::toggleBetterF3Enabled);
             option(() -> "Show overlay: " + onOff(VBVExtraFeatures.isDebugHudEnabled()), VBVExtraFeatures::toggleDebugHud);
+            option(() -> "Performance section: " + onOff(VBVExtraFeatures.debugShowPerformance()), VBVExtraFeatures::toggleDebugShowPerformance);
+            option(() -> "World section: " + onOff(VBVExtraFeatures.debugShowWorld()), VBVExtraFeatures::toggleDebugShowWorld);
+            option(() -> "Player section: " + onOff(VBVExtraFeatures.debugShowPlayer()), VBVExtraFeatures::toggleDebugShowPlayer);
+            option(() -> "Compact layout: " + onOff(VBVExtraFeatures.debugCompact()), VBVExtraFeatures::toggleDebugCompact);
         } else if ("mouse-tweaks".equals(modId)) {
             option(() -> "Wheel tweak: " + onOff(VBVMouseTweaks.isWheelTweakEnabled()), () -> VBVMouseTweaks.setWheelTweakEnabled(!VBVMouseTweaks.isWheelTweakEnabled()));
             option(() -> "Quick move: " + onOff(VBVMouseTweaks.isQuickMoveEnabled()), () -> VBVMouseTweaks.setQuickMoveEnabled(!VBVMouseTweaks.isQuickMoveEnabled()));
             option(() -> "Drag evenly: " + onOff(VBVMouseTweaks.isDragEvenlyEnabled()), () -> VBVMouseTweaks.setDragEvenlyEnabled(!VBVMouseTweaks.isDragEvenlyEnabled()));
         } else if ("vbv-minimap".equals(modId)) {
             option(() -> "Minimap: " + onOff(VBVMiniMap.enabled), () -> VBVMiniMap.enabled = !VBVMiniMap.enabled);
+            option(() -> "Map size: " + VBVMiniMap.size + "px", VBVMiniMap::cycleSize);
+            option(() -> "Scan radius: " + VBVMiniMap.scanRadius + " chunks", VBVMiniMap::cycleScanRadius);
+            option(() -> "Frame: " + onOff(VBVMiniMap.showFrame), () -> VBVMiniMap.showFrame = !VBVMiniMap.showFrame);
+            option(() -> "Player marker: " + onOff(VBVMiniMap.showPlayerMarker), () -> VBVMiniMap.showPlayerMarker = !VBVMiniMap.showPlayerMarker);
+            option(() -> "North indicator: " + onOff(VBVMiniMap.showNorth), () -> VBVMiniMap.showNorth = !VBVMiniMap.showNorth);
             addRenderableWidget(Button.builder(Component.literal("Edit minimap position"),
                 button -> VBVNav.open(new VBVHudEditorScreen(this)))
                 .bounds(width / 2 - 130, nextY, 260, 22).build());
@@ -37,13 +47,20 @@ public final class VBVFeatureConfigScreen extends Screen {
         } else if ("jade".equals(modId)) {
             option(() -> "Jade overlay: " + onOff(VBVJadeHud.enabled), () -> VBVJadeHud.enabled = !VBVJadeHud.enabled);
             option(() -> "Show coordinates: " + onOff(VBVJadeHud.showCoordinates), () -> VBVJadeHud.showCoordinates = !VBVJadeHud.showCoordinates);
+            option(() -> "Entity health: " + onOff(VBVJadeHud.showEntityHealth), () -> VBVJadeHud.showEntityHealth = !VBVJadeHud.showEntityHealth);
+            option(() -> "Block hardness: " + onOff(VBVJadeHud.showBlockHardness), () -> VBVJadeHud.showBlockHardness = !VBVJadeHud.showBlockHardness);
+            option(() -> "Target name: " + onOff(VBVJadeHud.showTargetName), () -> VBVJadeHud.showTargetName = !VBVJadeHud.showTargetName);
             addRenderableWidget(Button.builder(Component.literal("Edit Jade position"),
                 button -> VBVNav.open(new VBVHudEditorScreen(this, true)))
                 .bounds(width / 2 - 130, nextY, 260, 22).build());
             nextY += 27;
+        } else if ("shulkerboxtooltip".equals(modId)) {
+            option(() -> "Shulker preview: " + onOff(VBVShulkerViewer.enabled), VBVShulkerViewer::toggle);
         } else if ("appleskin".equals(modId)) {
             option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
             option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
+            option(() -> "Food level text: " + onOff(VBVAppleSkin.isShowFoodText()), VBVAppleSkin::toggleFoodText);
+            option(() -> "Saturation text: " + onOff(VBVAppleSkin.isShowSaturationText()), VBVAppleSkin::toggleSaturationText);
         } else if ("shine".equals(modId)) {
             option(() -> "Shine effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
             option(() -> "Screen-space bloom: " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
@@ -58,7 +75,7 @@ public final class VBVFeatureConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());
     }
     private void option(Supplier<String> text, Runnable action) {
-        addRenderableWidget(Button.builder(Component.literal(text.get()), button -> { action.run(); button.setMessage(Component.literal(text.get())); }).bounds(width / 2 - 130, nextY, 260, 22).build());
+        addRenderableWidget(Button.builder(Component.literal(text.get()), button -> { action.run(); VBVConfigStore.saveAll(); button.setMessage(Component.literal(text.get())); }).bounds(width / 2 - 130, nextY, 260, 22).build());
         nextY += 27;
     }
     private static String onOff(boolean value) { return value ? "ON" : "OFF"; }

@@ -63,6 +63,7 @@ public final class VBVArmorHudConfigScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("Reset defaults"), b -> {
             VBVArmorHudConfig.reset();
+            VBVConfigStore.saveAll();
             VBVNav.open(new VBVArmorHudConfigScreen(parent));
         }).bounds(width / 2 - 100, height - 28, 95, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), b -> {
@@ -85,6 +86,7 @@ public final class VBVArmorHudConfigScreen extends Screen {
         int x = column == 0 ? left() : right();
         addRenderableWidget(Button.builder(Component.literal(label.get()), b -> {
             action.run();
+            VBVConfigStore.saveAll();
             b.setMessage(Component.literal(label.get()));
         }).bounds(x, rowY(row), columnWidth(), 20).build());
     }
@@ -110,6 +112,7 @@ public final class VBVArmorHudConfigScreen extends Screen {
         VBVArmorHudConfig.offsetY = parse(offsetY, VBVArmorHudConfig.offsetY, -2000, 2000);
         VBVArmorHudConfig.minDurabilityValue = parse(minValue, VBVArmorHudConfig.minDurabilityValue, 0, 100000);
         VBVArmorHudConfig.minDurabilityPercent = parse(minPercent, VBVArmorHudConfig.minDurabilityPercent, 0, 100);
+        VBVConfigStore.saveAll();
     }
 
     @Override

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Post-process the pinned VBV patch with fixes that must not be overwritten by it."""
 from pathlib import Path
-import re, shutil, sys
+import json, re, shutil, sys
 ROOT=Path(sys.argv[1]).resolve(); CLIENT=Path(__file__).resolve().parent.parent; SRC=CLIENT/"src/main/java/com/melonman106/vbvclient"; GAME=ROOT/"game/src/main/java"; RES=ROOT/"game/src/main/resources"
 def java_files_named(name):return list(GAME.rglob(name))
 def matching_brace(text,brace):
@@ -48,22 +48,20 @@ minecraft.write_text(mc,encoding="utf-8")
 
 # Raise the client render-distance option ceiling to 128 chunks.
 def patch_render_distance_limit():
- candidates=java_files_named("GameOptions.java")+java_files_named("Options.java")
+ candidates=java_files_named("Options.java")
  if not candidates:return
- path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/Options.java") or p.as_posix().endswith("/net/minecraft/client/GameOptions.java")),candidates[0])
+ path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/Options.java")),candidates[0])
  text=path.read_text(encoding="utf-8");marker="VBV_RENDER_DISTANCE_128"
  if marker in text:return
- m=re.search(r"(viewDistance\s*=\s*new\s+OptionInstance(?:<[^>]+>)?\s*\([^;]*?)(?=;)",text,re.S)
- if not m:m=re.search(r"(\bviewDistance\b\s*=\s*new\s+[^;]*OptionInstance[^;]*)(?=;)",text,re.S)
- if not m:
-  print("[VBV] viewDistance initializer not found; leaving cap unchanged.");return
- block=m.group(1)
- if not re.search(r"\b32\b",block):
-  print("[VBV] viewDistance initializer has no 32 ceiling; leaving it unchanged.");return
- block=re.sub(r"\b32\b","128",block,count=1)
- text=text[:m.start(1)]+block+text[m.end(1):]
- path.write_text("// "+marker+"\n"+text,encoding="utf-8")
- print("[VBV] Raised client render-distance option ceiling to 128 chunks in",path)
+ # U2 names the field renderDistance (not viewDistance) and uses a
+ # largeDistances ? 32 : 16 cap. Replace only that OptionInstance range.
+ pattern=r'(this\.renderDistance\s*=\s*new\s+OptionInstance<>\s*\(.*?new\s+OptionInstance\.IntRange\(2,\s*)largeDistances\s*\?\s*32\s*:\s*16(\s*,\s*false\s*\),)'
+ updated,n=re.subn(pattern,r'\g<1>128\g<2>',text,count=1,flags=re.S)
+ if n!=1:
+  print("[VBV] U2 renderDistance range did not match; leaving cap unchanged.")
+  return
+ path.write_text("// "+marker+"\n"+updated,encoding="utf-8")
+ print("[VBV] Raised U2 render-distance option ceiling to 128 chunks in",path)
 patch_render_distance_limit()
 
 hud_candidates=list(GAME.rglob("Hud.java"))
@@ -218,4 +216,82 @@ if sp_marker not in sp_text:
     print("[VBV singleplayer] server workers now require explicit ?workers/serverWorker opt-in; default uses the single-thread controller.")
 else:
     print("[VBV singleplayer] explicit server-worker opt-in already installed.")
+
+
+# Make the existing inventory hooks use the container's actual quick-move action.
+container_candidates = java_files_named("AbstractContainerScreen.java")
+if container_candidates:
+    container = next((p for p in container_candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java")), container_candidates[0])
+    ct = container.read_text(encoding="utf-8")
+    wheel_call = "this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, button, ContainerInput.PICKUP);"
+    quick_move_call = "this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ContainerInput.QUICK_MOVE);"
+    if wheel_call in ct:
+        ct = ct.replace(wheel_call, quick_move_call, 1)
+        print("[VBV Mouse Tweaks] Wheel action now transfers the hovered stack between inventories.")
+    if "Minecraft.getInstance().options.keyShift.isDown()" in ct:
+        ct = ct.replace("Minecraft.getInstance().options.keyShift.isDown()", "net.minecraft.client.gui.screens.Screen.hasShiftDown()")
+        print("[VBV ShulkerBoxTooltip] Use the global Shift-key state for preview detection.")
+    container.write_text(ct, encoding="utf-8")
+
+# Activate the bundled Shine bloom post-chain on supported renderers.
+renderer_candidates = java_files_named("GameRenderer.java")
+if renderer_candidates:
+    renderer = next((p for p in renderer_candidates if p.as_posix().endswith("/net/minecraft/client/renderer/GameRenderer.java")), renderer_candidates[0])
+    rt = renderer.read_text(encoding="utf-8")
+    shine_marker = "VBV_SHINE_POST_CHAIN"
+    if shine_marker not in rt:
+        field_anchor = "private boolean eaglerOptimizedShaderFailed;"
+        if field_anchor not in rt:
+            raise RuntimeError("GameRenderer optimized-shader state field not found for Shine")
+        rt = rt.replace(field_anchor, field_anchor + "\n   private boolean vbvShineFailed;", 1)
+        anchor = "this.minecraft.levelRenderer.doEntityOutline();"
+        if rt.count(anchor) != 1:
+            raise RuntimeError("Could not uniquely locate GameRenderer world post-processing point for Shine")
+        shine_hook = anchor + """
+         // VBV_SHINE_POST_CHAIN: safely process the bundled screen-space bloom.
+         if (!this.vbvShineFailed
+               && com.melonman106.vbvclient.ShineConfig.bloom()
+               && this.isEaglerOptimizedShaderSupported()) {
+            try {
+               net.minecraft.client.renderer.PostChain vbvShine = this.minecraft.getShaderManager()
+                  .getPostChain(net.minecraft.resources.Identifier.parse("vbvclient:shine_bloom"),
+                     net.minecraft.client.renderer.LevelTargetBundle.MAIN_TARGETS);
+               if (vbvShine != null) {
+                  vbvShine.process(this.mainRenderTarget, this.resourcePool);
+               } else {
+                  this.vbvShineFailed = true;
+                  System.err.println("[VBV Shine] Bloom post-chain is unavailable or failed to compile; disabled.");
+               }
+            } catch (Throwable error) {
+               this.vbvShineFailed = true;
+               System.err.println("[VBV Shine] Bloom post-chain disabled after renderer error: " + error);
+            }
+         }
+"""
+        rt = rt.replace(anchor, shine_hook, 1)
+        renderer.write_text(rt, encoding="utf-8")
+        print("[VBV Shine] Bloom post-chain hook installed.")
+
+# Keep every generated resource-pack entry on the same client release version.
+generated_pack_class = TARGET / "com" / "melonman106" / "vbvclient" / "VBVGeneratedPackMods.java"
+if generated_pack_class.is_file():
+    pack_source = generated_pack_class.read_text(encoding="utf-8")
+    pack_source = pack_source.replace('"1.0.0-26.2"', '"1.5.3"')
+    generated_pack_class.write_text(pack_source, encoding="utf-8")
+pack_registry = ROOT / "game" / "src" / "main" / "resources" / "assets" / "vbvclient" / "mods"
+if pack_registry.is_dir():
+    for metadata in pack_registry.rglob("mod.json"):
+        try:
+            data = json.loads(metadata.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        data["version"] = "1.5.3"
+        description = str(data.get("description", ""))
+        if description.startswith("Resource-pack client mod imported from "):
+            data["description"] = (
+                f"Client-side Eaglercraft 26.2 resource pack. {data.get('name', 'This pack')} "
+                "provides its bundled textures, models and audio assets through the native resource pipeline."
+            )
+        metadata.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
 print("Post-VBV fixes complete: icons, client cap, HUD, storage, upstream async sleep callback, and explicit singleplayer worker opt-in.")
