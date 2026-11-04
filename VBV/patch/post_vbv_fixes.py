@@ -218,4 +218,52 @@ if sp_marker not in sp_text:
     print("[VBV singleplayer] server workers now require explicit ?workers/serverWorker opt-in; default uses the single-thread controller.")
 else:
     print("[VBV singleplayer] explicit server-worker opt-in already installed.")
+
+# Wire the inventory helpers into the real 26.2 container screen and render
+# the shulker contents preview after the normal item tooltip.
+container_candidates = java_files_named("AbstractContainerScreen.java")
+if container_candidates:
+    container = next((p for p in container_candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java")), container_candidates[0])
+    ct = container.read_text(encoding="utf-8")
+    preview_marker = "VBV_SHULKER_PREVIEW_RENDER"
+    if preview_marker not in ct:
+        tooltip_anchor = "this.extractTooltip(graphics, mouseX, mouseY);"
+        if ct.count(tooltip_anchor) != 1:
+            raise RuntimeError("Could not uniquely locate container tooltip render call for ShulkerBoxTooltip")
+        preview = tooltip_anchor + """
+      // VBV_SHULKER_PREVIEW_RENDER
+      com.melonman106.vbvclient.VBVShulkerViewer.render(
+          graphics, this.hoveredSlot, mouseX, mouseY,
+          net.minecraft.client.gui.screens.Screen.hasShiftDown());
+"""
+        ct = ct.replace(tooltip_anchor, preview, 1)
+
+    wheel_marker = "VBV_MOUSE_TWEAK_WHEEL"
+    if wheel_marker not in ct:
+        wheel_method = re.search(r"public\\s+boolean\\s+mouseScrolled\\s*\\([^)]*\\)\\s*\\{", ct)
+        if not wheel_method:
+            raise RuntimeError("AbstractContainerScreen.mouseScrolled() not found for Mouse Tweaks")
+        wheel_brace = ct.find("{", wheel_method.start())
+        wheel_hook = """
+      // VBV_MOUSE_TWEAK_WHEEL
+      if (com.melonman106.vbvclient.VBVMouseTweaks.isWheelTweakEnabled()
+            && this.hoveredSlot != null && this.hoveredSlot.hasItem()
+            && this.menu.getCarried().isEmpty()) {
+         this.slotClicked(this.hoveredSlot, this.hoveredSlot.index, 0, ContainerInput.QUICK_MOVE);
+         return true;
+      }
+"""
+        ct = ct[:wheel_brace + 1] + wheel_hook + ct[wheel_brace + 1:]
+
+    ct = ct.replace(
+        "boolean quickKey = slotId != -999 && event.hasShiftDown();",
+        "boolean quickKey = slotId != -999 && event.hasShiftDown() && com.melonman106.vbvclient.VBVMouseTweaks.isQuickMoveEnabled();"
+    )
+    ct = ct.replace(
+        "this.quickCraftingType = 0;",
+        "this.quickCraftingType = com.melonman106.vbvclient.VBVMouseTweaks.isDragEvenlyEnabled() ? 0 : 1;"
+    )
+    container.write_text(ct, encoding="utf-8")
+    print("[VBV inventory] Shulker preview and Mouse Tweaks hooks installed.")
+
 print("Post-VBV fixes complete: icons, client cap, HUD, storage, upstream async sleep callback, and explicit singleplayer worker opt-in.")
