@@ -218,6 +218,40 @@ else:
     print("[VBV singleplayer] explicit server-worker opt-in already installed.")
 
 
+# Activate the bundled Shine bloom post-chain on supported renderers.
+renderer_candidates = java_files_named("GameRenderer.java")
+if renderer_candidates:
+    renderer = next((p for p in renderer_candidates if p.as_posix().endswith("/net/minecraft/client/renderer/GameRenderer.java")), renderer_candidates[0])
+    rt = renderer.read_text(encoding="utf-8")
+    shine_marker = "VBV_SHINE_POST_CHAIN"
+    if shine_marker not in rt:
+        field_anchor = "private boolean eaglerOptimizedShaderFailed;"
+        if field_anchor not in rt:
+            raise RuntimeError("GameRenderer optimized-shader state field not found for Shine")
+        rt = rt.replace(field_anchor, field_anchor + "\n   private boolean vbvShineFailed;", 1)
+        anchor = "this.minecraft.levelRenderer.doEntityOutline();"
+        if rt.count(anchor) != 1:
+            raise RuntimeError("Could not uniquely locate GameRenderer world post-processing point for Shine")
+        shine_hook = anchor + """
+         // VBV_SHINE_POST_CHAIN: safely process the bundled screen-space bloom.
+         if (!this.vbvShineFailed
+               && com.melonman106.vbvclient.ShineConfig.bloom()
+               && this.isEaglerOptimizedShaderSupported()) {
+            try {
+               net.minecraft.client.renderer.PostChain vbvShine = this.minecraft.getShaderManager()
+                  .getPostChain(net.minecraft.resources.Identifier.parse("vbvclient:shine_bloom"),
+                     net.minecraft.client.renderer.LevelTargetBundle.MAIN_TARGETS);
+               if (vbvShine != null) vbvShine.process(this.mainRenderTarget, this.resourcePool);
+            } catch (Throwable error) {
+               this.vbvShineFailed = true;
+               System.err.println("[VBV Shine] Bloom post-chain disabled after renderer error: " + error);
+            }
+         }
+"""
+        rt = rt.replace(anchor, shine_hook, 1)
+        renderer.write_text(rt, encoding="utf-8")
+        print("[VBV Shine] Bloom post-chain hook installed.")
+
 # Keep every generated resource-pack entry on the same client release version.
 generated_pack_class = TARGET / "com" / "melonman106" / "vbvclient" / "VBVGeneratedPackMods.java"
 if generated_pack_class.is_file():
