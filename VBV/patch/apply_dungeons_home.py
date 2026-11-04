@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Dungeons II-inspired title screen and global animated panorama overlay."""
+"""Build the Dungeons II-inspired title screen and title-screen-only animated panorama overlay."""
 from pathlib import Path
 import re, shutil, subprocess, sys
 ROOT=Path(sys.argv[1]).resolve(); CLIENT=Path(__file__).resolve().parent.parent
@@ -56,9 +56,7 @@ def configure_panorama_overlay():
     animated=mp4 if mp4.is_file() else gif if gif.is_file() else None
     frame_dir=RES/"assets/vbvclient/textures/panorama_overlay"; frame_dir.mkdir(parents=True,exist_ok=True)
     for old in frame_dir.glob("frame_*.png"): old.unlink()
-    screen_files=list(GAME.rglob("Screen.java")); title_files=list(GAME.rglob("TitleScreen.java"))
-    if not screen_files: raise RuntimeError("Screen.java not found")
-    screen=next((p for p in screen_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/Screen.java")),screen_files[0])
+    title_files=list(GAME.rglob("TitleScreen.java"))
     title=next((p for p in title_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")),title_files[0]) if title_files else None
     if animated:
         ffmpeg=shutil.which("ffmpeg")
@@ -77,15 +75,8 @@ def configure_panorama_overlay():
     else:
         return
 
-    # All ordinary menu screens receive the panorama from the base Screen.
-    source=screen.read_text(encoding="utf-8"); marker="VBV_GLOBAL_PANORAMA_BACKGROUND"
-    if marker not in source:
-        method=re.search(r"public\s+void\s+extractRenderState\s*\(\s*final\s+GuiGraphicsExtractor\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*,\s*final\s+int\s+(\w+)\s*,\s*final\s+float\s+(\w+)\s*\)\s*\{",source)
-        if not method: raise RuntimeError("Could not locate Screen.extractRenderState for global panorama")
-        brace=source.find("{",method.start()); graphics=method.group(1)
-        if brace<0: raise RuntimeError("Could not locate Screen.extractRenderState body")
-        hook=f"\n        // {marker}\n        if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) {{\n            com.melonman106.vbvclient.VBVPanoramaOverlay.render({graphics}, this.width, this.height);\n        }}"
-        screen.write_text(source[:brace+1]+hook+source[brace+1:],encoding="utf-8")
+    # The animation belongs only to the custom title screen. Never hook base Screen:
+    # that class is shared by inventory, chat, HUD editor, pause, crafting and furnace menus.
 
     # TitleScreen has its own panorama pass after the base Screen pass, so it
     # needs the VBV layer after extractPanorama to keep the custom scene visible.
