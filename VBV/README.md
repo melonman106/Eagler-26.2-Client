@@ -64,6 +64,16 @@ The client project preserves normal 26.2 textures rather than replacing them wit
 - The U2 render-distance option ceiling is raised to 128. Actual server view distance and browser/GPU memory limits can still impose a lower effective distance.
 - Shine now attempts its bundled screen-space bloom post-chain on the supported renderer. It disables itself after a renderer error; other lighting controls remain experimental.
 
+## Actually 3D Stuff Eagler 26.2 U2 port
+
+The pinned U2 source already contains the native 26.x item-definition pipeline, including `select`, `condition`, `display_context`, and cuboid item-model baking. The Actually 3D Stuff pack can therefore keep its custom item definitions and cuboid geometry; it does not need a separate replacement renderer.
+
+The build now injects `Actually3DStuffCompat` and hooks it into the first-person held-item pose. It ports the simple whole-item transforms from the pack's Hold My Items add-ons for candles, seed items, fishing rods, carrot/warped-fungus-on-a-stick, brush, stick, string, paper/maps, name tags, writable books, armor stands, hanging items and banner patterns.
+
+This is a partial native animation port, not a Lua interpreter. The original scripts' per-cuboid animation, fish/boat/totem/harness motion, particles, shearing controls, and stateful movement still need a model-part animation system. The pack's Java Edition GLSL shader overrides and RespackOpts `.rpo` rules are not installed: the former require a tested WebGL2 shader translation, and the latter depend on the external RespackOpts runtime.
+
+Use the matching `Actually-3D-Stuff-Eagler-26.2-U2.zip` resource pack with a build containing `Actually3DStuffCompat`. The ZIP alone does not add client-side animation code.
+
 ## Resource-pack compatibility
 
 Every ZIP under `ModsPack/` is imported automatically during the build, including the newer Creepers Revamped and Emissive End Portal packs. The sanitizer preserves normal textures, models, sounds and language files while removing incompatible font overrides and third-party shader/post-effect files that cannot run in the Eagler WebGL2 pipeline. Generated pack entries use the client release version `1.5.3`.
