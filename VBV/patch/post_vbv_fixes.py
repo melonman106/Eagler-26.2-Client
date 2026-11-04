@@ -62,23 +62,6 @@ def patch_render_distance_limit():
   return
  path.write_text("// "+marker+"\\n"+updated,encoding="utf-8")
  print("[VBV] Raised U2 render-distance option ceiling to 128 chunks in",path)
-patch_render_distance_limit():
- candidates=java_files_named("GameOptions.java")+java_files_named("Options.java")
- if not candidates:return
- path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/Options.java") or p.as_posix().endswith("/net/minecraft/client/GameOptions.java")),candidates[0])
- text=path.read_text(encoding="utf-8");marker="VBV_RENDER_DISTANCE_128"
- if marker in text:return
- m=re.search(r"(viewDistance\s*=\s*new\s+OptionInstance(?:<[^>]+>)?\s*\([^;]*?)(?=;)",text,re.S)
- if not m:m=re.search(r"(\bviewDistance\b\s*=\s*new\s+[^;]*OptionInstance[^;]*)(?=;)",text,re.S)
- if not m:
-  print("[VBV] viewDistance initializer not found; leaving cap unchanged.");return
- block=m.group(1)
- if not re.search(r"\b32\b",block):
-  print("[VBV] viewDistance initializer has no 32 ceiling; leaving it unchanged.");return
- block=re.sub(r"\b32\b","128",block,count=1)
- text=text[:m.start(1)]+block+text[m.end(1):]
- path.write_text("// "+marker+"\n"+text,encoding="utf-8")
- print("[VBV] Raised client render-distance option ceiling to 128 chunks in",path)
 patch_render_distance_limit()
 
 hud_candidates=list(GAME.rglob("Hud.java"))
