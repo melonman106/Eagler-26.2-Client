@@ -85,6 +85,7 @@ public final class VBVExtraFeatures {
         }
         if (betterF3Enabled && action == 1 && (key == 292 || (key == 51 && fKeyHeld))) {
             debugHudEnabled = !debugHudEnabled;
+            VBVConfigStore.saveAll();
         }
     }
     private static void toggleGamma(Minecraft minecraft) {
