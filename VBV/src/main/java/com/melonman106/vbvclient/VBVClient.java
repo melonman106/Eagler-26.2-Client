@@ -19,7 +19,8 @@ public final class VBVClient {
     private VBVClient() {}
 
     public static synchronized void init() {
-        if (!MODS.isEmpty()) return;\n        VBVConfigStore.loadAll();
+        if (!MODS.isEmpty()) return;
+        VBVConfigStore.loadAll();
 
         reg(MOD_ID, "ViaBackportVisuals Client", VERSION, "melonman106",
             "A native Eaglercraft 26.2 client enhancement suite with performance, interface, rendering and quality-of-life features.",
