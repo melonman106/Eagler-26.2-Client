@@ -63,7 +63,7 @@ public final class VBVConfigStore {
 
         String crosshairPattern = read("crosshair.pattern", "");
         VBVCrosshairConfig.loadSettings(
-            bool("crosshair.enabled", false), integer("crosshair.size", 15, 5, 31),
+            bool("crosshair.enabled", false), integer("crosshair.size", 2, 1, 4),
             integer("crosshair.color", 0xFFFFFFFF, Integer.MIN_VALUE, Integer.MAX_VALUE), crosshairPattern);
 
         VBVFirstPersonAnimations.setEnabled(bool("firstPerson.enabled", true));
