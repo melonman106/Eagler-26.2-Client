@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Post-process the pinned VBV patch with fixes that must not be overwritten by it."""
 from pathlib import Path
-import re, shutil, sys
+import json, re, shutil, sys
 ROOT=Path(sys.argv[1]).resolve(); CLIENT=Path(__file__).resolve().parent.parent; SRC=CLIENT/"src/main/java/com/melonman106/vbvclient"; GAME=ROOT/"game/src/main/java"; RES=ROOT/"game/src/main/resources"
 def java_files_named(name):return list(GAME.rglob(name))
 def matching_brace(text,brace):
