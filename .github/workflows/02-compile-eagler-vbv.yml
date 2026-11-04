@@ -20,7 +20,7 @@ jobs:
       - name: Checkout this mod project
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 1
 
       - name: Checkout known-good Eaglercraft 26.2 u2 workspace
@@ -95,7 +95,7 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java VBVConfigStore.java VBVParty.java VBVPartyScreen.java VBVServerProfilesScreen.java VBVJadeHud.java VBVMiniMap.java VBVMouseTweaks.java VBVShulkerViewer.java VBVCrosshairScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }
@@ -160,6 +160,17 @@ jobs:
           held_renderer='eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java'
           held_arm_helper='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimations.java'
           grep -q 'VBV_FIRST_PERSON_HELD_ARM' "$held_renderer"
+          grep -q 'VBV_FIRST_PERSON_ITEM_OFFSET' "$held_renderer"
+          grep -q 'VBVConfigStore.loadAll' "$vbv_src/VBVClient.java"
+          grep -q 'VBVParty.initialize' "$vbv_src/VBVDungeonsTitleScreen.java"
+          grep -q 'VBVServerProfilesScreen' "$vbv_src/VBVStorageScreen.java"
+          grep -q 'VBVShulkerViewer.render' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
+          grep -q 'VBVMouseTweaks.isWheelTweakEnabled' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
+          grep -q 'VBV_SHINE_POST_CHAIN' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/GameRenderer.java
+          grep -q 'VBV_RENDER_DISTANCE_128' eaglercraft-u2/game/src/main/java/net/minecraft/client/Options.java
+          grep -q '"1.5.3"' "$vbv_src/VBVGeneratedPackMods.java"
+          grep -q 'al-s-creepers-revamped-2.0' "$vbv_src/VBVGeneratedPackMods.java"
+          grep -q 'updated_emissiveendportal26.1' "$vbv_src/VBVGeneratedPackMods.java"
           grep -q 'this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, attack, arm)' "$held_renderer"
           grep -q 'return enabled;' "$held_arm_helper"
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
