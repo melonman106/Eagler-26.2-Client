@@ -17,7 +17,7 @@ public final class VBVExtraFeatures {
     private static long gammaStatusUntil;
     private static double previousGamma = 0.5D;
     private static double gammaLevel = 4.0D;
-    private static boolean gammaFeatureEnabled = true;
+    private static boolean gammaFeatureEnabled = true;\n    private static boolean gammaStatusEnabled = true;
     private static boolean zoomEnabled = true;
     private static boolean zooming;
     private static boolean zoomToggleMode;
@@ -26,7 +26,7 @@ public final class VBVExtraFeatures {
     private static boolean debugHudEnabled;
     static int debugHudX = 6;
     static int debugHudY = 6;
-    private static boolean betterF3Enabled = true;
+    private static boolean betterF3Enabled = true;\n    private static boolean debugShowPerformance = true;\n    private static boolean debugShowWorld = true;\n    private static boolean debugShowPlayer = true;\n    private static boolean debugCompact = false;
     private static boolean fKeyHeld;
     private VBVExtraFeatures() {}
     /** Force key mappings to register during client bootstrap, before the first key event. */
@@ -95,7 +95,7 @@ public final class VBVExtraFeatures {
     }
     /** Brief on-screen confirmation after pressing G. */
     public static void renderGammaStatus(GuiGraphicsExtractor graphics) {
-        if (System.currentTimeMillis() > gammaStatusUntil) return;
+        if (!gammaStatusEnabled || System.currentTimeMillis() > gammaStatusUntil) return;
         Minecraft minecraft = Minecraft.getInstance();
         String text = "Gamma: " + (gammaEnabled ? "ON" : "OFF");
         int x = graphics.guiWidth() / 2 - minecraft.font.width(text) / 2;
@@ -117,6 +117,26 @@ public final class VBVExtraFeatures {
         minecraft.options.fov().set(previousFov);
         zooming = false;
     }
+    public static void loadSettings(boolean gammaFeature, double gammaStrength, boolean gammaStatus,
+                                    boolean zoom, boolean zoomToggle, int fov,
+                                    boolean betterF3, boolean debugOverlay,
+                                    boolean showPerformance, boolean showWorld, boolean showPlayer, boolean compact) {
+        gammaFeatureEnabled = gammaFeature; gammaLevel = Math.max(1.0D, Math.min(8.0D, gammaStrength));
+        gammaStatusEnabled = gammaStatus; zoomEnabled = zoom; zoomToggleMode = zoomToggle;
+        zoomFov = Math.max(20, Math.min(50, fov)); betterF3Enabled = betterF3;
+        debugHudEnabled = debugOverlay; debugShowPerformance = showPerformance;
+        debugShowWorld = showWorld; debugShowPlayer = showPlayer; debugCompact = compact;
+    }
+    public static boolean isGammaStatusEnabled() { return gammaStatusEnabled; }
+    public static void toggleGammaStatus() { gammaStatusEnabled = !gammaStatusEnabled; }
+    public static boolean debugShowPerformance() { return debugShowPerformance; }
+    public static boolean debugShowWorld() { return debugShowWorld; }
+    public static boolean debugShowPlayer() { return debugShowPlayer; }
+    public static boolean debugCompact() { return debugCompact; }
+    public static void toggleDebugShowPerformance() { debugShowPerformance = !debugShowPerformance; }
+    public static void toggleDebugShowWorld() { debugShowWorld = !debugShowWorld; }
+    public static void toggleDebugShowPlayer() { debugShowPlayer = !debugShowPlayer; }
+    public static void toggleDebugCompact() { debugCompact = !debugCompact; }
     public static boolean isGammaFeatureEnabled() { return gammaFeatureEnabled; }
     public static double gammaLevel() { return gammaLevel; }
     public static void toggleGammaFeature() {
@@ -155,40 +175,49 @@ public final class VBVExtraFeatures {
 
         java.util.List<String> left = new java.util.ArrayList<>();
         left.add("Minecraft 26.2 | VBV BetterF3");
-        left.add(String.format(java.util.Locale.ROOT, "XYZ: %.3f / %.3f / %.3f", player.getX(), player.getY(), player.getZ()));
-        left.add("Block: " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
-        left.add("Chunk: " + cx + " " + Math.floorDiv(pos.getY(), 16) + " " + cz);
-        left.add(String.format(java.util.Locale.ROOT, "Facing: %s | yaw %.1f | pitch %.1f", facing.getName(), player.getYRot(), player.getXRot()));
-        left.add(String.format(java.util.Locale.ROOT, "Velocity: %.3f / %.3f / %.3f", velocity.x, velocity.y, velocity.z));
-        left.add(String.format(java.util.Locale.ROOT, "Horizontal speed: %.3f blocks/s", Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z) * 20.0D));
-        left.add("Dimension: " + mc.level.dimension());
-        left.add("Biome: " + biome);
-        left.add("Block at feet: " + block);
-        left.add("Light level: " + mc.level.getMaxLocalRawBrightness(pos));
-        left.add("World time: day " + Math.floorDiv(time, 24000L) + ", tick " + Math.floorMod(time, 24000L));
-        left.add("Local server: " + (mc.isLocalServer() ? "yes" : "no"));
+        if (debugShowPlayer) {
+            left.add(String.format(java.util.Locale.ROOT, "XYZ: %.3f / %.3f / %.3f", player.getX(), player.getY(), player.getZ()));
+            left.add("Block: " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
+            left.add(String.format(java.util.Locale.ROOT, "Facing: %s | yaw %.1f | pitch %.1f", facing.getName(), player.getYRot(), player.getXRot()));
+            left.add(String.format(java.util.Locale.ROOT, "Velocity: %.3f / %.3f / %.3f", velocity.x, velocity.y, velocity.z));
+            left.add(String.format(java.util.Locale.ROOT, "Horizontal speed: %.3f blocks/s", Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z) * 20.0D));
+        }
+        if (debugShowWorld) {
+            left.add("Chunk: " + cx + " " + Math.floorDiv(pos.getY(), 16) + " " + cz);
+            left.add("Dimension: " + mc.level.dimension());
+            left.add("Biome: " + biome);
+            left.add("Block at feet: " + block);
+            left.add("Light level: " + mc.level.getMaxLocalRawBrightness(pos));
+            left.add("World time: day " + Math.floorDiv(time, 24000L) + ", tick " + Math.floorMod(time, 24000L));
+            left.add("Local server: " + (mc.isLocalServer() ? "yes" : "no"));
+        }
 
         java.util.List<String> right = new java.util.ArrayList<>();
-        right.add("Performance");
-        right.add("FPS: " + mc.getFps());
-        right.add(String.format(java.util.Locale.ROOT, "Memory: %d / %d MB", usedMb, maxMb));
-        right.add("Runtime: " + System.getProperty("java.version", "browser"));
-        right.add("Render distance: " + mc.options.renderDistance().get() + " chunks");
-        right.add("Simulation distance: " + mc.options.simulationDistance().get() + " chunks");
-        right.add("Rendered entities: " + renderedEntities);
-        right.add("Connection: " + (mc.getCurrentServer() == null ? "Singleplayer" : mc.getCurrentServer().ip));
-        right.add("On ground: " + player.onGround());
-        right.add("Sprinting: " + player.isSprinting());
-        right.add("Sneaking: " + player.isCrouching());
-        right.add(String.format(java.util.Locale.ROOT, "Fall distance: %.2f", player.fallDistance));
-        right.add("Local brightness: " + mc.level.getMaxLocalRawBrightness(pos));
-        right.add(String.format(java.util.Locale.ROOT, "Memory use: %.1f%%", maxMb <= 0 ? 0.0D : usedMb * 100.0D / maxMb));
-        right.add("Player: " + player.getName().getString());
-        right.add(String.format(java.util.Locale.ROOT, "Health: %.1f / %.1f", player.getHealth(), player.getMaxHealth()));
-        right.add("Food: " + player.getFoodData().getFoodLevel() + " / 20");
-        right.add("Armor: " + player.getArmorValue());
-        right.add("Selected hotbar slot: " + (player.getInventory().getSelectedSlot() + 1));
-        right.add("Game mode: " + (mc.gameMode == null ? "unknown" : mc.gameMode.getPlayerMode().getName()));
+        if (debugShowPerformance) {
+            right.add("Performance");
+            right.add("FPS: " + mc.getFps());
+            right.add(String.format(java.util.Locale.ROOT, "Memory: %d / %d MB", usedMb, maxMb));
+            right.add("Runtime: " + System.getProperty("java.version", "browser"));
+            right.add("Render distance: " + mc.options.renderDistance().get() + " chunks");
+            right.add("Simulation distance: " + mc.options.simulationDistance().get() + " chunks");
+            right.add("Rendered entities: " + renderedEntities);
+            right.add("Connection: " + (mc.getCurrentServer() == null ? "Singleplayer" : mc.getCurrentServer().ip));
+        }
+        if (debugShowPlayer) {
+            right.add("Player");
+            right.add("On ground: " + player.onGround());
+            right.add("Sprinting: " + player.isSprinting());
+            right.add("Sneaking: " + player.isCrouching());
+            right.add(String.format(java.util.Locale.ROOT, "Fall distance: %.2f", player.fallDistance));
+            right.add("Local brightness: " + mc.level.getMaxLocalRawBrightness(pos));
+            right.add(String.format(java.util.Locale.ROOT, "Memory use: %.1f%%", maxMb <= 0 ? 0.0D : usedMb * 100.0D / maxMb));
+            right.add("Player: " + player.getName().getString());
+            right.add(String.format(java.util.Locale.ROOT, "Health: %.1f / %.1f", player.getHealth(), player.getMaxHealth()));
+            right.add("Food: " + player.getFoodData().getFoodLevel() + " / 20");
+            right.add("Armor: " + player.getArmorValue());
+            right.add("Selected hotbar slot: " + (player.getInventory().getSelectedSlot() + 1));
+            right.add("Game mode: " + (mc.gameMode == null ? "unknown" : mc.gameMode.getPlayerMode().getName()));
+        }
 
         drawDebugColumn(graphics, mc, left, 4, 4);
         int rightWidth = Math.max(170, graphics.guiWidth() / 2 - 8);
@@ -196,7 +225,7 @@ public final class VBVExtraFeatures {
     }
 
     private static void drawDebugColumn(GuiGraphicsExtractor graphics, Minecraft mc, java.util.List<String> lines, int x, int y) {
-        int lineHeight = mc.font.lineHeight + 2;
+        int lineHeight = mc.font.lineHeight + (debugCompact ? 0 : 2);
         int maxWidth = Math.max(120, graphics.guiWidth() / 2 - 14);
         int visible = Math.min(lines.size(), Math.max(1, (graphics.guiHeight() - 12) / lineHeight));
         graphics.fill(x, y, x + maxWidth + 8, y + visible * lineHeight + 6, 0xB0101010);
