@@ -41,7 +41,7 @@ public final class VBVFeatureConfigScreen extends Screen {
                 button -> VBVNav.open(new VBVHudEditorScreen(this, true)))
                 .bounds(width / 2 - 130, nextY, 260, 22).build());
             nextY += 27;
-        } else if ("appleskin".equals(modId)) {
+        } else if ("shulkerboxtooltip".equals(modId)) {\n            option(() -> "Shulker preview: " + onOff(VBVShulkerViewer.enabled), VBVShulkerViewer::toggle);\n        } else if ("appleskin".equals(modId)) {
             option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
             option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
         } else if ("shine".equals(modId)) {
