@@ -256,7 +256,12 @@ if renderer_candidates:
                net.minecraft.client.renderer.PostChain vbvShine = this.minecraft.getShaderManager()
                   .getPostChain(net.minecraft.resources.Identifier.parse("vbvclient:shine_bloom"),
                      net.minecraft.client.renderer.LevelTargetBundle.MAIN_TARGETS);
-               if (vbvShine != null) vbvShine.process(this.mainRenderTarget, this.resourcePool);
+               if (vbvShine != null) {
+                  vbvShine.process(this.mainRenderTarget, this.resourcePool);
+               } else {
+                  this.vbvShineFailed = true;
+                  System.err.println("[VBV Shine] Bloom post-chain is unavailable or failed to compile; disabled.");
+               }
             } catch (Throwable error) {
                this.vbvShineFailed = true;
                System.err.println("[VBV Shine] Bloom post-chain disabled after renderer error: " + error);
