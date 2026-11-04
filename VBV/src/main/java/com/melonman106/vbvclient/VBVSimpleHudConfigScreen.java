@@ -26,7 +26,7 @@ public final class VBVSimpleHudConfigScreen extends Screen {
         addToggle("Effect timers",1,2,()->VBVSimpleHudConfig.effectTimers=!VBVSimpleHudConfig.effectTimers,()->VBVSimpleHudConfig.effectTimers);
         addToggle("Movement state",2,2,()->VBVSimpleHudConfig.movement=!VBVSimpleHudConfig.movement,()->VBVSimpleHudConfig.movement);
         addToggle("12-hour clock",3,2,()->VBVSimpleHudConfig.twelveHourTime=!VBVSimpleHudConfig.twelveHourTime,()->VBVSimpleHudConfig.twelveHourTime);
-        addRenderableWidget(Button.builder(Component.literal("HUD SIZE: "+Math.round(VBVSimpleHudConfig.hudScale*100)+"%"),b->{VBVSimpleHudConfig.hudScale=VBVSimpleHudConfig.hudScale>=1.5f?0.75f:VBVSimpleHudConfig.hudScale+0.25f;b.setMessage(Component.literal("HUD SIZE: "+Math.round(VBVSimpleHudConfig.hudScale*100)+"%"));}).bounds(width/2-100,height-82,200,20).build());
+        addRenderableWidget(Button.builder(Component.literal("HUD SIZE: "+Math.round(VBVSimpleHudConfig.hudScale*100)+"%"),b->{VBVSimpleHudConfig.hudScale=VBVSimpleHudConfig.hudScale>=1.5f?0.75f:VBVSimpleHudConfig.hudScale+0.25f;VBVConfigStore.saveAll();b.setMessage(Component.literal("HUD SIZE: "+Math.round(VBVSimpleHudConfig.hudScale*100)+"%"));}).bounds(width/2-100,height-82,200,20).build());
         addRenderableWidget(Button.builder(Component.literal("Reset defaults"),b->{VBVSimpleHudConfig.reset();VBVConfigStore.saveAll();VBVNav.open(new VBVSimpleHudConfigScreen(parent));}).bounds(width/2-100,height-56,95,20).build());
         addRenderableWidget(Button.builder(Component.literal("Back"),b->VBVNav.open(parent)).bounds(width/2+5,height-56,95,20).build());
     }
