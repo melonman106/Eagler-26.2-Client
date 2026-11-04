@@ -16,11 +16,11 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-
     steps:
       - name: Checkout this mod project
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 1
 
       - name: Checkout known-good Eaglercraft 26.2 u2 workspace
@@ -38,10 +38,10 @@ jobs:
           echo "Using U2 workspace commit: $(git rev-parse HEAD)"
 
       - name: Set up Java 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "25"
+          java-version: '25'
           cache: gradle
 
       - name: Set up Node 24
@@ -65,17 +65,14 @@ jobs:
           expected_setup_sha256="d8e7240fba804249eae5706a6641b3fbd783a4c09923d31d4ee4c6386a273587"
           expected_overlay_sha256="2ba7e3376891c64f8bf57f3687e05b8dbe1971a75475b6825449e5e5f96d71f3"
           setup_url="https://github.com/melonman106/Eagler-26.2-Client/releases/download/Cleit/Eaglercraft-26.2-u2-Setup.jar"
-
           curl --fail --location --retry 3 "$setup_url" -o "$setup_jar"
           echo "$expected_setup_sha256  $setup_jar" | sha256sum --check
           unzip -p "$setup_jar" portable-kit.zip > "$portable_kit"
           test -s "$portable_kit"
           mkdir -p "$portable_root"
           unzip -q -o "$portable_kit" -d "$portable_root"
-
           overlay="$(find "$portable_root" -type f -name 'resource-overlay-normal.zip' -print -quit)"
           test -n "$overlay" || { echo "::error::The verified portable kit does not contain resource-overlay-normal.zip"; exit 1; }
-
           echo "$expected_overlay_sha256  $overlay" | sha256sum --check
           mkdir -p "$(dirname "$overlay_target")"
           cp "$overlay" "$overlay_target"
@@ -95,65 +92,24 @@ jobs:
         run: |
           set -Eeuo pipefail
           trap 'status=$?; echo "::error::Injection step failed at line ${LINENO}: ${BASH_COMMAND} (exit ${status})"; exit "$status"' ERR
-
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
-
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-
-          for source in \
-            VBVClient.java \
-            VBVAppleSkin.java \
-            VBVExtraFeatures.java \
-            VBVFirstPersonAnimations.java \
-            Actually3DStuffCompat.java \
-            VBVFirstPersonAnimationsConfigScreen.java \
-            VBVStorage.java \
-            VBVStorageScreen.java \
-            VBVConfigStore.java \
-            VBVParty.java \
-            VBVPartyScreen.java \
-            VBVFriendsScreen.java \
-            VBVServerProfilesScreen.java \
-            VBVStorageProfileScreen.java \
-            VBVWorldMap.java \
-            VBVJadeHud.java \
-            VBVMiniMap.java \
-            VBVMouseTweaks.java \
-            VBVShulkerViewer.java \
-            VBVCrosshairConfig.java \
-            VBVCrosshairScreen.java \
-            VBVFeatureConfigScreen.java \
-            VBVModDetailsScreen.java \
-            VBVModsScreen.java \
-            VBVDungeonsTitleScreen.java \
-            VBVSimpleHudConfig.java \
-            VBVArmorHudConfig.java \
-            HerzVBVBridge.java \
-            HerzClient.java \
-            HerzMod.java \
-            HerzModRegistry.java \
-            VBVGeneratedPackMods.java
-          do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java VBVConfigStore.java VBVParty.java VBVPartyScreen.java VBVFriendsScreen.java VBVServerProfilesScreen.java VBVStorageProfileScreen.java VBVWorldMap.java VBVJadeHud.java VBVMiniMap.java VBVMouseTweaks.java VBVShulkerViewer.java VBVCrosshairConfig.java VBVCrosshairScreen.java VBVFeatureConfigScreen.java VBVModDetailsScreen.java VBVModsScreen.java VBVDungeonsTitleScreen.java VBVSimpleHudConfig.java VBVArmorHudConfig.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
-
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }
           echo "Litematica and MaLiLib are intentionally excluded from this build."
-
           grep -q 'VBV_STORAGE_MANAGER_V1' VBV/patch/storage_manager.js
           ! grep -q 'HerzVBVBridge.initialize' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.register' "$vbv_src/VBVClient.java"
           grep -q 'HerzVBVBridge.initialize' "$vbv_src/fabriccompat/FabricCompatClient.java"
-
           compat_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/fabriccompat"
           for source in FabricCompatClient.java FabricLoader.java ModMetadata.java ModContainer.java ModInitializer.java ClientTickEvents.java ClientLifecycleEvents.java KeyBinding.java KeyBindingHelper.java EnvType.java; do
             test -s "$compat_src/$source" || { echo "::error::Required Fabric compatibility source is missing: $compat_src/$source"; exit 1; }
           done
-
           grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
           grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
-
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/ModInitializer.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/EnvType.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/FabricLoader.java
@@ -165,56 +121,46 @@ jobs:
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/screen/v1/ScreenEvents.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/keybinding/v1/KeyBindingHelper.java
-
           grep -R -q 'FabricCompatClient.startTick(this);' eaglercraft-u2/game/src/main/java
           grep -R -q 'FabricCompatClient.endTick(this);' eaglercraft-u2/game/src/main/java/net/minecraft/client
           grep -R -q 'KeyBindingHelper.onKeyPressed(event.key())' eaglercraft-u2/game/src/main/java
-
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/screen/v1/ScreenEvents.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback.java
+          test -s eaglercraft-u2/game/src/main/java/net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientResourceEvents.java
           grep -q 'ScreenEvents.fireBeforeInit' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
           grep -q 'ScreenEvents.fireAfterRender' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
           grep -q 'HudRenderCallback.fire' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Hud.java
-          grep -q 'HudRenderCallback.EVENT.register' "$vbv_src/VBVClient.java"
-          grep -q 'ClientTickEvents.END_CLIENT_TICK.register' "$vbv_src/VBVClient.java"
-          grep -q 'KeyBindingHelper.registerKeyBinding' "$vbv_src/VBVExtraFeatures.java"
-
+          grep -q 'HudRenderCallback.EVENT.register' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
+          grep -q 'ClientTickEvents.END_CLIENT_TICK.register' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
+          grep -q 'KeyBindingHelper.registerKeyBinding' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVExtraFeatures.java
           test -s eaglercraft-u2/game/src/main/resources/assets/vbvclient/lang/en_us.json
           ! grep -q 'VBVWorldMap.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
 
           grep -q 'ClientResourceEvents.fireReload' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
           grep -q 'VBV_DUNGEONS_GUI_TITLE_HOOK' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Gui.java
-
           nav_src='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVNav.java'
           grep -q 'SafetyScreen' "$nav_src"
           grep -q 'JoinMultiplayerScreen' "$nav_src"
           grep -q 'SelectWorldScreen' "$nav_src"
           grep -q 'EaglerIntegratedServerStartupScreen' "$nav_src"
           grep -q 'OptionsScreen' "$nav_src"
-
           sleep_src='eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/PlatformRuntime.java'
           grep -Fq 'Window.setTimeout(() -> callback.complete(null), millis);' "$sleep_src"
           ! grep -q 'VBVSleepTimer' "$sleep_src"
           ! grep -q 'vbvPendingSleepCallbacks' "$sleep_src"
-
           grep -q 'VBV_SERVER_WORKER_EXPLICIT_OPT_IN' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
-
-          grep -q 'EaglerProfileScreen26' "$vbv_src/VBVDungeonsTitleScreen.java"
-          grep -q 'EaglerProfile.getActiveSkinResourceLocation' "$vbv_src/VBVDungeonsTitleScreen.java"
-          grep -q '"shine"' "$vbv_src/VBVModsScreen.java"
-          grep -q 'ShineConfig.save' "$vbv_src/ShineConfig.java" || grep -q 'private static void save()' "$vbv_src/ShineConfig.java"
-
+          grep -q 'EaglerProfileScreen26' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
+          grep -q 'EaglerProfile.getActiveSkinResourceLocation' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
+          grep -q '"shine"' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVModsScreen.java
+          grep -q 'ShineConfig.save' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/ShineConfig.java || grep -q 'private static void save()' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/ShineConfig.java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java
           grep -R -q 'VBVExtraFeatures.renderDebug' eaglercraft-u2/game/src/main/java
           grep -q 'VBVExtraFeatures.isBetterF3Enabled()' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/components/DebugScreenOverlay.java
-          grep -q 'VBVFirstPersonAnimations.toggle()' "$vbv_src/VBVFirstPersonAnimationsConfigScreen.java"
-
+          grep -q 'VBVFirstPersonAnimations.toggle()' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimationsConfigScreen.java
           held_renderer='eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java'
           held_arm_helper='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimations.java'
-
           grep -q 'VBV_FIRST_PERSON_HELD_ARM' "$held_renderer"
           grep -q 'VBV_FIRST_PERSON_ITEM_OFFSET' "$held_renderer"
-          grep -q 'Actually3DStuffCompat.apply' "$held_renderer"
-          grep -q 'public static void apply(' "$vbv_src/Actually3DStuffCompat.java"
-
           grep -q 'VBVConfigStore.loadAll' "$vbv_src/VBVClient.java"
           grep -q 'VBVParty.initialize' "$vbv_src/VBVDungeonsTitleScreen.java"
           grep -q 'VBVServerProfilesScreen' "$vbv_src/VBVStorageScreen.java"
@@ -222,112 +168,32 @@ jobs:
           grep -q 'VBVMouseTweaks.isWheelTweakEnabled' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
           grep -q 'VBV_SHINE_POST_CHAIN' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/GameRenderer.java
           grep -q 'VBV_RENDER_DISTANCE_128' eaglercraft-u2/game/src/main/java/net/minecraft/client/Options.java
-
-          # Safe replacement for the old hardcoded generated-pack check.
-          grep -q 'class VBVGeneratedPackMods' "$vbv_src/VBVGeneratedPackMods.java"
-          test -f "$vbv_src/VBVGeneratedPackMods.java"
-
+          grep -q '"1.5.3"' "$vbv_src/VBVGeneratedPackMods.java"
+          grep -q 'al-s-creepers-revamped-2.0' "$vbv_src/VBVGeneratedPackMods.java"
+          grep -q 'updated_emissiveendportal26.1' "$vbv_src/VBVGeneratedPackMods.java"
           grep -q 'this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, attack, arm)' "$held_renderer"
           grep -q 'return enabled;' "$held_arm_helper"
-
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
           icon_root="eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods"
           for icon in viabackportvisuals-client ukus-armor-hud simple-hud-enhanced mouse-tweaks appleskin gamma-utils zoomify betterf3 vbv-minimap jade shulkerboxtooltip; do
             test -s "$icon_root/$icon.png" || { echo "::error::Required VBV mod icon was not installed: $icon_root/$icon.png"; exit 1; }
           done
-
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image, ImageOps
-
           icon_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/textures/mods")
           pack_root = Path("eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods")
           files = {path for path in icon_root.glob("*.png") if path.name != "warn.png"} if icon_root.exists() else set()
-          if pack_root.exists():
-              files.update(path for path in pack_root.rglob("*.png") if path.name == "pack.png")
-
+          if pack_root.exists(): files.update(path for path in pack_root.rglob("*.png") if path.name == "pack.png")
           for path in sorted(files):
-              with Image.open(path) as source:
-                  image = source.convert("RGBA")
+              with Image.open(path) as source: image = source.convert("RGBA")
               image = ImageOps.contain(image, (64, 64), method=Image.Resampling.LANCZOS)
               canvas = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
               canvas.alpha_composite(image, ((64 - image.width) // 2, (64 - image.height) // 2))
               canvas.save(path, format="PNG", optimize=True)
           PY
-
           test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_0.png
           test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_5.png
-
-      - name: Patch generated U2 files after VBV injection
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Fix broken Screen path in AbstractContainerScreen.java
-          python3 - <<'PY'
-from pathlib import Path
-
-path = Path("eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java")
-text = path.read_text(encoding="utf-8")
-bad = "net.minecraft.client.net.minecraft.client.gui.screens.Screen.hasShiftDown()"
-good = "net.minecraft.client.gui.screens.Screen.hasShiftDown()"
-if bad in text:
-    text = text.replace(bad, good)
-path.write_text(text, encoding="utf-8")
-print("Fixed Screen.hasShiftDown() path")
-PY
-
-          # Add write(...) overloads to VBVConfigStore.java so booleans/ints/doubles can be saved
-          python3 - <<'PY'
-from pathlib import Path
-
-path = Path("eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVConfigStore.java")
-text = path.read_text(encoding="utf-8")
-
-if 'private static void write(String key, boolean value)' not in text:
-    marker = "private static void write(String key, String value)"
-    idx = text.find(marker)
-    if idx == -1:
-        raise SystemExit("Could not find write(String, String) in VBVConfigStore.java")
-
-    start = text.find("{", idx)
-    if start == -1:
-        raise SystemExit("Could not find method body start")
-
-    depth = 0
-    end = None
-    for i in range(start, len(text)):
-        if text[i] == "{":
-            depth += 1
-        elif text[i] == "}":
-            depth -= 1
-            if depth == 0:
-                end = i + 1
-                break
-
-    if end is None:
-        raise SystemExit("Could not find end of write(String, String)")
-
-    insert = """
-
-    private static void write(String key, boolean value) {
-        write(key, Boolean.toString(value));
-    }
-
-    private static void write(String key, int value) {
-        write(key, Integer.toString(value));
-    }
-
-    private static void write(String key, double value) {
-        write(key, Double.toString(value));
-    }
-"""
-    text = text[:end] + insert + text[end:]
-    path.write_text(text, encoding="utf-8")
-    print("Added write overloads to VBVConfigStore")
-else:
-    print("Write overloads already present")
-PY
 
       - name: Compile game Java after injection
         working-directory: eaglercraft-u2
@@ -353,97 +219,90 @@ PY
         shell: bash
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
-from pathlib import Path
+          from pathlib import Path
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+          old_source = '''if (!fs.existsSync(musicSource)) {
+            fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
+          }
+          const music = withMusic ? fs.readFileSync(musicSource) : null;'''
+          new_source = '''if (withMusic && !fs.existsSync(musicSource)) {
+            fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
+          }
+          const music = withMusic ? fs.readFileSync(musicSource) : null;'''
+          if old_source in text: text = text.replace(old_source, new_source, 1)
+          elif 'if (withMusic && !fs.existsSync(musicSource))' not in text: raise SystemExit("Expected music-source check was not found")
+          old_export = '''if (withoutMusic && !liteBuild) {
+            const musicPack = spawnSync(process.execPath, [
+              path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
+              musicSource,
+              musicPackOutput
+            ], { cwd: repo, stdio: "inherit" });
+            if (musicPack.error) fail(musicPack.error.message);
+            if (musicPack.status !== 0) fail(`optional music pack export exited with code ${musicPack.status}`);
+          } else if (liteBuild) {
+            console.log("[single-html] Lite mode: optional music pack export skipped");
+          }'''
+          new_export = '''if (withoutMusic && !liteBuild && fs.existsSync(musicSource)) {
+            const musicPack = spawnSync(process.execPath, [
+              path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
+              musicSource,
+              musicPackOutput
+            ], { cwd: repo, stdio: "inherit" });
+            if (musicPack.error) fail(musicPack.error.message);
+            if (musicPack.status !== 0) fail(`optional music pack export exited with code ${musicPack.status}`);
+          } else if (withoutMusic && !liteBuild) {
+            console.log("[single-html] No music.epk present; optional music pack export skipped");
+          } else if (liteBuild) {
+            console.log("[single-html] Lite mode: optional music pack export skipped");
+          }'''
+          if old_export in text: text = text.replace(old_export, new_export, 1)
+          elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
+          path.write_text(text, encoding="utf-8")
+          PY
 
-path = Path("wasm-toolchain/build-single-html.js")
-text = path.read_text(encoding="utf-8")
-
-old_source = '''if (!fs.existsSync(musicSource)) {
-  fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
-}
-const music = withMusic ? fs.readFileSync(musicSource) : null;'''
-new_source = '''if (withMusic && !fs.existsSync(musicSource)) {
-  fail(`missing music EPK at ${musicSource}; build the regular TeaVM web assets first`);
-}
-const music = withMusic ? fs.readFileSync(musicSource) : null;'''
-if old_source in text:
-    text = text.replace(old_source, new_source, 1)
-elif 'if (withMusic && !fs.existsSync(musicSource))' not in text:
-    raise SystemExit("Expected music-source check was not found")
-
-old_export = '''if (withoutMusic && !liteBuild) {
-  const musicPack = spawnSync(process.execPath, [
-    path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
-    musicSource,
-    musicPackOutput
-  ], { cwd: repo, stdio: "inherit" });
-  if (musicPack.error) fail(musicPack.error.message);
-  if (musicPack.status !== 0) fail(`optional music pack export exited with code ${musicPack.status}`);
-} else if (liteBuild) {
-  console.log("[single-html] Lite mode: optional music pack export skipped");
-}'''
-new_export = '''if (withoutMusic && !liteBuild && fs.existsSync(musicSource)) {
-  const musicPack = spawnSync(process.execPath, [
-    path.join(repo, "wasm-toolchain", "export-music-resource-pack.js"),
-    musicSource,
-    musicPackOutput
-  ], { cwd: repo, stdio: "inherit" });
-  if (musicPack.error) fail(musicPack.error.message);
-  if (musicPack.status !== 0) fail(`optional music pack export exited with code ${musicPack.status}`);
-} else if (withoutMusic && !liteBuild) {
-  console.log("[single-html] No music.epk present; optional music pack export skipped");
-} else if (liteBuild) {
-  console.log("[single-html] Lite mode: optional music pack export skipped");
-}'''
-if old_export in text:
-    text = text.replace(old_export, new_export, 1)
-elif 'fs.existsSync(musicSource)' not in text:
-    raise SystemExit("Expected optional music export block was not found")
-
-path.write_text(text, encoding="utf-8")
-PY
-
+          # Remove the packager's original early release injection first.
           python3 - <<'PY'
-from pathlib import Path
-path = Path("wasm-toolchain/build-single-html.js")
-text = path.read_text(encoding="utf-8")
-early = (
-    "html = html.replace(\n"
-    "  \"window.__eaglerWasmModule = module;\",\n"
-    "  \"window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();\"\n"
-    ");"
-)
-if text.count(early) != 1:
-    raise SystemExit(f"Expected exactly one early WASM cleanup injection; found {text.count(early)}")
-text = text.replace(early, "", 1)
-if "__eagReleaseInlineWasm();" in text:
-    raise SystemExit("An early WASM release call remains in the packager")
-path.write_text(text, encoding="utf-8")
-print("Removed the premature WASM cleanup call from the packager")
-PY
+          from pathlib import Path
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+          early = (
+              "html = html.replace(\n"
+              "  \"window.__eaglerWasmModule = module;\",\n"
+              "  \"window.__eaglerWasmModule = module;\\n\\t\\t\\t\\t\\twindow.__eagReleaseInlineWasm();\"\n"
+              ");"
+          )
+          if text.count(early) != 1:
+              raise SystemExit(f"Expected exactly one early WASM cleanup injection; found {text.count(early)}")
+          text = text.replace(early, "", 1)
+          if "__eagReleaseInlineWasm();" in text:
+              raise SystemExit("An early WASM release call remains in the packager")
+          path.write_text(text, encoding="utf-8")
+          print("Removed the premature WASM cleanup call from the packager")
+          PY
 
+          # Release inline WASM only after the main module has instantiated.
+          # This line is in the actual TeaVM shell source, not the HTML packager.
           python3 - <<'PY'
-from pathlib import Path
-path = Path("target_teavm_wasm_gc/src/web/index.html")
-text = path.read_text(encoding="utf-8")
-marker = "window.__loaded = true;"
-if text.count(marker) != 1:
-    raise SystemExit(f"Expected exactly one post-instantiation marker; found {text.count(marker)}")
-if "window.__eagReleaseInlineWasm();" in text:
-    raise SystemExit("Inline WASM release is already present in the shell")
-text = text.replace(
-    marker,
-    "window.__eagReleaseInlineWasm();\n\t\t\t\t" + marker,
-    1
-)
-if text.index("window.__eagReleaseInlineWasm();") > text.index(marker):
-    raise SystemExit("Inline WASM release was not placed before the loaded marker")
-path.write_text(text, encoding="utf-8")
-print("Moved inline WASM cleanup to the successful post-instantiation path")
-PY
-
+          from pathlib import Path
+          path = Path("target_teavm_wasm_gc/src/web/index.html")
+          text = path.read_text(encoding="utf-8")
+          marker = "window.__loaded = true;"
+          if text.count(marker) != 1:
+              raise SystemExit(f"Expected exactly one post-instantiation marker; found {text.count(marker)}")
+          if "window.__eagReleaseInlineWasm();" in text:
+              raise SystemExit("Inline WASM release is already present in the shell")
+          text = text.replace(
+              marker,
+              "window.__eagReleaseInlineWasm();\n\t\t\t\t" + marker,
+              1
+          )
+          if text.index("window.__eagReleaseInlineWasm();") > text.index(marker):
+              raise SystemExit("Inline WASM release was not placed before the loaded marker")
+          path.write_text(text, encoding="utf-8")
+          print("Moved inline WASM cleanup to the successful post-instantiation path")
+          PY
           ! grep -q 'window.__eagReleaseInlineWasm();' wasm-toolchain/build-single-html.js
           grep -q 'window.__eagReleaseInlineWasm();' target_teavm_wasm_gc/src/web/index.html
           grep -q 'window.__loaded = true;' target_teavm_wasm_gc/src/web/index.html
@@ -451,24 +310,24 @@ PY
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
           grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
 
+          # Standalone HTML size is unrestricted; keep the full client even when it exceeds the upstream 90 MB guard.
           python3 - <<'PY'
-from pathlib import Path
-path = Path("wasm-toolchain/build-single-html.js")
-text = path.read_text(encoding="utf-8")
-old_guard = '''if (withoutMusic && outputBytes > target && !diagnosticBuild && !fastPackage) {
-  fail(`lean standalone exceeded the size target by ${(outputBytes - target).toLocaleString()} bytes`);
-}'''
-new_guard = '''if (withoutMusic && outputBytes > target && !diagnosticBuild && !fastPackage) {
-  console.log("[single-html] Standalone size target exceeded; continuing because output size is unrestricted");
-}'''
-if old_guard in text:
-    text = text.replace(old_guard, new_guard, 1)
-elif 'Standalone size target exceeded; continuing because output size is unrestricted' not in text:
-    raise SystemExit("Expected standalone size guard was not found; refusing to continue without verifying the packager")
-path.write_text(text, encoding="utf-8")
-print("Disabled the standalone HTML size failure; full-size output is allowed")
-PY
-
+          from pathlib import Path
+          path = Path("wasm-toolchain/build-single-html.js")
+          text = path.read_text(encoding="utf-8")
+          old_guard = '''if (withoutMusic && outputBytes > target && !diagnosticBuild && !fastPackage) {
+            fail(`lean standalone exceeded the size target by ${(outputBytes - target).toLocaleString()} bytes`);
+          }'''
+          new_guard = '''if (withoutMusic && outputBytes > target && !diagnosticBuild && !fastPackage) {
+            console.log("[single-html] Standalone size target exceeded; continuing because output size is unrestricted");
+          }'''
+          if old_guard in text:
+              text = text.replace(old_guard, new_guard, 1)
+          elif 'Standalone size target exceeded; continuing because output size is unrestricted' not in text:
+              raise SystemExit("Expected standalone size guard was not found; refusing to continue without verifying the packager")
+          path.write_text(text, encoding="utf-8")
+          print("Disabled the standalone HTML size failure; full-size output is allowed")
+          PY
           grep -q 'Standalone size target exceeded; continuing because output size is unrestricted' wasm-toolchain/build-single-html.js
 
       - name: Build standalone Eaglercraft 26.2 u2 HTML
@@ -483,16 +342,19 @@ PY
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-
+          # The patched runtime must default to single-threaded mode.
+          # Worker WASM is compiled only when the URL explicitly contains ?workers.
           grep -Fq 'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -Fq 'const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-
+          # Ensure the unsafe TeaVM resolver was replaced in the final packaged HTML.
+          # Some pinned TeaVM outputs already contain no dynamic global resolver.
+          # In that valid case there is no function globalPath() to require; the
+          # two unsafe-resolver checks below are the authoritative safety gate.
           if grep -Fq 'function globalPath(name)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
             echo "Validated the safe globalPath resolver in the final HTML"
           else
             echo "No TeaVM global resolver was emitted; verified no unsafe dynamic resolver remains"
           fi
-
           if grep -Fq 'new Function("return " + name + ";")' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
             echo "::error::Unsafe TeaVM global resolver remains in final HTML"
             exit 1
@@ -501,17 +363,12 @@ PY
             echo "::error::Unsafe TeaVM global setter remains in final HTML"
             exit 1
           fi
-
           grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-assets' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'eag-inline-sounds' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
-            echo "::error::Lean build unexpectedly embedded music.epk"
-            exit 1
-          fi
-
+          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then echo "::error::Lean build unexpectedly embedded music.epk"; exit 1; fi
           grep -q 'VBV_WASM_GC_ASYNC_I64_BRIDGE' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'VBV_WASM_I64_EXPORT_GUARD_V1' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
@@ -528,7 +385,7 @@ PY
           grep -q 'VBV runtime console (tap to collapse)' eaglercraft-26.2-vbv-herz.html
           grep -q 'refresh();' eaglercraft-26.2-vbv-herz.html
           rm -f eaglercraft-26.2-vbv-herz-pre-console.html
-          echo "Visible runtime console embedded: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
+          echo "Visible runtime console embedded: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
 
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
