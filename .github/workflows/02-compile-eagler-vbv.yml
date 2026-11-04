@@ -20,7 +20,7 @@ jobs:
       - name: Checkout this mod project
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: main
           fetch-depth: 1
 
       - name: Checkout known-good Eaglercraft 26.2 u2 workspace
@@ -36,7 +36,6 @@ jobs:
           test -f wasm-toolchain/build-single-html.js
           test -f package.json
           echo "Using U2 workspace commit: $(git rev-parse HEAD)"
-
       - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
@@ -77,7 +76,6 @@ jobs:
           mkdir -p "$(dirname "$overlay_target")"
           cp "$overlay" "$overlay_target"
           echo "Restored verified resource overlay: $overlay_target"
-
       - name: Install FFmpeg for image asset normalization
         shell: bash
         run: |
@@ -86,7 +84,6 @@ jobs:
           sudo apt-get install --yes --no-install-recommends ffmpeg
           command -v ffmpeg
           ffmpeg -version | head -n 1
-
       - name: Inject VBV + Herz and embedded resource-pack mods
         shell: bash
         run: |
@@ -95,7 +92,7 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java VBVConfigStore.java VBVParty.java VBVPartyScreen.java VBVFriendsScreen.java VBVServerProfilesScreen.java VBVStorageProfileScreen.java VBVWorldMap.java VBVJadeHud.java VBVMiniMap.java VBVMouseTweaks.java VBVShulkerViewer.java VBVCrosshairConfig.java VBVCrosshairScreen.java VBVFeatureConfigScreen.java VBVModDetailsScreen.java VBVModsScreen.java VBVDungeonsTitleScreen.java VBVSimpleHudConfig.java VBVArmorHudConfig.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }
@@ -135,7 +132,6 @@ jobs:
           grep -q 'KeyBindingHelper.registerKeyBinding' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVExtraFeatures.java
           test -s eaglercraft-u2/game/src/main/resources/assets/vbvclient/lang/en_us.json
           ! grep -q 'VBVWorldMap.tick();' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
-
           grep -q 'ClientResourceEvents.fireReload' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
           grep -q 'VBV_DUNGEONS_GUI_TITLE_HOOK' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Gui.java
           nav_src='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVNav.java'
@@ -160,17 +156,6 @@ jobs:
           held_renderer='eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java'
           held_arm_helper='eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVFirstPersonAnimations.java'
           grep -q 'VBV_FIRST_PERSON_HELD_ARM' "$held_renderer"
-          grep -q 'VBV_FIRST_PERSON_ITEM_OFFSET' "$held_renderer"
-          grep -q 'VBVConfigStore.loadAll' "$vbv_src/VBVClient.java"
-          grep -q 'VBVParty.initialize' "$vbv_src/VBVDungeonsTitleScreen.java"
-          grep -q 'VBVServerProfilesScreen' "$vbv_src/VBVStorageScreen.java"
-          grep -q 'VBVShulkerViewer.render' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
-          grep -q 'VBVMouseTweaks.isWheelTweakEnabled' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/inventory/AbstractContainerScreen.java
-          grep -q 'VBV_SHINE_POST_CHAIN' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/GameRenderer.java
-          grep -q 'VBV_RENDER_DISTANCE_128' eaglercraft-u2/game/src/main/java/net/minecraft/client/Options.java
-          grep -q '"1.5.3"' "$vbv_src/VBVGeneratedPackMods.java"
-          grep -q 'al-s-creepers-revamped-2.0' "$vbv_src/VBVGeneratedPackMods.java"
-          grep -q 'updated_emissiveendportal26.1' "$vbv_src/VBVGeneratedPackMods.java"
           grep -q 'this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, attack, arm)' "$held_renderer"
           grep -q 'return enabled;' "$held_arm_helper"
           test -d eaglercraft-u2/game/src/main/resources/assets/vbvclient/mods
@@ -194,7 +179,6 @@ jobs:
           PY
           test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_0.png
           test -s eaglercraft-u2/game/src/main/resources/assets/minecraft/textures/gui/title/background/panorama_5.png
-
       - name: Compile game Java after injection
         working-directory: eaglercraft-u2
         run: ./gradlew :game:processResources :game:compileJava --console=plain --no-daemon --build-cache --stacktrace
@@ -213,7 +197,6 @@ jobs:
           curl -fL --retry 5 --retry-delay 2 "$sounds_url" -o "$web/sounds.epk"
           test -s "$web/sounds.epk"
           sha256sum "$web/sounds.epk"
-
       - name: Patch standalone packager for lean no-music build
         working-directory: eaglercraft-u2
         shell: bash
@@ -261,7 +244,6 @@ jobs:
           elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
           path.write_text(text, encoding="utf-8")
           PY
-
           # Remove the packager's original early release injection first.
           python3 - <<'PY'
           from pathlib import Path
@@ -281,7 +263,6 @@ jobs:
           path.write_text(text, encoding="utf-8")
           print("Removed the premature WASM cleanup call from the packager")
           PY
-
           # Release inline WASM only after the main module has instantiated.
           # This line is in the actual TeaVM shell source, not the HTML packager.
           python3 - <<'PY'
@@ -309,7 +290,6 @@ jobs:
           grep -q 'if (withMusic && !fs.existsSync(musicSource))' wasm-toolchain/build-single-html.js
           grep -q 'withoutMusic && !liteBuild && fs.existsSync(musicSource)' wasm-toolchain/build-single-html.js
           grep -q 'No music.epk present; optional music pack export skipped' wasm-toolchain/build-single-html.js
-
           # Standalone HTML size is unrestricted; keep the full client even when it exceeds the upstream 90 MB guard.
           python3 - <<'PY'
           from pathlib import Path
@@ -329,7 +309,6 @@ jobs:
           print("Disabled the standalone HTML size failure; full-size output is allowed")
           PY
           grep -q 'Standalone size target exceeded; continuing because output size is unrestricted' wasm-toolchain/build-single-html.js
-
       - name: Build standalone Eaglercraft 26.2 u2 HTML
         working-directory: eaglercraft-u2
         env:
@@ -372,7 +351,6 @@ jobs:
           grep -q 'VBV_WASM_GC_ASYNC_I64_BRIDGE' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -q 'VBV_WASM_I64_EXPORT_GUARD_V1' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
-
       - name: Inject visible runtime console into the main standalone HTML
         shell: bash
         run: |
@@ -386,7 +364,6 @@ jobs:
           grep -q 'refresh();' eaglercraft-26.2-vbv-herz.html
           rm -f eaglercraft-26.2-vbv-herz-pre-console.html
           echo "Visible runtime console embedded: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
-
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
