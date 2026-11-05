@@ -228,9 +228,22 @@ if container_candidates:
     if wheel_call in ct:
         ct = ct.replace(wheel_call, quick_move_call, 1)
         print("[VBV Mouse Tweaks] Wheel action now transfers the hovered stack between inventories.")
-    if "Minecraft.getInstance().options.keyShift.isDown()" in ct:
-        ct = ct.replace("Minecraft.getInstance().options.keyShift.isDown()", "net.minecraft.client.gui.screens.Screen.hasShiftDown()")
-        print("[VBV ShulkerBoxTooltip] Use the global Shift-key state for preview detection.")
+    # Replace the complete qualified expression. Replacing only the
+    # inner "Minecraft.getInstance()" substring would produce the invalid
+    # package net.minecraft.client.net.minecraft.client.gui.screens.
+    bad_screen = "net.minecraft.client.net.minecraft.client.gui.screens.Screen.hasShiftDown()"
+    good_screen = "net.minecraft.client.gui.screens.Screen.hasShiftDown()"
+    qualified_key = "net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown()"
+    simple_key = "Minecraft.getInstance().options.keyShift.isDown()"
+    if bad_screen in ct:
+        ct = ct.replace(bad_screen, good_screen)
+        print("[VBV ShulkerBoxTooltip] Repaired malformed duplicated Screen package.")
+    if qualified_key in ct:
+        ct = ct.replace(qualified_key, good_screen)
+        print("[VBV ShulkerBoxTooltip] Replaced the complete qualified Shift expression.")
+    elif simple_key in ct:
+        ct = ct.replace(simple_key, good_screen)
+        print("[VBV ShulkerBoxTooltip] Replaced the Shift expression.")
     container.write_text(ct, encoding="utf-8")
 
 # Activate the bundled Shine bloom post-chain on supported renderers.
