@@ -242,10 +242,17 @@ if container_candidates:
         if bad_expression in ct:
             ct = ct.replace(bad_expression, good_screen)
             print("[VBV ShulkerBoxTooltip] Restored the supported keyShift.isDown() lookup.")
-    simple_key = "Minecraft.getInstance().options.keyShift.isDown()"
-    if simple_key in ct:
-        ct = ct.replace(simple_key, good_screen)
-        print("[VBV ShulkerBoxTooltip] Qualified the supported Shift-key lookup.")
+    # Normalize the entire qualified expression. The upstream injection may
+    # already prepend net.minecraft.client.; replacing only the inner
+    # Minecraft token would duplicate that package prefix.
+    shift_pattern = r"(?:net\\.minecraft\\.client\\.)*Minecraft\\.getInstance\\(\\)\\.options\\.keyShift\\.isDown\\(\\)"
+    ct, shift_count = re.subn(
+        shift_pattern,
+        "net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown()",
+        ct,
+    )
+    if shift_count:
+        print("[VBV ShulkerBoxTooltip] Normalized", shift_count, "Shift-key lookup(s).")
     container.write_text(ct, encoding="utf-8")
 
 # Activate the bundled Shine bloom post-chain on supported renderers.
