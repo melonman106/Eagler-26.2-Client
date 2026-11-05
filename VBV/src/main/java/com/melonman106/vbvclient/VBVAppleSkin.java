@@ -53,7 +53,7 @@ public final class VBVAppleSkin {
             // Keep the source atlas at 9x9 but scale the destination to 8x8.
             // The previous 9px draw overlapped the neighboring hunger slot.
             graphics.pose().pushMatrix();
-            graphics.pose().translate(iconX, top - 1);
+            graphics.pose().translate(iconX, top + 1);
             graphics.pose().scale(8.0F / 9.0F, 8.0F / 9.0F);
             graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, 0, 0,
                 frame * 9, 0, 9, 9, 256, 256);
