@@ -231,19 +231,21 @@ if container_candidates:
     # Replace the complete qualified expression. Replacing only the
     # inner "Minecraft.getInstance()" substring would produce the invalid
     # package net.minecraft.client.net.minecraft.client.gui.screens.
-    bad_screen = "net.minecraft.client.net.minecraft.client.gui.screens.Screen.hasShiftDown()"
-    good_screen = "net.minecraft.client.gui.screens.Screen.hasShiftDown()"
-    qualified_key = "net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown()"
+    # The U2 Screen class has no static hasShiftDown() method. Keep the
+    # original key mapping lookup, which is supported by this workspace.
+    good_screen = "net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown()"
+    bad_expressions = (
+        "net.minecraft.client.net.minecraft.client.gui.screens.Screen.hasShiftDown()",
+        "net.minecraft.client.gui.screens.Screen.hasShiftDown()",
+    )
+    for bad_expression in bad_expressions:
+        if bad_expression in ct:
+            ct = ct.replace(bad_expression, good_screen)
+            print("[VBV ShulkerBoxTooltip] Restored the supported keyShift.isDown() lookup.")
     simple_key = "Minecraft.getInstance().options.keyShift.isDown()"
-    if bad_screen in ct:
-        ct = ct.replace(bad_screen, good_screen)
-        print("[VBV ShulkerBoxTooltip] Repaired malformed duplicated Screen package.")
-    if qualified_key in ct:
-        ct = ct.replace(qualified_key, good_screen)
-        print("[VBV ShulkerBoxTooltip] Replaced the complete qualified Shift expression.")
-    elif simple_key in ct:
+    if simple_key in ct:
         ct = ct.replace(simple_key, good_screen)
-        print("[VBV ShulkerBoxTooltip] Replaced the Shift expression.")
+        print("[VBV ShulkerBoxTooltip] Qualified the supported Shift-key lookup.")
     container.write_text(ct, encoding="utf-8")
 
 # Activate the bundled Shine bloom post-chain on supported renderers.
