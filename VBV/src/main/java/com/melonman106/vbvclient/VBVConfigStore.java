@@ -32,7 +32,8 @@ public final class VBVConfigStore {
         return VALUES.getOrDefault(key, fallback);
     }
 
-    private static void write(String key, String value) {
+    /** Accepts primitive config values and serializes them consistently. */
+    private static void write(String key, Object value) {
         ensureLoaded();
         VALUES.put(key, String.valueOf(value));
     }
