@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VC Patcher</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:#0b0b0f;color:#e9e9ee;font:14px/1.5 system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;padding:20px}
+  .card{width:min(460px,100%);display:flex;flex-direction:column;gap:18px}
+  h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+  #drop{padding:38px 16px;border:1px dashed #3a3d4d;border-radius:12px;text-align:center;color:#8b8fa3;cursor:pointer;transition:.15s}
+  #drop:hover,#drop.over{border-color:#6d83f2;color:#e9e9ee}
+  #drop.has{border-style:solid;border-color:#3b8f62;color:#e9e9ee}
+  label{display:block;font-size:12px;color:#8b8fa3;margin-bottom:6px}
+  .row{display:flex;gap:6px}
+  input,button{font:inherit;color:inherit;background:#15161e;border:1px solid #2a2c3a;border-radius:8px;padding:9px 12px;outline:none}
+  input{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,monospace;font-size:13px}
+  input:focus{border-color:#6d83f2}
+  button{cursor:pointer}button:hover:not(:disabled){background:#1d1f2b}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  #go{background:#4961e0;border-color:#4961e0;font-weight:600;padding:11px}
+  #go:hover:not(:disabled){background:#5b72ea}
+  #msg{font-size:12px;color:#8b8fa3}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>VC Patcher</h1>
+  <div id="drop"><span id="dropTxt">Drop game .html here or click</span><input id="file" type="file" accept=".html,.htm" hidden></div>
+  <div>
+    <label for="key">Voice key &mdash; only files patched with the same key can hear each other</label>
+    <div class="row"><input id="key" spellcheck="false" autocomplete="off" autocapitalize="off"><button id="newKey" title="Generate a new random key">New</button><button id="copyKey">Copy</button></div>
+  </div>
+  <button id="go" disabled>Patch &amp; download</button>
+  <div id="msg">Adds a faint gear in the bottom-left corner (voice chat, render resolution, FSR-style upscaler with sharpening, FXAA anti-aliasing, motion-compensated frame generation incl. a Lossless Scaling-style mode with multiplier and flow scale, movable FPS counter). The rest of the file is left exactly as it was. Mic needs HTTPS or localhost.</div>
+</div>
+
+<script type="text/plain" id="early">
+(function(){
+try {
+  var d = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+  var real = function(){ return (d && d.get ? d.get.call(window) : (d && d.value)) || 1; };
+  var key = 'gwvc_res_' + (function(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return (h>>>0).toString(36)})(location.pathname);
+  var saved = 0; try { saved = +localStorage.getItem(key) || 0; } catch(e){}
+  var R = window.__gwres = { target: saved, key: key, real: real };
+  function dprGet(w){ return function(){
+    var r = real(); if (!R.target) return r;
+    var h = w.innerHeight || 0; if (!h) return r;
+    return Math.max(0.1, Math.min(r, R.target / h));
+  }; }
+  Object.defineProperty(window, 'devicePixelRatio', { configurable: true, get: dprGet(window) });
+  // The capture hooks are always armed at boot, so the upscaler / AA / frame gen can be switched on and off at any
+  // time without reloading. While they are off, mainCtx stays null and the hooks do nothing but one pointer compare.
+  var T = window.__gwgl = { ctx: new WeakMap(), canvases: [], dirty: 0, mainCtx: null };
+  var names = ['drawArrays','drawElements','drawArraysInstanced','drawElementsInstanced','drawRangeElements','clear','blitFramebuffer'];
+  var cnames = ['fillRect','clearRect','drawImage','putImageData','fill','stroke','fillText','strokeText'];
+  // Hook one window. Eaglercraft and friends boot the real game inside an iframe, which has its own prototypes
+  // (canvas, WebGL, devicePixelRatio), so every frame window gets the same treatment as the top one.
+  function hookWin(w){
+    try {
+      if (!w || w.__gwvcH) return;
+      w.__gwvcH = 1;
+      if (w !== window) { try { Object.defineProperty(w, 'devicePixelRatio', { configurable: true, get: dprGet(w) }); } catch(e){} }
+      if (!T) return;
+      var CP = w.HTMLCanvasElement && w.HTMLCanvasElement.prototype;
+      if (!CP) return;
+      var og = CP.getContext;
+      CP.getContext = function(t, a){
+        var gl = typeof t === 'string' && t.indexOf('webgl') === 0;
+        var c2 = t === '2d';
+        if (gl) { a = Object.assign({}, a || {}); a.preserveDrawingBuffer = true; }
+        var c = og.call(this, t, a);
+        if ((gl || c2) && c) { T.ctx.set(this, c); if (T.canvases.indexOf(this) < 0) T.canvases.push(this); }
+        return c;
+      };
+      [w.WebGLRenderingContext, w.WebGL2RenderingContext].forEach(function(C){
+        if (!C) return;
+        names.forEach(function(n){
+          var o = C.prototype[n]; if (!o) return;
+          C.prototype[n] = function(){ if (this === T.mainCtx && !T.dirty) { T.dirty = 1; if (T.sched) T.sched(); } return o.apply(this, arguments); };
+        });
+      });
+      if (w.CanvasRenderingContext2D) {
+        cnames.forEach(function(n){
+          var o = w.CanvasRenderingContext2D.prototype[n]; if (!o) return;
+          w.CanvasRenderingContext2D.prototype[n] = function(){ if (this === T.mainCtx && !T.dirty) { T.dirty = 1; if (T.sched) T.sched(); } return o.apply(this, arguments); };
+        });
+      }
+    } catch(e){}
+  }
+  window.__gwhookWin = hookWin;
+  hookWin(window);
+  function scan(doc, depth){
+    var fs;
+    try { fs = doc.querySelectorAll('iframe, frame'); } catch(e){ return; }
+    for (var i = 0; i < fs.length; i++) {
+      var w = null;
+      try { w = fs[i].contentWindow; } catch(e){}      // cross-origin frames throw: nothing we can do there
+      if (!w) continue;
+      hookWin(w);
+      try { if (!fs[i].__gwvcL) { fs[i].__gwvcL = 1; fs[i].addEventListener('load', function(){ hookWin(this.contentWindow); try { scan(this.contentDocument, 1); } catch(e){} }); } } catch(e){}
+      if (depth < 3) { try { if (w.document) scan(w.document, depth + 1); } catch(e){} }
+    }
+  }
+  function hookFrames(){ scan(document, 0); }
+  hookFrames();
+  // 1) synchronous: the moment an iframe is inserted (loaders often document.write into it right away, before any observer fires)
+  ['appendChild','insertBefore','append','prepend','before','after','replaceWith','insertAdjacentElement'].forEach(function(n){
+    var P = (n === 'appendChild' || n === 'insertBefore') ? Node.prototype : Element.prototype;
+    var o = P[n]; if (!o) return;
+    P[n] = function(a){
+      var r = o.apply(this, arguments);
+      try { if (n === 'insertAdjacentElement') a = arguments[1]; if (a && a.nodeType === 1 && (a.tagName === 'IFRAME' || a.tagName === 'FRAME' || (a.getElementsByTagName && a.getElementsByTagName('iframe').length))) hookFrames(); } catch(e){}
+      return r;
+    };
+  });
+  // 2) srcdoc frames get a fresh window that runs scripts before we could ever touch it: put a hook script in front of theirs
+  var INJ = '<script>try{var p=window;while(p&&!p.__gwhookWin&&p.parent!==p)p=p.parent;if(p&&p.__gwhookWin)p.__gwhookWin(window)}catch(e){}<\/script>';
+  function inj(v){
+    if (typeof v !== 'string') return v;
+    var m = /<head(\s[^>]*)?>/i.exec(v) || /<!doctype[^>]*>/i.exec(v);
+    if (m) { var at = m.index + m[0].length; return v.slice(0, at) + INJ + v.slice(at); }
+    return INJ + v;
+  }
+  try {
+    var SD = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'srcdoc');
+    if (SD && SD.set) Object.defineProperty(HTMLIFrameElement.prototype, 'srcdoc', { configurable: true, enumerable: SD.enumerable, get: SD.get, set: function(v){ SD.set.call(this, inj(v)); } });
+    var oSA = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(n, v){ if (this.tagName === 'IFRAME' && String(n).toLowerCase() === 'srcdoc') v = inj(v); return oSA.call(this, n, v); };
+  } catch(e){}
+  // 2b) iframes pointed at blob: pages. Their window is created fresh on navigation, so the hook script has to be inside the page itself.
+  try {
+    var oCU = URL.createObjectURL;
+    URL.createObjectURL = function(b){
+      try { if (b instanceof Blob && !(b instanceof File) && /^text\/html/i.test(b.type)) b = new Blob(['<!doctype html>' + INJ, b], { type: b.type }); } catch(e){}
+      return oCU.call(URL, b);
+    };
+  } catch(e){}
+  // 3) fallback: anything else (src= frames, innerHTML) is caught by the observer and a short poll while the client boots
+  var frameQ = 0;
+  function queueFrames(){ if (frameQ) return; frameQ = setTimeout(function(){ frameQ = 0; hookFrames(); }, 16); }
+  try { new MutationObserver(function(rs){   // runs as a microtask, before a new frame's scripts get to run
+    for (var i = 0; i < rs.length; i++) { var n = rs[i].addedNodes; for (var j = 0; j < n.length; j++) { var x = n[j]; if (x.nodeType === 1 && (x.tagName === 'IFRAME' || x.tagName === 'FRAME' || (x.querySelector && x.querySelector('iframe,frame')))) { hookFrames(); return; } } }
+  }).observe(document.documentElement, { childList: true, subtree: true }); } catch(e){}
+  var framePoll = setInterval(hookFrames, 4);
+  setTimeout(function(){ clearInterval(framePoll); framePoll = setInterval(hookFrames, 100); setTimeout(function(){ clearInterval(framePoll); }, 30000); }, 5000);
+} catch(e){}
+})();
+</script>
+
+<script type="text/plain" id="fxworker">
+var VS = '#version 300 es\nout vec2 uv;void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));uv=p;gl_Position=vec4(p*2.-1.,0.,1.);}';
+var FH = '#version 300 es\nprecision highp float;precision highp int;precision highp sampler2D;in vec2 uv;out vec4 o;\n';
+var SH = {
+  // FXAA (Lottes): only touches pixels that sit on a contrast edge, so text/HUD and flat areas stay untouched.
+  fxaa: 'uniform sampler2D t;uniform vec2 px;float L(vec3 c){return dot(c,vec3(.299,.587,.114));}' +
+    'void main(){vec3 m=texture(t,uv).rgb;' +
+    'vec3 nw=texture(t,uv+vec2(-1.,-1.)*px).rgb,ne=texture(t,uv+vec2(1.,-1.)*px).rgb,sw=texture(t,uv+vec2(-1.,1.)*px).rgb,se=texture(t,uv+vec2(1.,1.)*px).rgb;' +
+    'float lm=L(m),a=L(nw),b=L(ne),c=L(sw),d=L(se);' +
+    'float lmn=min(lm,min(min(a,b),min(c,d))),lmx=max(lm,max(max(a,b),max(c,d)));' +
+    'if(lmx-lmn<max(.0312,lmx*.125)){o=vec4(m,1.);return;}' +
+    'vec2 dir=vec2(-((a+b)-(c+d)),(a+c)-(b+d));' +
+    'float red=max((a+b+c+d)*.03125,.0078125);float rc=1./(min(abs(dir.x),abs(dir.y))+red);' +
+    'dir=clamp(dir*rc,-8.,8.)*px;' +
+    'vec3 rA=.5*(texture(t,uv+dir*(1./3.-.5)).rgb+texture(t,uv+dir*(2./3.-.5)).rgb);' +
+    'vec3 rB=rA*.5+.25*(texture(t,uv+dir*-.5).rgb+texture(t,uv+dir*.5).rgb);' +
+    'float lb=L(rB);o=vec4((lb<lmn||lb>lmx)?rA:rB,1.);}',
+  // Edge adaptive spatial upsampling, a port of AMD FSR 1.0 EASU (12 taps, kernel rotated/stretched along the local edge).
+  easu: 'uniform sampler2D t;uniform vec2 sz;' +
+    'vec3 T(ivec2 p){return texelFetch(t,clamp(p,ivec2(0),ivec2(sz)-ivec2(1)),0).rgb;}' +
+    'float LU(vec3 c){return c.b*.5+(c.r*.5+c.g);}' +
+    'void tap(inout vec3 aC,inout float aW,vec2 off,vec2 dir,vec2 len,float lob,float clp,vec3 c){' +
+    'vec2 v=vec2(off.x*dir.x+off.y*dir.y,off.x*(-dir.y)+off.y*dir.x);v*=len;float d2=min(dot(v,v),clp);' +
+    'float wB=.4*d2-1.;float wA=lob*d2-1.;wB*=wB;wA*=wA;wB=1.5625*wB-.5625;float w=wB*wA;aC+=c*w;aW+=w;}' +
+    'void setd(inout vec2 dir,inout float len,vec2 pp,bool s,bool tt,bool u,bool v,float lA,float lB,float lC,float lD,float lE){' +
+    'float w=0.;if(s)w=(1.-pp.x)*(1.-pp.y);if(tt)w=pp.x*(1.-pp.y);if(u)w=(1.-pp.x)*pp.y;if(v)w=pp.x*pp.y;' +
+    'float dc=lD-lC,cb=lC-lB;float lx=1./max(max(abs(dc),abs(cb)),1e-5);float dx=lD-lB;dir.x+=dx*w;lx=clamp(abs(dx)*lx,0.,1.);lx*=lx;len+=lx*w;' +
+    'float ec=lE-lC,ca=lC-lA;float ly=1./max(max(abs(ec),abs(ca)),1e-5);float dy=lE-lA;dir.y+=dy*w;ly=clamp(abs(dy)*ly,0.,1.);ly*=ly;len+=ly*w;}' +
+    'void main(){vec2 pp=uv*sz-.5;ivec2 ip=ivec2(floor(pp));pp-=vec2(ip);' +
+    'vec3 b=T(ip+ivec2(0,-1)),c=T(ip+ivec2(1,-1)),e=T(ip+ivec2(-1,0)),f=T(ip),g=T(ip+ivec2(1,0)),h=T(ip+ivec2(2,0)),' +
+    'i=T(ip+ivec2(-1,1)),j=T(ip+ivec2(0,1)),k=T(ip+ivec2(1,1)),l=T(ip+ivec2(2,1)),n=T(ip+ivec2(0,2)),oo=T(ip+ivec2(1,2));' +
+    'float bL=LU(b),cL=LU(c),eL=LU(e),fL=LU(f),gL=LU(g),hL=LU(h),iL=LU(i),jL=LU(j),kL=LU(k),lL=LU(l),nL=LU(n),oL=LU(oo);' +
+    'vec2 dir=vec2(0.);float len=0.;' +
+    'setd(dir,len,pp,true,false,false,false,bL,eL,fL,gL,jL);' +
+    'setd(dir,len,pp,false,true,false,false,cL,fL,gL,hL,kL);' +
+    'setd(dir,len,pp,false,false,true,false,fL,iL,jL,kL,nL);' +
+    'setd(dir,len,pp,false,false,false,true,gL,jL,kL,lL,oL);' +
+    'vec2 d2=dir*dir;float dr=d2.x+d2.y;bool zro=dr<(1./32768.);dr=inversesqrt(max(dr,1e-9));dr=zro?1.:dr;dir.x=zro?1.:dir.x;dir*=dr;' +
+    'len=len*.5;len*=len;float st=dot(dir,dir)/max(abs(dir.x),abs(dir.y));' +
+    'vec2 len2=vec2(1.+(st-1.)*len,1.-.5*len);float lob=.5+((.25-.04)-.5)*len;float clp=1./lob;' +
+    'vec3 mn=min(min(f,g),min(j,k)),mx=max(max(f,g),max(j,k));vec3 aC=vec3(0.);float aW=0.;' +
+    'tap(aC,aW,vec2(0.,-1.)-pp,dir,len2,lob,clp,b);tap(aC,aW,vec2(1.,-1.)-pp,dir,len2,lob,clp,c);' +
+    'tap(aC,aW,vec2(-1.,0.)-pp,dir,len2,lob,clp,e);tap(aC,aW,vec2(0.,0.)-pp,dir,len2,lob,clp,f);' +
+    'tap(aC,aW,vec2(1.,0.)-pp,dir,len2,lob,clp,g);tap(aC,aW,vec2(2.,0.)-pp,dir,len2,lob,clp,h);' +
+    'tap(aC,aW,vec2(-1.,1.)-pp,dir,len2,lob,clp,i);tap(aC,aW,vec2(0.,1.)-pp,dir,len2,lob,clp,j);' +
+    'tap(aC,aW,vec2(1.,1.)-pp,dir,len2,lob,clp,k);tap(aC,aW,vec2(2.,1.)-pp,dir,len2,lob,clp,l);' +
+    'tap(aC,aW,vec2(0.,2.)-pp,dir,len2,lob,clp,n);tap(aC,aW,vec2(1.,2.)-pp,dir,len2,lob,clp,oo);' +
+    'o=vec4(clamp(aC/aW,mn,mx),1.);}',
+  // Robust contrast adaptive sharpening, a port of AMD FSR 1.0 RCAS. con = exp2(-stops): 1 = sharpest, lower = softer.
+  rcas: 'uniform sampler2D t;uniform vec2 px;uniform float con;' +
+    'void main(){vec3 e=texture(t,uv).rgb,b=texture(t,uv+vec2(0.,-px.y)).rgb,d=texture(t,uv+vec2(-px.x,0.)).rgb,f=texture(t,uv+vec2(px.x,0.)).rgb,h=texture(t,uv+vec2(0.,px.y)).rgb;' +
+    'vec3 mn4=min(min(b,d),min(f,h)),mx4=max(max(b,d),max(f,h));' +
+    'vec3 hMin=mn4/(4.*max(mx4,vec3(1e-4)));vec3 hMax=(1.-mx4)/min(4.*mn4-4.,vec3(-1e-4));' +
+    'vec3 lr=max(-hMin,hMax);float lobe=max(-.1875,min(max(lr.r,max(lr.g,lr.b)),0.))*con;' +
+    'o=vec4(clamp((lobe*(b+d+f+h)+e)/(4.*lobe+1.),0.,1.),1.);}',
+  blit: 'uniform sampler2D t;void main(){o=vec4(texture(t,uv).rgb,1.);}'
+};
+
+var fx = { up: 0, aa: 0, sharp: 0.5, fg: 0, fgcap: 0, lsm: 2, lsf: 50, lsp: 1, wg: 0 }, cv = null, gl = null, P = {}, e = null, W = 0, H = 0;
+
+function mk(fs){
+  var p = gl.createProgram();
+  [[gl.VERTEX_SHADER, VS], [gl.FRAGMENT_SHADER, FH + fs]].forEach(function(x){
+    var h = gl.createShader(x[0]); gl.shaderSource(h, x[1]); gl.compileShader(h);
+    if (!gl.getShaderParameter(h, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(h));
+    gl.attachShader(p, h);
+  });
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  p.u = {}; return p;
+}
+function U(p, n){ return p.u[n] !== undefined ? p.u[n] : (p.u[n] = gl.getUniformLocation(p, n)); }
+function newTex(w, h){
+  var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function newRT(w, h){
+  var t = newTex(w, h), f = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  return { t: t, f: f };
+}
+function freeRT(r){ if (r) { gl.deleteTexture(r.t); gl.deleteFramebuffer(r.f); } }
+function pass(p, rt, w, h){ gl.useProgram(p); gl.bindFramebuffer(gl.FRAMEBUFFER, rt ? rt.f : null); gl.viewport(0, 0, w, h); }
+function bind(u, t){ gl.activeTexture(gl.TEXTURE0 + u); gl.bindTexture(gl.TEXTURE_2D, t); }
+function draw(){ gl.drawArrays(gl.TRIANGLES, 0, 3); }
+
+function init(canvas){
+  cv = canvas;
+  gl = cv.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+  if (!gl) { self.postMessage({ t: 'err', s: 'WebGL2 is not available in a worker here.' }); return; }
+  try { for (var k in SH) P[k] = mk(SH[k]); }
+  catch(err) { self.postMessage({ t: 'err', s: 'Shader error: ' + err.message }); return; }
+  e = { tex: null, aaRT: null, upRT: null, w: 0, h: 0, frames: 0, has: false, shown: false, t0: performance.now() };
+}
+
+function setup(w, h){
+  if (e.tex) gl.deleteTexture(e.tex);
+  freeRT(e.aaRT); freeRT(e.upRT); e.aaRT = null; e.upRT = null;
+  e.w = w; e.h = h; e.tex = newTex(w, h); e.has = false;
+}
+
+function present(src){
+  var tex = src || e.cur || e.tex, w = e.w, h = e.h;
+  if (fx.aa) {
+    if (!e.aaRT) e.aaRT = newRT(w, h);
+    pass(P.fxaa, e.aaRT, w, h); bind(0, tex);
+    gl.uniform1i(U(P.fxaa, 't'), 0); gl.uniform2f(U(P.fxaa, 'px'), 1 / w, 1 / h); draw();
+    tex = e.aaRT.t;
+  }
+  var con = Math.pow(2, -(1 - fx.sharp) * 2);        // slider 0..1 -> 2..0 stops (default 0.5 = 1 stop, like FSR's default)
+  if (fx.up === 1) {
+    if (!e.upRT) e.upRT = newRT(W, H);
+    pass(P.easu, e.upRT, W, H); bind(0, tex);
+    gl.uniform1i(U(P.easu, 't'), 0); gl.uniform2f(U(P.easu, 'sz'), w, h); draw();
+    pass(P.rcas, null, W, H); bind(0, e.upRT.t);
+    gl.uniform1i(U(P.rcas, 't'), 0); gl.uniform2f(U(P.rcas, 'px'), 1 / W, 1 / H); gl.uniform1f(U(P.rcas, 'con'), con); draw();
+  } else if (fx.up === 2) {
+    pass(P.rcas, null, W, H); bind(0, tex);
+    gl.uniform1i(U(P.rcas, 't'), 0); gl.uniform2f(U(P.rcas, 'px'), 1 / w, 1 / h); gl.uniform1f(U(P.rcas, 'con'), con); draw();
+  } else {
+    pass(P.blit, null, W, H); bind(0, tex); gl.uniform1i(U(P.blit, 't'), 0); draw();
+  }
+}
+
+/* ================= frame generation =================
+   Motion-compensated interpolation, built from scratch (no AI model, no game data needed).
+   1. Every real game frame gets a luma pyramid (1/2, 1/4, 1/8 ... of the frame).
+   2. Between the previous and the newest frame, hierarchical block matching runs coarse to fine on the GPU. It is
+      symmetric (it looks for the vector that matches A at p - v/2 with B at p + v/2), so the field lives at the
+      in-between moment and has no holes.
+   3. At every display refresh the worker shows the scene at (now - one game frame): it warps both neighbouring real
+      frames along the vectors and blends them. Where the match is bad (disocclusion, particles, scene cuts) it
+      falls back to the nearest real frame instead of smearing. Static pixels (HUD, text) stay put.
+   Costs about one game frame of extra latency, like any interpolating frame generator. When the game already runs at
+   the display rate it steps aside and frames pass straight through. */
+var FGSH = {};
+FGSH.lum0 = 'uniform sampler2D t;void main(){o=vec4(dot(texture(t,uv).rgb,vec3(.299,.587,.114)),0.,0.,1.);}';
+FGSH.down = 'uniform sampler2D t;void main(){o=vec4(texture(t,uv).r,0.,0.,1.);}';
+var FGCOST = 'uniform sampler2D tA,tB;uniform vec2 sz;' +
+  'float cost(vec2 c,vec2 v){vec2 a=c-.5*v,b=c+.5*v;float s=0.;' +
+  'for(int j=0;j<BLK;j++)for(int i=0;i<BLK;i++){vec2 q=(vec2(float(i),float(j))-float(BLK-1)*.5)*STR;' +
+  's+=abs(texture(tA,(a+q)/sz).r-texture(tB,(b+q)/sz).r);}' +
+  'return s/float(BLK*BLK);}';
+// coarsest level: exhaustive search, then half pixel
+FGSH.mec = '#define BLK 4\n#define STR 1.\n' + FGCOST + 'uniform float R;' +
+  'void main(){vec2 c=uv*sz;float best=1e9;vec2 bv=vec2(0.);' +
+  'for(float y=-R;y<=R;y+=1.)for(float x=-R;x<=R;x+=1.){vec2 v=vec2(x,y);float k=cost(c,v)+.003*length(v);if(k<best){best=k;bv=v;}}' +
+  'vec2 b2=bv;for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){vec2 v=bv+.5*vec2(float(i),float(j));float k=cost(c,v)+.003*length(v);if(k<best){best=k;b2=v;}}' +
+  'o=vec4(b2,best,1.);}';
+// finer levels: seed from the coarser level (4 neighbours, their blend, and zero), then +-1 px and +-.5 px (+-.25 px on the finest)
+function fgRefineSrc(blk, str){
+  return '#define BLK ' + blk + '\n#define STR ' + str + '.\n' + FGCOST +
+  'uniform sampler2D tV;uniform vec2 vsz;uniform float lam;uniform float qp;' +
+  'void main(){vec2 c=uv*sz;vec2 f=uv*vsz-.5;ivec2 i0=ivec2(floor(f));vec2 fr=f-vec2(i0);ivec2 mx=ivec2(vsz)-ivec2(1);' +
+  'vec2 s00=texelFetch(tV,clamp(i0,ivec2(0),mx),0).xy*2.,s10=texelFetch(tV,clamp(i0+ivec2(1,0),ivec2(0),mx),0).xy*2.,' +
+  's01=texelFetch(tV,clamp(i0+ivec2(0,1),ivec2(0),mx),0).xy*2.,s11=texelFetch(tV,clamp(i0+ivec2(1,1),ivec2(0),mx),0).xy*2.;' +
+  'vec2 sb=mix(mix(s00,s10,fr.x),mix(s01,s11,fr.x),fr.y);' +
+  'vec2 bv=sb;float best=cost(c,sb);' +
+  'vec2 sd[5];sd[0]=s00;sd[1]=s10;sd[2]=s01;sd[3]=s11;sd[4]=vec2(0.);' +
+  'for(int i=0;i<5;i++){float k=cost(c,sd[i])+lam*length(sd[i]-sb);if(k<best){best=k;bv=sd[i];}}' +
+  'vec2 s0=bv;' +
+  'for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){if(i==0&&j==0)continue;vec2 v=s0+vec2(float(i),float(j));float k=cost(c,v)+lam*length(v-sb);if(k<best){best=k;bv=v;}}' +
+  's0=bv;' +
+  'for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){if(i==0&&j==0)continue;vec2 v=s0+.5*vec2(float(i),float(j));float k=cost(c,v)+lam*length(v-sb);if(k<best){best=k;bv=v;}}' +
+  'if(qp>.5){s0=bv;for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){if(i==0&&j==0)continue;vec2 v=s0+.25*vec2(float(i),float(j));float k=cost(c,v)+lam*length(v-sb);if(k<best){best=k;bv=v;}}}' +
+  'o=vec4(bv,best,1.);}';
+}
+FGSH.mer4 = fgRefineSrc(4, 1);
+FGSH.mer2 = fgRefineSrc(2, 2);
+// the in-between frame
+// Artifact reduction, only when hq=1 (Lossless Scaling mode):
+//  - motion-edge confidence: where neighbouring vectors disagree (object borders) trust the warp less, so no ghost halos
+//  - match error averaged over 3 taps, so single noisy pixels do not flip between warp and fallback (shimmer)
+//  - pixels that did not change between the two real frames (HUD, text) are copied, never warped or blended
+var FGBLEND = 
+  'vec3 w=mix(cA,cB,al);float er=dot(abs(cA-cB),vec3(.3333));' +
+  'if(hq>.9){vec2 o2=px*vec2(1.,-1.);float e1=dot(abs(texture(tA,uv-al*d+o2).rgb-texture(tB,uv+(1.-al)*d+o2).rgb),vec3(.3333));' +
+  'o2=-o2;float e2=dot(abs(texture(tA,uv-al*d+o2).rgb-texture(tB,uv+(1.-al)*d+o2).rgb),vec3(.3333));er=.5*er+.25*(e1+e2);}' +
+  'float cf=(1.-smoothstep(.07,.24,er))*sc;' +
+  'if(cf<.999||hq>.5){vec3 sA=texture(tA,uv).rgb,sB=texture(tB,uv).rgb;' +
+  'if(cf<.999){vec3 fb=mix(sA,sB,smoothstep(.4,.6,al));w=mix(fb,w,cf);}' +
+  'if(hq>.5&&dot(abs(sA-sB),vec3(.3333))<.012)w=mix(sA,sB,al);}' +
+  'o=vec4(w,1.);}';
+FGSH.fgi = 'uniform sampler2D tA,tB,lA,lB,tV;uniform vec2 vsz;uniform float al,hq;uniform vec2 px;' +
+  'float lc(vec2 d){return abs(texture(lA,uv-al*d).r-texture(lB,uv+(1.-al)*d).r);}' +
+  'void main(){vec2 iv=1./vsz;' +
+  'vec2 v0=texture(tV,uv).xy*iv;' +
+  'vec2 q=uv+(.5-al)*v0;' +                                   // the field lives at the midpoint: look it up where the object was at that moment
+  'vec2 f=q*vsz-.5;ivec2 i0=ivec2(floor(f));vec2 fr=f-vec2(i0);ivec2 mx=ivec2(vsz)-ivec2(1);' +
+  'vec2 a=texelFetch(tV,clamp(i0,ivec2(0),mx),0).xy*iv,b=texelFetch(tV,clamp(i0+ivec2(1,0),ivec2(0),mx),0).xy*iv,' +
+  'c=texelFetch(tV,clamp(i0+ivec2(0,1),ivec2(0),mx),0).xy*iv,e=texelFetch(tV,clamp(i0+ivec2(1,1),ivec2(0),mx),0).xy*iv;' +
+  'vec2 vb=mix(mix(a,b,fr.x),mix(c,e,fr.x),fr.y);vec2 d=vb;float kd=lc(vb);' +
+  'float sp=max(max(length((a-vb)*vsz),length((b-vb)*vsz)),max(length((c-vb)*vsz),length((e-vb)*vsz)));' +
+  'if(sp>.35){float k;k=lc(a);if(k<kd*.9){kd=k;d=a;}k=lc(b);if(k<kd*.9){kd=k;d=b;}k=lc(c);if(k<kd*.9){kd=k;d=c;}k=lc(e);if(k<kd*.9){kd=k;d=e;}}' +
+  'float kz=lc(vec2(0.));if(kz<=kd+.012){d=vec2(0.);}' +      // still pixels (HUD, text, sky) stay exactly where they are
+  'float sc=hq>.5?1.-smoothstep(.6,2.2,sp):1.;' +
+  'vec3 cA=texture(tA,uv-al*d).rgb,cB=texture(tB,uv+(1.-al)*d).rgb;' +
+  FGBLEND;
+
+// High resolution path: the per-pixel motion choice runs once per half-res pixel (4x fewer evaluations of the expensive part),
+// then a light full-res pass just fetches that vector and blends. Only used above ~1.3 MP, so low resolutions keep the exact original path.
+FGSH.fgd = 'uniform sampler2D lA,lB,tV;uniform vec2 vsz;uniform float al,hq;' +
+  'float lc(vec2 d){return abs(texture(lA,uv-al*d).r-texture(lB,uv+(1.-al)*d).r);}' +
+  'void main(){vec2 iv=1./vsz;' +
+  'vec2 v0=texture(tV,uv).xy*iv;' +
+  'vec2 q=uv+(.5-al)*v0;' +                                   // the field lives at the midpoint: look it up where the object was at that moment
+  'vec2 f=q*vsz-.5;ivec2 i0=ivec2(floor(f));vec2 fr=f-vec2(i0);ivec2 mx=ivec2(vsz)-ivec2(1);' +
+  'vec2 a=texelFetch(tV,clamp(i0,ivec2(0),mx),0).xy*iv,b=texelFetch(tV,clamp(i0+ivec2(1,0),ivec2(0),mx),0).xy*iv,' +
+  'c=texelFetch(tV,clamp(i0+ivec2(0,1),ivec2(0),mx),0).xy*iv,e=texelFetch(tV,clamp(i0+ivec2(1,1),ivec2(0),mx),0).xy*iv;' +
+  'vec2 vb=mix(mix(a,b,fr.x),mix(c,e,fr.x),fr.y);vec2 d=vb;float kd=lc(vb);' +
+  'float sp=max(max(length((a-vb)*vsz),length((b-vb)*vsz)),max(length((c-vb)*vsz),length((e-vb)*vsz)));' +
+  'if(sp>.35){float k;k=lc(a);if(k<kd*.9){kd=k;d=a;}k=lc(b);if(k<kd*.9){kd=k;d=b;}k=lc(c);if(k<kd*.9){kd=k;d=c;}k=lc(e);if(k<kd*.9){kd=k;d=e;}}' +
+  'float kz=lc(vec2(0.));if(kz<=kd+.012){d=vec2(0.);}' +      // still pixels (HUD, text, sky) stay exactly where they are
+  'o=vec4(d,hq>.5?1.-smoothstep(.6,2.2,sp):1.,1.);}';
+FGSH.fgj = 'uniform sampler2D tA,tB,tD;uniform float al,hq;uniform vec2 px;' +
+  'void main(){vec3 dd=texture(tD,uv).xyz;vec2 d=dd.xy;float sc=hq>.5?dd.z:1.;' +
+  'vec3 cA=texture(tA,uv-al*d).rgb,cB=texture(tB,uv+(1.-al)*d).rgb;' +
+  FGBLEND;
+var fgx = null, fgLoopOn = false, fgOK = null;
+
+function newTexF(w, h, ifmt, fmt, type, lin){
+  var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, type, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, lin === false ? gl.NEAREST : gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, lin === false ? gl.NEAREST : gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function newRTx(w, h, kind){
+  var t = kind === 'r' ? newTexF(w, h, gl.R8, gl.RED, gl.UNSIGNED_BYTE) :
+          kind === 'f' ? newTexF(w, h, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT) : newTexF(w, h, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE);
+  var f = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('render target not supported (' + kind + ')');
+  return { t: t, f: f, w: w, h: h };
+}
+
+function fgCompile(){
+  if (fgOK !== null) return fgOK;
+  try {
+    var ext = gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float');
+    if (!ext) throw new Error('this GPU cannot render to float textures');
+    ['lum0', 'down', 'mec', 'mer4', 'mer2', 'fgi', 'fgd', 'fgj'].forEach(function(k){ P[k] = mk(FGSH[k]); });
+    fgOK = true;
+  } catch(err) { fgOK = false; self.postMessage({ t: 'fgerr', s: 'Frame generation unavailable: ' + (err && err.message || err) }); }
+  return fgOK;
+}
+
+function fgFree(){
+  var f = fgx; if (!f) return; fgx = null;
+  function fr(r){ if (r) { gl.deleteTexture(r.t); gl.deleteFramebuffer(r.f); } }
+  var all = f.q.concat(f.pool);
+  all.forEach(function(en){ if (en.wg) { wgFreeEnt(en.wg); en.wg = null; } gl.deleteTexture(en.tex); en.pyr.forEach(fr); fr(en.flow); });
+  f.scr.forEach(fr); fr(f.out); fr(f.dRT);
+  if (f.wgScr) f.wgScr.forEach(function(t){ try { t.destroy(); } catch(x){} });
+}
+
+// LSFG-style flow scale: lower values estimate motion at a coarser resolution (faster, softer)
+function fgSplit(w, h){ return w * h > 1.3e6 || (fx.fg === 4 && !!fx.lsp); }
+function fgHq(){ return fx.fg === 4 ? (fx.lsp ? .75 : 1) : 0; }
+function lsStop(v){ return v >= 70 ? 0 : v >= 40 ? 1 : 2; }
+function fgSetup(w, h){
+  fgFree();
+  if (!fgCompile()) { fx.fg = 0; return false; }
+  var n = Math.max(3, Math.min(5, Math.floor(Math.log(Math.min(w, h) / 28) / Math.LN2)));
+  var mode = fx.fg, stop = Math.min(mode === 4 ? lsStop(fx.lsf) : mode === 3 ? 0 : mode === 2 ? 1 : 2, n - 1);
+  var f = { w: w, h: h, n: n, stop: stop, mode: mode, split: fgSplit(w, h), dRT: null, nextOut: 0, lw: [], lh: [], scr: [], q: [], pool: [], out: null,
+    dt: 0, refresh: 16.7, gaps: [], gn: 0, lastRaf: 0, active: false, lastOut: 0, outN: 0, lA: null, lB: null, lal: -1 };
+  try {
+    for (var k = 0; k < n; k++) { f.lw[k] = Math.max(4, Math.round(w / Math.pow(2, k + 1))); f.lh[k] = Math.max(4, Math.round(h / Math.pow(2, k + 1))); }
+    for (k = stop + 1; k < n; k++) f.scr[k] = newRTx(f.lw[k], f.lh[k], 'f');
+    f.out = newRTx(w, h, 'c');
+    if (f.split) f.dRT = newRTx(f.lw[0], f.lh[0], 'f');
+    fgx = f;
+    fgEntry(true);   // allocate one up front so a failing render target shows up now, not mid game
+  } catch(err) { fgx = f; fgFree(); fgOK = false; fx.fg = 0; self.postMessage({ t: 'fgerr', s: 'Frame generation unavailable: ' + (err && err.message || err) }); return false; }
+  return true;
+}
+
+function fgEntry(warm){
+  var f = fgx, en = f.pool.pop();
+  if (!en) {
+    en = { tex: newTex(f.w, f.h), pyr: [], flow: null, t: 0, hasPyr: false, hasFlow: false };
+    for (var k = 0; k < f.n; k++) en.pyr.push(newRTx(f.lw[k], f.lh[k], 'r'));
+    en.flow = newRTx(f.lw[f.stop], f.lh[f.stop], 'f');
+  }
+  en.hasPyr = false; en.hasFlow = false; en.tok = (en.tok || 0) + 1;
+  if (en.wg) { en.wg.has = false; en.wg.pyrOk = false; }
+  if (warm) f.pool.push(en);
+  return en;
+}
+
+function fgPyr(en){
+  var f = fgx;
+  pass(P.lum0, en.pyr[0], f.lw[0], f.lh[0]); bind(0, en.tex); gl.uniform1i(U(P.lum0, 't'), 0); draw();
+  for (var k = 1; k < f.n; k++) {
+    pass(P.down, en.pyr[k], f.lw[k], f.lh[k]); bind(0, en.pyr[k - 1].t); gl.uniform1i(U(P.down, 't'), 0); draw();
+  }
+  en.hasPyr = true;
+}
+
+/* ===== experimental WebGPU motion estimation (opt-in, falls back to the WebGL path on any problem) =====
+   Pyramid + hierarchical block matching run as compute shaders. The finished vector field is read back and uploaded into
+   the same WebGL texture the interpolation already uses, so the rest of the pipeline is untouched. Until a field has
+   arrived (a frame or so) that frame pair simply uses the existing no-flow fallback. */
+var wg = null, wgState = 0, wgSlot = 0, wgTok = 0;     // wgState: 0 not tried, 2 starting, 1 ready, -1 failed
+var WGSL = [
+'struct U{sz:vec2<f32>,vsz:vec2<f32>,R:f32,lam:f32,qp:f32,blk:f32,str:f32,mode:f32};',
+'@group(0)@binding(0) var tA:texture_2d<f32>;@group(0)@binding(1) var tB:texture_2d<f32>;@group(0)@binding(2) var tV:texture_2d<f32>;',
+'@group(0)@binding(3) var o:texture_storage_2d<rgba16float,write>;@group(0)@binding(4) var sm:sampler;@group(0)@binding(5) var<uniform> u:U;',
+'fn cost(c:vec2<f32>,v:vec2<f32>)->f32{let a=c-.5*v;let b=c+.5*v;var s=0.0;let n=i32(u.blk);',
+' for(var j=0;j<n;j++){for(var i=0;i<n;i++){let q=(vec2<f32>(f32(i),f32(j))-f32(n-1)*.5)*u.str;',
+'  s+=abs(textureSampleLevel(tA,sm,(a+q)/u.sz,0.0).r-textureSampleLevel(tB,sm,(b+q)/u.sz,0.0).r);}}',
+' return s/f32(n*n);}',
+'@compute @workgroup_size(8,8) fn lum0(@builtin(global_invocation_id) g:vec3<u32>){',
+' if(f32(g.x)>=u.sz.x||f32(g.y)>=u.sz.y){return;}',
+' let t=textureSampleLevel(tA,sm,(vec2<f32>(g.xy)+.5)/u.sz,0.0);',
+' textureStore(o,vec2<i32>(g.xy),vec4<f32>(dot(t.rgb,vec3<f32>(.299,.587,.114)),0.0,0.0,1.0));}',
+'@compute @workgroup_size(8,8) fn down(@builtin(global_invocation_id) g:vec3<u32>){',
+' if(f32(g.x)>=u.sz.x||f32(g.y)>=u.sz.y){return;}',
+' let t=textureSampleLevel(tA,sm,(vec2<f32>(g.xy)+.5)/u.sz,0.0);',
+' textureStore(o,vec2<i32>(g.xy),vec4<f32>(t.r,0.0,0.0,1.0));}',
+'@compute @workgroup_size(8,8) fn mec(@builtin(global_invocation_id) g:vec3<u32>){',
+' if(f32(g.x)>=u.sz.x||f32(g.y)>=u.sz.y){return;}',
+' let c=vec2<f32>(g.xy)+.5;let R=u.R;var best=1e9;var bv=vec2<f32>(0.0);',
+' for(var y=-R;y<=R;y+=1.0){for(var x=-R;x<=R;x+=1.0){let v=vec2<f32>(x,y);let k=cost(c,v)+.003*length(v);if(k<best){best=k;bv=v;}}}',
+' var b2=bv;',
+' for(var j=-1;j<=1;j++){for(var i=-1;i<=1;i++){let v=bv+.5*vec2<f32>(f32(i),f32(j));let k=cost(c,v)+.003*length(v);if(k<best){best=k;b2=v;}}}',
+' textureStore(o,vec2<i32>(g.xy),vec4<f32>(b2,best,1.0));}',
+'@compute @workgroup_size(8,8) fn ref(@builtin(global_invocation_id) g:vec3<u32>){',
+' if(f32(g.x)>=u.sz.x||f32(g.y)>=u.sz.y){return;}',
+' let c=vec2<f32>(g.xy)+.5;let f=(c/u.sz)*u.vsz-.5;let i0=vec2<i32>(floor(f));let fr=f-vec2<f32>(i0);let mx=vec2<i32>(u.vsz)-vec2<i32>(1);',
+' let s00=textureLoad(tV,clamp(i0,vec2<i32>(0),mx),0).xy*2.0;let s10=textureLoad(tV,clamp(i0+vec2<i32>(1,0),vec2<i32>(0),mx),0).xy*2.0;',
+' let s01=textureLoad(tV,clamp(i0+vec2<i32>(0,1),vec2<i32>(0),mx),0).xy*2.0;let s11=textureLoad(tV,clamp(i0+vec2<i32>(1,1),vec2<i32>(0),mx),0).xy*2.0;',
+' let sb=mix(mix(s00,s10,fr.x),mix(s01,s11,fr.x),fr.y);',
+' var bv=sb;var best=cost(c,sb);var sd=array<vec2<f32>,5>(s00,s10,s01,s11,vec2<f32>(0.0));',
+' for(var i=0;i<5;i++){let k=cost(c,sd[i])+u.lam*length(sd[i]-sb);if(k<best){best=k;bv=sd[i];}}',
+' var s0=bv;',
+' for(var j=-1;j<=1;j++){for(var i=-1;i<=1;i++){if(i==0&&j==0){continue;}let v=s0+vec2<f32>(f32(i),f32(j));let k=cost(c,v)+u.lam*length(v-sb);if(k<best){best=k;bv=v;}}}',
+' s0=bv;',
+' for(var j=-1;j<=1;j++){for(var i=-1;i<=1;i++){if(i==0&&j==0){continue;}let v=s0+.5*vec2<f32>(f32(i),f32(j));let k=cost(c,v)+u.lam*length(v-sb);if(k<best){best=k;bv=v;}}}',
+' if(u.qp>.5){s0=bv;for(var j=-1;j<=1;j++){for(var i=-1;i<=1;i++){if(i==0&&j==0){continue;}let v=s0+.25*vec2<f32>(f32(i),f32(j));let k=cost(c,v)+u.lam*length(v-sb);if(k<best){best=k;bv=v;}}}}',
+' textureStore(o,vec2<i32>(g.xy),vec4<f32>(bv,best,1.0));}'
+].join('\n');
+
+function wgOn(){ return fx.wg && fx.fg === 4 && wgState === 1 && !!fgx; }
+function wgFail(err){
+  var was = wgState; wgState = -1; wg = null;
+  if (was !== -1) self.postMessage({ t: 'wgerr', s: 'WebGPU motion unavailable, using WebGL: ' + (err && err.message || err) });
+}
+async function wgInit(){
+  wgState = 2;
+  try {
+    if (!self.navigator || !navigator.gpu) throw new Error('this browser has no WebGPU');
+    var ad = await navigator.gpu.requestAdapter(); if (!ad) throw new Error('no WebGPU adapter');
+    var dev = await ad.requestDevice();
+    dev.lost.then(function(){ wgFail(new Error('device lost')); });
+    dev.onuncapturederror = function(ev){ wgFail(new Error(ev.error && ev.error.message || 'GPU error')); };
+    var mod = dev.createShaderModule({ code: WGSL });
+    var ci = await mod.getCompilationInfo();
+    for (var i = 0; i < ci.messages.length; i++) if (ci.messages[i].type === 'error') throw new Error('shader: ' + ci.messages[i].message);
+    var C = GPUShaderStage.COMPUTE, tx = { sampleType: 'float' };
+    var bgl = dev.createBindGroupLayout({ entries: [
+      { binding: 0, visibility: C, texture: tx }, { binding: 1, visibility: C, texture: tx }, { binding: 2, visibility: C, texture: tx },
+      { binding: 3, visibility: C, storageTexture: { access: 'write-only', format: 'rgba16float' } },
+      { binding: 4, visibility: C, sampler: { type: 'filtering' } }, { binding: 5, visibility: C, buffer: { type: 'uniform' } } ] });
+    var layout = dev.createPipelineLayout({ bindGroupLayouts: [bgl] }), pl = {};
+    var names = ['lum0', 'down', 'mec', 'ref'];
+    for (var k = 0; k < names.length; k++) pl[names[k]] = await dev.createComputePipelineAsync({ layout: layout, compute: { module: mod, entryPoint: names[k] } });
+    wg = { dev: dev, bgl: bgl, pl: pl,
+      smp: dev.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' }),
+      ub: dev.createBuffer({ size: 256 * 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }) };
+    wgState = 1;
+    self.postMessage({ t: 'wgok' });
+  } catch(err) { wgFail(err); }
+}
+function wgTex(w, h, extra){ return wg.dev.createTexture({ size: [w, h], format: 'rgba16float', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | extra }); }
+function wgEnt(en){
+  if (en.wg) return en.wg;
+  var f = fgx, T = GPUTextureUsage, w = { has: false, pyrOk: false, pyr: [], flow: null,
+    src: wg.dev.createTexture({ size: [f.w, f.h], format: 'rgba8unorm', usage: T.TEXTURE_BINDING | T.COPY_DST | T.RENDER_ATTACHMENT }) };
+  for (var k = 0; k < f.n; k++) w.pyr.push(wgTex(f.lw[k], f.lh[k], 0));
+  w.flow = wgTex(f.lw[f.stop], f.lh[f.stop], T.COPY_SRC);
+  return (en.wg = w);
+}
+function wgFreeEnt(w){ try { w.src.destroy(); w.pyr.forEach(function(t){ t.destroy(); }); w.flow.destroy(); } catch(x){} }
+function wgUpload(en, bmp){
+  try {
+    var w = wgEnt(en);
+    wg.dev.queue.copyExternalImageToTexture({ source: bmp }, { texture: w.src }, [fgx.w, fgx.h]);
+    w.has = true; w.pyrOk = false;
+  } catch(err) { wgFail(err); }
+}
+// one compute dispatch: inputs a, b, v (sampled), output o (storage); p = {sz, vsz, R, lam, qp, blk, str}
+function wgRun(enc, name, a, b, v, o, p){
+  var d = wg.dev, off = (wgSlot++) * 256;
+  d.queue.writeBuffer(wg.ub, off, new Float32Array([p.sz[0], p.sz[1], p.vsz ? p.vsz[0] : 1, p.vsz ? p.vsz[1] : 1, p.R || 0, p.lam || 0, p.qp || 0, p.blk || 4, p.str || 1, 0, 0, 0]));
+  var bg = d.createBindGroup({ layout: wg.bgl, entries: [
+    { binding: 0, resource: a.createView() }, { binding: 1, resource: b.createView() }, { binding: 2, resource: v.createView() },
+    { binding: 3, resource: o.createView() }, { binding: 4, resource: wg.smp }, { binding: 5, resource: { buffer: wg.ub, offset: off, size: 48 } } ] });
+  var ps = enc.beginComputePass(); ps.setPipeline(wg.pl[name]); ps.setBindGroup(0, bg);
+  ps.dispatchWorkgroups(Math.ceil(p.sz[0] / 8), Math.ceil(p.sz[1] / 8)); ps.end();
+}
+function wgPyr(enc, w){
+  if (w.pyrOk) return; var f = fgx;
+  wgRun(enc, 'lum0', w.src, w.src, w.src, w.pyr[0], { sz: [f.lw[0], f.lh[0]] });
+  for (var k = 1; k < f.n; k++) wgRun(enc, 'down', w.pyr[k - 1], w.pyr[k - 1], w.pyr[k - 1], w.pyr[k], { sz: [f.lw[k], f.lh[k]] });
+  w.pyrOk = true;
+}
+function wgH2F(h){ var s = (h & 0x8000) ? -1 : 1, ex = (h >> 10) & 31, m = h & 1023; if (!ex) return s * m * 5.960464477539063e-8; if (ex === 31) return 0; return s * Math.pow(2, ex - 15) * (1 + m / 1024); }
+function wgMotion(A, B){
+  try {
+    var f = fgx, d = wg.dev, a = wgEnt(A), b = wgEnt(B), n = f.n, s = f.stop;
+    if (!a.has || !b.has) return false;
+    if (!f.wgScr) { f.wgScr = []; for (var k = s + 1; k < n; k++) f.wgScr[k] = wgTex(f.lw[k], f.lh[k], 0); }
+    var enc = d.createCommandEncoder(); wgSlot = 0;
+    wgPyr(enc, a); wgPyr(enc, b);
+    for (k = n - 1; k >= s; k--) {
+      var out = (k === s) ? a.flow : f.wgScr[k], sz = [f.lw[k], f.lh[k]];
+      if (k === n - 1) wgRun(enc, 'mec', a.pyr[k], b.pyr[k], a.pyr[k], out, { sz: sz, R: n >= 5 ? 4 : n === 4 ? 5 : 6, blk: 4, str: 1 });
+      else wgRun(enc, 'ref', a.pyr[k], b.pyr[k], f.wgScr[k + 1], out, { sz: sz, vsz: [f.lw[k + 1], f.lh[k + 1]], lam: 0.004, qp: k === 0 ? 1 : 0, blk: k >= 3 ? 4 : 2, str: k >= 3 ? 1 : 2 });
+    }
+    var fw = f.lw[s], fh = f.lh[s], bpr = Math.ceil(fw * 8 / 256) * 256;
+    var sb = d.createBuffer({ size: bpr * fh, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    enc.copyTextureToBuffer({ texture: a.flow }, { buffer: sb, bytesPerRow: bpr }, [fw, fh]);
+    d.queue.submit([enc.finish()]);
+    var tok = A.tok;
+    sb.mapAsync(GPUMapMode.READ).then(function(){
+      var u16 = new Uint16Array(sb.getMappedRange()), o = new Float32Array(fw * fh * 4), rs = bpr / 2;
+      for (var y = 0; y < fh; y++) for (var x = 0; x < fw * 4; x++) o[y * fw * 4 + x] = wgH2F(u16[y * rs + x]);
+      sb.unmap(); sb.destroy();
+      if (fgx === f && A.tok === tok && gl) {
+        gl.bindTexture(gl.TEXTURE_2D, A.flow.t);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, fw, fh, gl.RGBA, gl.FLOAT, o);
+        A.hasFlow = true;
+      }
+    }).catch(function(){ try { sb.destroy(); } catch(x){} });
+    return true;
+  } catch(err) { wgFail(err); return false; }
+}
+
+function fgMotion(A, B){
+  if (wgOn() && wgMotion(A, B)) return;
+  var f = fgx, n = f.n, s = f.stop;
+  for (var k = n - 1; k >= s; k--) {
+    var rt = (k === s) ? A.flow : f.scr[k], p;
+    if (k === n - 1) p = P.mec; else p = (k >= 3) ? P.mer4 : P.mer2;
+    pass(p, rt, f.lw[k], f.lh[k]);
+    bind(0, A.pyr[k].t); bind(1, B.pyr[k].t);
+    gl.uniform1i(U(p, 'tA'), 0); gl.uniform1i(U(p, 'tB'), 1); gl.uniform2f(U(p, 'sz'), f.lw[k], f.lh[k]);
+    if (k === n - 1) gl.uniform1f(U(p, 'R'), n >= 5 ? 4 : n === 4 ? 5 : 6);
+    else {
+      bind(2, f.scr[k + 1].t); gl.uniform1i(U(p, 'tV'), 2); gl.uniform2f(U(p, 'vsz'), f.lw[k + 1], f.lh[k + 1]);
+      gl.uniform1f(U(p, 'lam'), 0.004); gl.uniform1f(U(p, 'qp'), k === 0 ? 1 : 0);
+    }
+    draw();
+  }
+  A.hasFlow = true;
+}
+
+function fgInterp(A, B, al){
+  var f = fgx, p;
+  if (f.split) {
+    p = P.fgd; pass(p, f.dRT, f.lw[0], f.lh[0]);
+    bind(0, A.pyr[0].t); bind(1, B.pyr[0].t); bind(2, A.flow.t);
+    gl.uniform1i(U(p, 'lA'), 0); gl.uniform1i(U(p, 'lB'), 1); gl.uniform1i(U(p, 'tV'), 2);
+    gl.uniform2f(U(p, 'vsz'), A.flow.w, A.flow.h); gl.uniform1f(U(p, 'al'), al); gl.uniform1f(U(p, 'hq'), fgHq());
+    draw();
+    p = P.fgj; pass(p, f.out, f.w, f.h);
+    bind(0, A.tex); bind(1, B.tex); bind(2, f.dRT.t);
+    gl.uniform1i(U(p, 'tA'), 0); gl.uniform1i(U(p, 'tB'), 1); gl.uniform1i(U(p, 'tD'), 2); gl.uniform1f(U(p, 'al'), al); gl.uniform1f(U(p, 'hq'), fgHq()); gl.uniform2f(U(p, 'px'), 1 / f.w, 1 / f.h);
+    draw();
+    return f.out.t;
+  }
+  p = P.fgi;
+  pass(p, f.out, f.w, f.h);
+  bind(0, A.tex); bind(1, B.tex); bind(2, A.pyr[0].t); bind(3, B.pyr[0].t); bind(4, A.flow.t);
+  gl.uniform1i(U(p, 'tA'), 0); gl.uniform1i(U(p, 'tB'), 1); gl.uniform1i(U(p, 'lA'), 2); gl.uniform1i(U(p, 'lB'), 3); gl.uniform1i(U(p, 'tV'), 4);
+  gl.uniform2f(U(p, 'vsz'), A.flow.w, A.flow.h); gl.uniform1f(U(p, 'al'), al); gl.uniform1f(U(p, 'hq'), fgHq()); gl.uniform2f(U(p, 'px'), 1 / f.w, 1 / f.h);
+  draw();
+  return f.out.t;
+}
+
+function fgClear(f){ while (f.q.length) f.pool.push(f.q.shift()); f.dt = 0; f.active = false; f.lA = f.lB = null; }
+
+// one real game frame arrived
+function fgFrame(m, bmp){
+  var f = fgx;
+  if (!f || f.w !== m.w || f.h !== m.h || f.mode !== fx.fg || f.split !== fgSplit(m.w, m.h) || (fx.fg === 4 && f.stop !== Math.min(lsStop(fx.lsf), f.n - 1))) {
+    if (!fgSetup(m.w, m.h)) return false;
+    f = fgx; e.w = m.w; e.h = m.h; freeRT(e.aaRT); freeRT(e.upRT); e.aaRT = null; e.upRT = null; e.cur = null;
+  }
+  var now = performance.now();
+  var t = m.abs ? m.abs - performance.timeOrigin : now;
+  if (Math.abs(t - now) > 400) t = now;               // clocks disagree: trust our own
+  var q = f.q, last = q.length ? q[q.length - 1] : null;
+  if (last) {
+    var gap = t - last.t;
+    if (gap > 350 || gap < 0.5) { fgClear(f); last = null; }       // pause, tab switch or a cut: start over
+    else f.dt = f.dt ? f.dt * 0.8 + gap * 0.2 : gap;
+  }
+  var en = fgEntry(false);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.bindTexture(gl.TEXTURE_2D, en.tex);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+  en.t = t; e.has = true; e.frames++;
+  if (wgOn()) wgUpload(en, bmp);
+  var tgt = fx.fgcap ? Math.max(1000 / fx.fgcap, f.refresh) : f.refresh;     // the pace we are aiming for
+  var r = f.dt ? f.dt / tgt : 0;
+  if (f.active) { if (r < 1.1) f.active = false; } else if (r > 1.25) f.active = true;
+  if (fx.fg === 4) { var atgt = (fx.lsm === 0 && fx.fgcap) ? Math.max(1000 / fx.fgcap, f.refresh) : f.refresh; f.active = !f.dt || f.dt > atgt * 1.15; }     // already at the screen's refresh rate: nothing to add, so no GPU work
+  if (f.active) {
+    fgPyr(en);
+    if (last) { if (!last.hasPyr) fgPyr(last); fgMotion(last, en); }
+  }
+  q.push(en);
+  while (q.length > 4) f.pool.push(q.shift());
+  if (!f.active) { e.cur = en.tex; present(en.tex); fgShown(); }   // fast enough already: straight through
+  fgStartLoop();
+  return true;
+}
+
+function fgShown(){ if (!e.shown) { e.shown = true; self.postMessage({ t: 'shown' }); } }
+function fgStartLoop(){
+  if (fgLoopOn) return; fgLoopOn = true;
+  if (self.requestAnimationFrame) self.requestAnimationFrame(fgRaf); else self.postMessage({ t: 'needTick', on: 1 });
+}
+function fgRaf(ts){
+  if (!fx.fg || !fgx) { fgLoopOn = false; return; }
+  fgStep(ts); self.requestAnimationFrame(fgRaf);
+}
+function fgStep(ts){
+  var f = fgx; if (!f) return;
+  if (f.lastRaf) {
+    var g = ts - f.lastRaf;
+    if (g > 0 && g < 100) {
+      f.gaps.push(g); if (f.gaps.length > 60) f.gaps.shift();
+      if ((++f.gn & 15) === 0 && f.gaps.length >= 16) { var s = f.gaps.slice().sort(function(a, b){ return a - b; }), qv = s[Math.floor(s.length * 0.25)]; f.refresh = (qv >= 3 && qv <= 34) ? qv : 16.7; }
+    }
+  }
+  f.lastRaf = ts;
+  if (!f.active || !f.q.length) return;
+  var cap = (fx.fg === 4 && fx.lsm !== 0) ? 0 : fx.fgcap ? Math.max(1000 / fx.fgcap, f.refresh) : 0;
+  if (cap && ts < f.nextOut - f.refresh * 0.5) return;
+  var q = f.q, v = ts - Math.min(120, f.dt * 1.1 + 1), i = q.length - 1;
+  while (i > 0 && q[i].t > v) i--;
+  var A = q[i], B = q[i + 1], tex, al = 1;
+  if (!B) { tex = A.tex; al = 0; }
+  else {
+    al = Math.max(0, Math.min(1, (v - A.t) / (B.t - A.t)));
+    // game far below the screen rate (30 on 60 Hz, 30 on 120 Hz...): fixed steps, exactly M - 1 generated frames per real frame.
+    // game only somewhat below it (40-50 on 60 Hz): keep the position continuous so every screen refresh gets a correctly timed frame.
+    if (fx.fg === 4 && fx.lsm !== 0 && f.dt > f.refresh * 1.75) { var M = Math.max(2, Math.min(fx.lsm | 0, Math.round(f.dt / f.refresh))); al = Math.round(al * M) / M; }
+    if (al < 0.02) { tex = A.tex; al = 0; B = null; }
+    else if (al > 0.98) { tex = B.tex; A = B; B = null; al = 0; }
+    else if (!A.hasFlow) { tex = al < 0.5 ? A.tex : B.tex; }
+    else tex = null;
+  }
+  if (A === f.lA && B === f.lB && Math.abs(al - f.lal) < 0.004) return;       // nothing new to show
+  f.lA = A; f.lB = B; f.lal = al;
+  if (!tex) tex = fgInterp(A, B, al);
+  f.lastOut = ts; f.outN++;
+  if (cap) { f.nextOut += cap; if (f.nextOut < ts - cap) f.nextOut = ts + cap; }
+  e.cur = tex; present(tex); fgShown();
+}
+
+function onFrame(m){
+  var bmp = m.bmp;
+  try {
+    if (!e || !gl || !W || !H) return;
+    var fgd = fx.fg ? fgFrame(m, bmp) : false;
+    if (!fgd) {
+      if (m.w !== e.w || m.h !== e.h) setup(m.w, m.h);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.bindTexture(gl.TEXTURE_2D, e.tex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+      e.has = true; e.frames++; e.cur = null;
+      present();
+      if (!e.shown) { e.shown = true; self.postMessage({ t: 'shown' }); }
+    }
+    var now = performance.now();
+    if (now - e.t0 >= 1000) {
+      var fps = Math.round(e.frames * 1000 / (now - e.t0));
+      var fgA = !!(fgx && fgx.active), fgo = fgx ? Math.round(fgx.outN * 1000 / (now - e.t0)) : 0;
+      if (fgx) fgx.outN = 0;
+      var s = 'Game ' + fps + ' fps' + (fgA ? ' \u2192 ' + fgo + ' fps shown (' + (fx.fg === 4 ? (fx.lsm ? 'LSFG x' + fx.lsm : 'LSFG adaptive') : 'frame gen') + ')' : '') + ' \u00b7 ' + e.w + '\u00d7' + e.h + ' \u2192 ' + W + '\u00d7' + H + ' \u00b7 ' +
+        (fx.up === 1 ? 'FSR-style upscale' : fx.up === 2 ? 'fast upscale' : 'no upscale') + (fx.aa ? ' + FXAA' : '') +
+        (fgx && fgx.split ? ' \u00b7 hi-res mode' : '') + (wgOn() ? ' \u00b7 WebGPU motion' : '') + (fgx && !fgA ? ' \u00b7 frame gen idle (already at target)' : '');
+      self.postMessage({ t: 'info', s: s, out: fps, fgout: fgA ? fgo : 0 });
+      e.frames = 0; e.t0 = now;
+    }
+  } finally { try { bmp.close(); } catch(x){} self.postMessage({ t: 'ack' }); }
+}
+
+self.onmessage = function(ev){
+  var m = ev.data || {};
+  if (m.t === 'init') init(m.canvas);
+  else if (!e) { if (m.bmp) try { m.bmp.close(); } catch(x){} }
+  else if (m.t === 'cfg') {
+    fx = m.fx;
+    if (fx.wg && wgState === 0) wgInit();
+    if (!fx.fg && fgx) { fgFree(); e.w = 0; e.h = 0; e.has = false; e.cur = null; }
+    if (m.W !== W || m.H !== H) { W = m.W; H = m.H; cv.width = W; cv.height = H; freeRT(e.upRT); e.upRT = null; }
+    if (e.has) present();
+  }
+  else if (m.t === 'frame') onFrame(m);
+  else if (m.t === 'tick') fgStep(performance.now());
+  else if (m.t === 'fgdbg') {     // internal: render the in-between frame for the two newest real frames and send the pixels back (used for testing)
+    var f = fgx;
+    if (f && f.q.length >= 2) {
+      var A = f.q[f.q.length - 2], B = f.q[f.q.length - 1];
+      if (!A.hasFlow) { self.postMessage({ t: 'fgdbg', err: 'no flow' }); return; }
+      fgInterp(A, B, m.al);
+      var px = new Uint8Array(f.w * f.h * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f.out.f); gl.readPixels(0, 0, f.w, f.h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      self.postMessage({ t: 'fgdbg', px: px, w: f.w, h: f.h, active: f.active, dt: f.dt, n: f.n, stop: f.stop }, [px.buffer]);
+    } else self.postMessage({ t: 'fgdbg', err: 'queue ' + (f ? f.q.length : 'none') });
+  }
+};
+</script>
+
+<script type="text/plain" id="layer">
+(function(){
+if (window.__gwvc) return; window.__gwvc = 1;
+var EMBED_KEY = __KEY__; /* set by the patcher: only files patched with the same key find each other */
+
+/* ---------- key ---------- */
+function h32(s){var h=0;for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return (h>>>0).toString(36)}
+function getKey(){ return EMBED_KEY; }
+function cyrb(str, seed){
+  var h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (var i = 0; i < str.length; i++) { var c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+}
+function hubIdFor(k){ return 'gwvc-' + cyrb(k, 1) + cyrb(k, 7) + '-hub'; }
+
+/* ---------- UI (closed shadow DOM so the game's CSS/JS can't touch it and vice versa) ---------- */
+var host = document.createElement('div');
+host.style.cssText = 'all:initial;position:fixed;right:0;bottom:0;z-index:2147483647';
+var root = host.attachShadow({ mode: 'closed' });
+root.innerHTML = '' +
+'<style>' +
+':host{all:initial}' +
+'*{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}' +
+'button,input,select{font:inherit;font-size:12px;color:#e9e9ee;background:#1b1d27;border:1px solid #2b2e3c;border-radius:7px;padding:0 9px;height:28px;outline:none;margin:0}' +
+'button{cursor:pointer;transition:background .12s,border-color .12s}' +
+'button:hover:not(:disabled){background:#232636;border-color:#3a3e50}' +
+'button:disabled{opacity:.4;cursor:default}' +
+'select{padding:0 5px}' +
+'input[type=range]{height:16px;padding:0;background:none;border:0;accent-color:#6d83f2;flex:1;min-width:60px}' +
+'input[type=checkbox]{height:auto;width:auto;padding:0;border:0;background:none;accent-color:#6d83f2;margin:0}' +
+'#gear{position:fixed;left:14px;bottom:14px;width:34px;height:34px;padding:0;border-radius:50%;background:rgba(14,15,21,.72);border-color:rgba(255,255,255,.28);font-size:17px;line-height:32px;text-align:center;opacity:.6;transition:opacity .15s,background .15s}' +
+'#gear:hover,#gear.open{opacity:1;background:rgba(20,22,32,.92)}' +
+'#panel{position:fixed;left:14px;bottom:58px;width:320px;max-height:calc(100vh - 76px);overflow-y:auto;overflow-x:hidden;background:rgba(15,16,22,.965);border:1px solid #262836;border-radius:14px;padding:0 14px 10px;color:#e9e9ee;font-size:13px;box-shadow:0 14px 44px rgba(0,0,0,.55);display:none}' +
+'.tabs{display:flex;gap:2px;margin:0 -14px 12px;padding:8px 10px 0;border-bottom:1px solid #21232e;position:sticky;top:0;background:rgba(15,16,22,.98);z-index:2}' +
+'.tab{flex:1;height:32px;border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:#7b7f94;font-size:12.5px;font-weight:500}' +
+'.tab:hover:not(:disabled){background:none;color:#c9cde0}' +
+'.tab.on{color:#e9e9ee;border-bottom-color:#6d83f2}' +
+'.pane{display:none}.pane.on{display:block}' +
+'.gt{margin:16px 0 2px;font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#6b6f84}.gt.first{margin-top:2px}' +
+'.sw{position:relative;display:inline-block;width:34px;height:19px;cursor:pointer}' +
+'.sw input{position:absolute;opacity:0;width:0;height:0}' +
+'.sw i{position:absolute;inset:0;border-radius:10px;background:#2b2e3c;transition:background .15s}' +
+'.sw i:after{content:"";position:absolute;left:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#c9cde0;transition:transform .15s}' +
+'.sw input:checked+i{background:#4961e0}.sw input:checked+i:after{transform:translateX(15px);background:#fff}' +
+'#fgcapV,#lsfV{flex:none;width:42px;text-align:right;font-size:11.5px;font-weight:500;color:#c9cde0}' +
+'#vkey{flex:1;min-width:0;height:28px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:12px;letter-spacing:.02em}' +
+'.st{display:flex;align-items:center;gap:6px;min-width:0}.st #status{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+'.acts{display:flex;gap:2px;flex:none}' +
+'#panel.show{display:block}' +
+'.hd{display:flex;align-items:center;gap:6px;margin-bottom:9px;font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#7b7f94}' +
+'.hd .sp{flex:1}' +
+'.cnt{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;color:#8b90a4}' +
+'#dot{width:6px;height:6px;border-radius:50%;background:#3a3d4b;display:inline-block}' +
+'#dot.on{background:#4ade80;box-shadow:0 0 6px rgba(74,222,128,.55)}' +
+'.chips{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:6px}' +
+'.chip{height:29px;font-size:12px;background:#1b1d27;border-color:#2b2e3c;color:#9aa0b6}' +
+'.chip.on{background:#20273f;border-color:#3d4b86;color:#c9d4ff}' +
+'.chip.bad{background:#331d21;border-color:#6d303a;color:#ffb8c0}' +
+'.peer{display:flex;align-items:center;gap:7px;padding:5px 0}' +
+'.av{width:24px;height:24px;border-radius:50%;background:#272c44;color:#b9c2e6;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex:none}' +
+'.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#cfd3e2}' +
+'.peer input[type=range]{width:54px;flex:none}' +
+'.mb{height:24px;padding:0 8px;font-size:11px;flex:none;border-radius:6px}' +
+'.mb.muted{background:#331d21;border-color:#6d303a;color:#ffb8c0}' +
+'.empty{color:#6b6f84;font-size:12px;padding:2px 0 4px}' +
+'.hint{margin-top:7px;font-size:11.5px;color:#757a8f;line-height:1.45}' +
+'.row{display:flex;align-items:center;gap:8px;margin-top:9px}' +
+'.lb{flex:none;width:80px;color:#a2a6ba;font-size:12px}' +
+'.row>select,.row>input[type=number]{flex:1;min-width:0}' +
+'.chk{display:flex;align-items:center;gap:7px;color:#c8cad8;cursor:pointer;font-size:12px}' +
+'.r2{display:flex;gap:6px;margin-top:8px}.r2>*{flex:1;min-width:0}' +
+'.mini{height:26px;font-size:11.5px}' +
+'.kb{height:26px;min-width:46px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11.5px;padding:0 9px}' +
+'.kb.wait{border-color:#4961e0;color:#9fb0ff}' +
+'.ft{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:14px;padding-top:9px;border-top:1px solid #21232e;font-size:11.5px;color:#7b7f94}' +
+'.lnk{background:none;border:0;height:auto;padding:2px 4px;color:#7b7f94;font-size:11.5px}' +
+'.lnk:hover{color:#e9e9ee;background:none}' +
+'#toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);padding:8px 14px;border-radius:9px;background:rgba(15,16,22,.94);border:1px solid #2a2c3a;color:#e9e9ee;font-size:12px;opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,.45)}' +
+'#fps{position:fixed;left:0;top:0;display:none;pointer-events:none;font:600 12px/1 ui-monospace,SFMono-Regular,monospace;color:#eef2ff;background:rgba(10,11,16,.5);border:1px solid rgba(255,255,255,.09);border-radius:6px;padding:5px 7px;text-shadow:0 1px 2px rgba(0,0,0,.9);white-space:nowrap;letter-spacing:.02em}' +
+'#fps.show{display:block}' +
+'#fps.edit{pointer-events:auto;cursor:grab;border:1px dashed #6d83f2;background:rgba(20,26,50,.92);box-shadow:0 0 0 3px rgba(109,131,242,.16)}' +
+'#fps.edit:active{cursor:grabbing}' +
+'.peer.talk .nm{color:#fff}' +
+'.peer .tdot{width:7px;height:7px;border-radius:50%;background:#33364a;flex:none;transition:background .12s,box-shadow .12s}' +
+'.peer.talk .tdot{background:#4ade80;box-shadow:0 0 7px rgba(74,222,128,.75)}' +
+'.chip.talk{box-shadow:0 0 0 2px rgba(74,222,128,.4)}' +
+'</style>' +
+'<button id="gear" title="Settings">&#9881;</button>' +
+'<div id="toast"></div>' +
+'<div id="fps">60 fps</div>' +
+'<div id="panel">' +
+'<div class="tabs"><button class="tab on" data-t="v">Voice</button><button class="tab" data-t="g">Video</button><button class="tab" data-t="o">Overlay</button></div>' +
+'<div class="pane on" id="pv">' +
+'<div class="chips"><button class="chip on" id="tOn">Voice on</button><button class="chip on" id="mAll">Mute all</button><button class="chip on" id="mMe">Mute me</button></div>' +
+'<div id="peers"></div>' +
+'<div class="gt">Settings</div>' +
+'<div class="row"><span class="lb" style="flex:1;width:auto">Voice key</span><button class="mini" id="vkeyCopy">Copy</button></div>' +
+'<div class="row" style="margin-top:5px"><input id="vkey" readonly></div>' +
+'<div class="row"><span class="lb">Mute key</span><button class="kb" id="mkey">K</button><button class="mini" id="mkeyClr">Off</button></div>' +
+'</div>' +
+'<div class="pane" id="pg">' +
+'<div class="gt first">Resolution</div>' +
+'<div class="row"><span class="lb">Render at</span><select id="preset"><option value="0">Native (full)</option><option value="1080">1080p</option><option value="900">900p</option><option value="720">720p</option><option value="540">540p</option><option value="480">480p</option><option value="360">360p</option><option value="240">240p</option><option value="custom">Custom height</option></select></div>' +
+'<div class="row" id="customRow" style="display:none"><span class="lb"></span><input id="ch" type="number" min="100" max="4320" value="600"><button class="mini" id="apply">Set</button></div>' +
+'<div class="row"><span class="lb">Sharp pixels</span><label class="sw"><input type="checkbox" id="pix"><i></i></label></div>' +
+'<div class="hint" id="resInfo"></div>' +
+'<div class="gt">Enhancement</div>' +
+'<div class="row"><span class="lb">Upscaler</span><select id="up"><option value="0">Off</option><option value="1">Quality (FSR-style)</option><option value="2">Fast (weak GPU)</option></select></div>' +
+'<div class="row"><span class="lb">Anti-alias</span><select id="aa"><option value="0">Off</option><option value="1">FXAA</option></select></div>' +
+'<div class="row"><span class="lb">Sharpness</span><input type="range" id="sh" min="0" max="1" step="0.05" value="0.5"></div>' +
+'<div class="row"><span class="lb">Frame gen</span><select id="fg"><option value="0">Off</option><option value="4">Lossless Scaling (LSFG)</option></select></div>' +
+'<div class="row" id="lsRow1"><span class="lb">Multiplier</span><select id="lsm"><option value="0">Adaptive (to Target fps)</option><option value="2">x2</option><option value="3">x3</option><option value="4">x4</option><option value="5">x5</option><option value="6">x6</option><option value="8">x8</option></select></div>' +
+'<div class="row" id="lsRow2"><span class="lb">Flow scale</span><input type="range" id="lsf" min="25" max="100" step="5" value="85"><b id="lsfV">50%</b></div>' +
+'<div class="row" id="lsRow3"><span class="lb">Performance</span><label class="sw"><input type="checkbox" id="lsp"><i></i></label></div>' +
+'<div class="row" id="lsRow5"><span class="lb">WebGPU</span><label class="sw"><input type="checkbox" id="wgx"><i></i></label><span class="hint" style="margin:0">experimental motion estimation</span></div>' +
+'<div class="hint" id="lsRow4">Weak PC (Celeron, older iGPU): Performance on, Flow scale 40\u201350%, Multiplier x2, Render at 540p\u2013720p. Frame gen steps aside by itself when the game already runs at your screen refresh rate.</div>' +
+'<div class="row" id="fgcapRow"><span class="lb">Target fps</span><input type="range" id="fgcap" min="10" max="240" step="5" value="240"><b id="fgcapV">Max</b></div>' +
+'<div class="hint" id="fxInfo"></div>' +
+'</div>' +
+'<div class="pane" id="po">' +
+'<div class="gt first">FPS counter</div>' +
+'<div class="row"><span class="lb">Show</span><label class="sw"><input type="checkbox" id="fpsOn"><i></i></label></div>' +
+'<div class="row"><span class="lb">Position</span><button class="mini" id="fpsMove">Move</button><button class="mini" id="fpsSave" disabled>Save</button></div>' +
+'<div class="hint">Move it, press Save, and it stays put with clicks passing straight through.</div>' +
+'<div class="gt">Settings button</div>' +
+'<div class="row"><span class="lb">Corner</span><select id="corner"><option value="bl">Bottom left</option><option value="bc">Bottom center</option><option value="br">Bottom right</option><option value="tl">Top left</option><option value="tr">Top right</option></select></div>' +
+'<div class="hint">Press F8 any time to open or close this panel, even while the game has your mouse. F9 turns frame gen on or off.</div>' +
+'</div>' +
+'<div class="ft"><span class="st"><i id="dot"></i><b id="count">0</b><span id="status"></span></span><span class="acts"><button class="lnk" id="fs">Fullscreen</button><button class="lnk" id="reload">Reload</button></span></div>' +
+'</div>';
+var $ = function(id){ return root.getElementById(id); };
+// Games sometimes rewrite the whole page (innerHTML, document.write, replaceChildren) after load, which would silently
+// delete the settings UI. Check often and put it back; the host element and everything inside it survives re-attaching.
+function ensureMounted(){
+  try {
+    var fe = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fe && /^(CANVAS|VIDEO|IMG|IFRAME|EMBED|OBJECT)$/.test(fe.tagName)) fe = null;   // these cannot show children
+    var want = fe || document.documentElement;
+    if (want && (host.parentNode !== want || !host.isConnected)) want.appendChild(host);
+  } catch(e){}
+}
+ensureMounted();
+function followFullscreen(){ ensureMounted(); }
+document.addEventListener('fullscreenchange', followFullscreen);
+document.addEventListener('webkitfullscreenchange', followFullscreen);
+try { new MutationObserver(ensureMounted).observe(document, { childList: true }); } catch(e){}
+var mountObs = null, mountEl = null;
+setInterval(function(){
+  ensureMounted();
+  if (mountEl !== document.documentElement && document.documentElement) {
+    mountEl = document.documentElement;
+    try { if (mountObs) mountObs.disconnect(); mountObs = new MutationObserver(ensureMounted); mountObs.observe(mountEl, { childList: true }); } catch(e){}
+  }
+}, 500);
+
+// keep clicks/keys inside our UI from reaching the game
+['keydown','keyup','keypress','mousedown','mouseup','click','dblclick','pointerdown','pointerup','touchstart','touchend','wheel','contextmenu'].forEach(function(ev){
+  $('panel').addEventListener(ev, function(e){ e.stopPropagation(); });
+  $('gear').addEventListener(ev, function(e){ e.stopPropagation(); });
+});
+
+function togglePanel(){
+  var show = !$('panel').classList.contains('show');
+  $('panel').classList.toggle('show', show); $('gear').classList.toggle('open', show); $('gear').blur();
+  if (show) {   // a game that captured the mouse (pointer lock) hides the cursor: release it so the panel is usable
+    try { document.exitPointerLock && document.exitPointerLock(); } catch(e){}
+    try { var fr = document.querySelectorAll('iframe'); for (var i = 0; i < fr.length; i++) { try { fr[i].contentDocument.exitPointerLock(); } catch(e){} } } catch(e){}
+  }
+  unlock();
+}
+$('gear').onclick = togglePanel;
+
+/* button corner: move it when it sits on top of a game HUD */
+var CORNER_K = 'gwvc_corner', corner = 'bl';
+try { corner = localStorage.getItem(CORNER_K) || 'bl'; } catch(e){}
+function placeUi(){
+  var g = $('gear').style, p = $('panel').style, c = corner;
+  var L = c.charAt(1) === 'l', R = c.charAt(1) === 'r', Bt = c.charAt(0) === 'b', C = c === 'bc';
+  g.left = g.right = g.top = g.bottom = p.left = p.right = p.top = p.bottom = 'auto'; g.transform = p.transform = '';
+  if (c === 'bc') { g.left = '50%'; g.transform = 'translateX(-50%)'; p.left = '50%'; p.transform = 'translateX(-50%)'; g.bottom = '14px'; p.bottom = '58px'; return; }
+  if (L) { g.left = '14px'; p.left = '14px'; } else { g.right = '14px'; p.right = '14px'; }
+  if (Bt) { g.bottom = '14px'; p.bottom = '58px'; } else { g.top = '14px'; p.top = '58px'; }
+}
+placeUi();
+Array.prototype.forEach.call(root.querySelectorAll('.tab'), function(b){
+  b.onclick = function(){
+    Array.prototype.forEach.call(root.querySelectorAll('.tab'), function(x){ x.classList.toggle('on', x === b); });
+    Array.prototype.forEach.call(root.querySelectorAll('.pane'), function(p){ p.classList.toggle('on', p.id === 'p' + b.getAttribute('data-t')); });
+  };
+});
+$('fs').onclick = function(){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); };
+
+/* ---------- render resolution: lowers what the game draws (less GPU work), then the browser upscales it. Native = untouched ---------- */
+var RES = window.__gwres || { target: 0, key: 'gwvc_res' };
+var pixEl = null;
+function updateInfo(){
+  if (!RES.target) { $('resInfo').textContent = 'Native: the game renders at full resolution.'; return; }
+  var e = window.devicePixelRatio || 1;
+  $('resInfo').textContent = 'Rendering about ' + Math.round(innerWidth * e) + ' \u00d7 ' + Math.round(innerHeight * e) + ' px, upscaled to your window. Some games only read this at startup: use Reload if nothing changes.';
+}
+function setRes(t){
+  RES.target = t;
+  try { t ? localStorage.setItem(RES.key, String(t)) : localStorage.removeItem(RES.key); } catch(e){}
+  window.dispatchEvent(new Event('resize')); updateInfo();
+}
+(function initRes(){
+  var t = RES.target, found = false;
+  Array.prototype.forEach.call($('preset').options, function(o){ if (+o.value === t && o.value !== 'custom') { $('preset').value = o.value; found = true; } });
+  if (t && !found) { $('preset').value = 'custom'; $('customRow').style.display = 'flex'; $('ch').value = t; }
+  updateInfo();
+})();
+$('preset').onchange = function(){
+  var v = $('preset').value;
+  $('customRow').style.display = v === 'custom' ? 'flex' : 'none';
+  if (v !== 'custom') setRes(+v);
+};
+$('apply').onclick = function(){ setRes(Math.max(100, Math.min(4320, +$('ch').value || 600))); };
+$('reload').onclick = function(){ location.reload(); };
+window.addEventListener('resize', updateInfo);
+function setPix(on){
+  if (on && !pixEl) { pixEl = document.createElement('style'); pixEl.textContent = 'canvas{image-rendering:pixelated!important}'; (document.head || document.documentElement).appendChild(pixEl); }
+  if (!on && pixEl) { pixEl.remove(); pixEl = null; }
+  try { on ? localStorage.setItem('gwvc_pix', '1') : localStorage.removeItem('gwvc_pix'); } catch(e){}
+}
+$('pix').onchange = function(){ setPix($('pix').checked); };
+try { if (localStorage.getItem('gwvc_pix')) { $('pix').checked = true; setPix(true); } } catch(e){}
+
+/* ---------- upscaler (FSR-style) + FXAA + frame generation: can be toggled live, no reload ---------- */
+var FXK = 'gwvc_fx', fx = { up: 0, aa: 0, sharp: 0.5, fg: 0, fgcap: 0, lsm: 2, lsf: 50, lsp: 1, wg: 0 };
+try { var fj = JSON.parse(localStorage.getItem(FXK) || 'null'); if (fj) for (var fk in fj) fx[fk] = fj[fk]; } catch(e){}
+if (fx.fg) fx.fg = 4;     // the old Fast / Balanced / Quality modes are gone: saved ones become Lossless Scaling
+var GT = window.__gwgl || null, E = null, finder = 0;
+function saveFx(){ try { localStorage.setItem(FXK, JSON.stringify(fx)); } catch(e){} }
+function fxInfo(t){ $('fxInfo').textContent = t; }
+// target frame rate for frame generation: 240 on the slider means "no limit" (follow the display)
+function setCap(v){ fx.fgcap = v >= 240 ? 0 : v; $('fgcapV').textContent = fx.fgcap ? fx.fgcap + ' fps' : 'Max'; }
+
+var WORKER_SRC = __WORKER__;
+var e_tries = 0;              // attempts at finding a canvas, so the panel can say it gave up
+
+// The real display interval, sampled from rAF. Used for two things: deciding whether the game is slower than the
+// display and the target output cadence. A 30 fps game on a 60 Hz screen reads 33 ms
+// here; if the main thread itself is the bottleneck rAF drops below the display rate, so the sample is clamped to a
+// sane display range instead of being believed.
+var refresh = 16.7, rafGaps = [], rafLast = 0, rafN = 0;
+(function sampleRefresh(ts){
+  requestAnimationFrame(sampleRefresh);
+  if (rafLast) {
+    var d = ts - rafLast;
+    if (d > 0 && d < 100) { rafGaps.push(d); if (rafGaps.length > 90) rafGaps.shift(); }
+  }
+  rafLast = ts;
+  if ((++rafN & 31) === 0 && rafGaps.length >= 12) {
+    var s = rafGaps.slice().sort(function(a, b){ return a - b; });
+    var q = s[Math.floor(s.length * 0.1)];
+    refresh = (q >= 4 && q <= 20) ? q : 16.7;
+  }
+})(0);
+
+function allCanvases(){
+  var out = [];
+  function add(d){ try { Array.prototype.forEach.call(d.querySelectorAll('canvas'), function(c){ if (out.indexOf(c) < 0) out.push(c); }); } catch(e){} }
+  add(document);
+  // frame-hosted clients keep their canvas in the frame's own document
+  try {
+    Array.prototype.forEach.call(document.querySelectorAll('iframe, frame'), function(f){
+      var d = null; try { d = f.contentDocument; } catch(e){}
+      if (d) add(d);
+    });
+  } catch(e){}
+  if (GT) GT.canvases.forEach(function(c){ if (c && out.indexOf(c) < 0) out.push(c); });
+  return out;
+}
+// viewport coordinates for a canvas that may live inside a frame
+function absRect(c){
+  var r = c.getBoundingClientRect();
+  try {
+    if (c.ownerDocument !== document) {
+      var w = c.ownerDocument.defaultView, f = w && w.frameElement;
+      if (f) { var fr = absRect(f); return { left: fr.left + r.left, top: fr.top + r.top, width: r.width, height: r.height }; }
+    }
+  } catch(e){}
+  return r;
+}
+function pickMain(){
+  if (!GT) return null;
+  var best = null, ba = 0;
+  // Every canvas on the page, not just the ones the WebGL hook happened to see. A game drawn with a 2d context, or
+  // one whose context existed before the hook, still has a canvas element and can still be captured.
+  var any = allCanvases();
+  any.forEach(function(c){
+    if (!c.isConnected) return;
+    var r = absRect(c);
+    if (r.width < 2 || r.height < 2) return;              // hidden or not laid out yet
+    var ar = r.width * r.height;
+    if (ar > ba) { ba = ar; best = c; }
+  });
+  if (!best) any.forEach(function(c){                     // nothing laid out: fall back to the biggest buffer
+    if (!c.isConnected) return;
+    var ar = c.width * c.height;
+    if (ar > ba) { ba = ar; best = c; }
+  });
+  GT.mainCtx = best ? (GT.ctx.get(best) || null) : null;
+  return best;
+}
+
+// The upscaler runs in a Worker so its GPU work stays off the game's main thread. The main thread only snapshots each finished game frame (createImageBitmap) and hands it over.
+var capQueued = false, mc = null;
+function capture(){
+  var e = E; if (!e || !GT || !GT.dirty) return;
+  GT.dirty = 0;
+  var src = e.src, sw = src.width, sh = src.height; if (!sw || !sh) return;
+  if (e.inflight >= 2) return;                       // worker is behind: drop this frame instead of queueing
+  var ts = performance.now();
+  e.inflight++;
+  createImageBitmap(src, { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }).then(function(b){
+    if (E !== e) { b.close(); return; }
+    e.sent++;
+    e.w.postMessage({ t: 'frame', bmp: b, w: sw, h: sh, ts: ts, abs: performance.timeOrigin + ts }, [b]);
+  }, function(){ e.inflight = Math.max(0, e.inflight - 1); });
+}
+if (GT) {
+  mc = new MessageChannel();
+  mc.port1.onmessage = function(){ capQueued = false; capture(); };
+  // called by the draw hook on the first draw of every game frame; runs as a task right after the game's frame code finishes
+  GT.sched = function(){ if (!E || capQueued) return; capQueued = true; mc.port2.postMessage(0); };
+}
+
+// browsers without requestAnimationFrame in workers: the page's own rAF drives the output
+function startTicks(e){
+  if (e.ticking) return; e.ticking = true;
+  (function tk(){ if (E !== e || !fx.fg) { e.ticking = false; return; } try { e.w.postMessage({ t: 'tick' }); } catch(x){} requestAnimationFrame(tk); })();
+}
+function sendCfg(){
+  var e = E; if (!e) return;
+  e.w.postMessage({ t: 'cfg', W: e.W, H: e.H, fx: { up: fx.up, aa: fx.aa, sharp: fx.sharp, fg: fx.fg, fgcap: fx.fgcap, lsm: fx.lsm, lsf: fx.lsf, lsp: fx.lsp, wg: fx.wg } });
+}
+
+function layout(){
+  var e = E; if (!e) return;
+  if (!e.src.isConnected) { stopE(true); startE(); return; }
+  var r = absRect(e.src), s = e.cv.style;
+  if (r.width < 2 || r.height < 2) { s.display = 'none'; return; }
+  s.left = r.left + 'px'; s.top = r.top + 'px'; s.width = r.width + 'px'; s.height = r.height + 'px';
+  s.display = e.on ? 'block' : 'none';
+  var W, H;
+  if (fx.up) { var dpr = (window.__gwres && window.__gwres.real) ? window.__gwres.real() : 1, k = Math.min(1, 2560 / (r.width * dpr)); W = Math.round(r.width * dpr * k); H = Math.round(r.height * dpr * k); }
+  else { W = e.src.width; H = e.src.height; }
+  e.W = W; e.H = H;
+  sendCfg();
+}
+
+function startE(){
+  if (E || !GT) return;
+  clearTimeout(finder);
+  var src = pickMain();
+  if (!src) {
+    e_tries++;
+    if (e_tries < 6) { fxInfo('Waiting for the game canvas…'); finder = setTimeout(startE, 1000); return; }
+    var frames = 0, blocked = 0;
+    try {
+      Array.prototype.forEach.call(document.querySelectorAll('iframe, frame'), function(f){
+        frames++;
+        var d = null; try { d = f.contentDocument; } catch(err){}
+        if (!d) blocked++;
+      });
+    } catch(err){}
+    fxInfo(frames ? ('Found ' + frames + ' frame(s) but could not read a canvas inside them' + (blocked ? ' (' + blocked + ' cross-origin).' : '.')) : 'No canvas found on this page. If the game draws with WebGPU, the upscaler has nothing to hook.');
+    finder = setTimeout(startE, 2000);
+    return;
+  }
+  e_tries = 0;
+  if (!window.OffscreenCanvas || !window.Worker || !window.createImageBitmap || !HTMLCanvasElement.prototype.transferControlToOffscreen) {
+    GT.mainCtx = null; fxInfo('This browser can\'t run the enhancer (needs OffscreenCanvas + Web Workers).'); return;
+  }
+  var cv = document.createElement('canvas');
+  cv.style.cssText = 'position:fixed;pointer-events:none;display:none';
+  root.insertBefore(cv, root.firstChild);
+  var off, url, wk;
+  try {
+    off = cv.transferControlToOffscreen();
+    url = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
+    wk = new Worker(url);
+  } catch(err) { cv.remove(); GT.mainCtx = null; fxInfo('Couldn\'t start the worker (this page may block it): ' + (err && err.message || err)); return; }
+  var e = E = { cv: cv, w: wk, url: url, src: src, inflight: 0, on: false, W: -1, H: -1, timer: 0, sent: 0, watch: 0 };
+  wk.onmessage = function(ev){
+    var m = ev.data || {};
+    if (E !== e) return;
+    if (m.t === 'ack') e.inflight = Math.max(0, e.inflight - 1);
+    else if (m.t === 'shown') { e.on = true; cv.style.display = 'block'; }
+    else if (m.t === 'info') { fxInfo(m.s); e.out = m.out; e.fgOut = m.fgout || 0; e.outT = performance.now(); }
+    else if (m.t === 'wgerr') { fxInfo(m.s); fx.wg = 0; $('wgx').checked = false; saveFx(); toast('WebGPU off, using WebGL'); sendCfg(); }
+    else if (m.t === 'wgok') { toast('WebGPU motion on'); }
+    else if (m.t === 'fgerr') { fxInfo(m.s); fx.fg = 0; $('fg').value = 0; saveFx(); toast('Frame generation off'); if (!(fx.up || fx.aa)) stopE(); else sendCfg(); }
+    else if (m.t === 'needTick') { startTicks(e); }
+    else if (m.t === 'err') { fxInfo(m.s); stopE(); }
+  };
+  wk.onerror = function(ev){ if (E === e) { fxInfo('Enhancer error: ' + (ev && ev.message || 'unknown')); } };
+  wk.postMessage({ t: 'init', canvas: off, now0: performance.now() }, [off]);
+  e.timer = setInterval(layout, 150);
+  // Say which stage failed instead of sitting on "Starting…" forever when no frame ever arrives.
+  e.watch = setInterval(function(){
+    if (E !== e || e.sent > 0) { clearInterval(e.watch); return; }
+    if (!e.src || !e.src.isConnected) return;
+    if (!GT.mainCtx) fxInfo('Found the game canvas, but its draw calls were not hooked (not WebGL or 2D), so there is no frame boundary to capture.');
+    else fxInfo('Found the game canvas and its draw calls, but could not read a frame from it. The page is blocking canvas reads.');
+  }, 2500);
+  layout();
+  fxInfo('Starting…');
+}
+
+function stopE(keepFinder){
+  if (!keepFinder) clearTimeout(finder);
+  if (GT) { GT.mainCtx = null; GT.dirty = 0; }
+  capQueued = false;
+  if (!keepFinder) e_tries = 0;
+  if (!E) return;
+  var e = E; E = null;
+  clearInterval(e.timer);
+  clearInterval(e.watch);
+  try { e.w.terminate(); } catch(x){}
+  try { URL.revokeObjectURL(e.url); } catch(x){}
+  e.cv.remove();
+}
+
+function lsVis(){ var ls = fx.fg === 4; $('lsRow1').style.display = $('lsRow2').style.display = $('lsRow3').style.display = $('lsRow4').style.display = $('lsRow5').style.display = ls ? '' : 'none'; $('fgcapRow').style.display = (ls && fx.lsm === 0) ? '' : 'none'; }
+function lsRead(){ fx.lsm = $('lsm').value === '0' ? 0 : (+$('lsm').value || 2); fx.lsf = +$('lsf').value || 50; fx.lsp = $('lsp').checked ? 1 : 0; fx.wg = $('wgx').checked ? 1 : 0; $('lsfV').textContent = fx.lsf + '%'; lsVis(); }
+function fxChanged(){
+  fx.up = +$('up').value; fx.sharp = +$('sh').value; fx.aa = +$('aa').value; fx.fg = +$('fg').value; setCap(+$('fgcap').value); lsRead();
+  saveFx();
+  if (!(fx.up || fx.aa || fx.fg)) { stopE(); fxInfo(''); return; }
+  if (!GT) { fxInfo('The capture hooks are missing on this page, so the enhancer cannot run here.'); return; }
+  if (E) { E.W = -1; E.H = -1; layout(); } else { e_tries = 0; startE(); }
+}
+$('up').value = fx.up; $('sh').value = fx.sharp; $('aa').value = fx.aa ? 1 : 0; $('fg').value = fx.fg || 0; $('fgcap').value = fx.fgcap || 240; setCap(+$('fgcap').value); $('lsm').value = fx.lsm === 0 ? 0 : (fx.lsm || 2); $('lsf').value = fx.lsf || 50; $('lsp').checked = !!fx.lsp; $('wgx').checked = !!fx.wg; lsRead();
+$('up').onchange = $('sh').oninput = $('aa').onchange = $('fg').onchange = fxChanged;
+$('lsm').onchange = $('lsp').onchange = $('wgx').onchange = $('lsf').oninput = function(){ lsRead(); saveFx(); sendCfg(); };
+$('fgcap').oninput = function(){ setCap(+$('fgcap').value); saveFx(); sendCfg(); };
+if (GT && (fx.up || fx.aa || fx.fg)) startE();
+
+
+/* ---------- toast ---------- */
+var toastT = 0;
+function toast(s){
+  var el = $('toast'); if (!el) return;
+  el.textContent = s; el.style.opacity = '1';
+  clearTimeout(toastT);
+  toastT = setTimeout(function(){ el.style.opacity = '0'; }, 1100);
+}
+
+/* ---------- voice chat: PeerJS cloud on 443, one mesh per key, everyone with the same key hears everyone ---------- */
+var PEER_OPTS = {
+  host: '0.peerjs.com', port: 443, secure: true, path: '/',
+  config: { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    { urls: ['turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp', 'turns:openrelay.metered.ca:443?transport=tcp'],
+      username: 'openrelayproject', credential: 'openrelayproject' }
+  ]}
+};
+var VC = null, voiceOn = true, micOn = true, hearOn = true, peerState = {};
+function setStatus(t){ $('status').textContent = t; }
+
+function unlock(){ if (VC) VC.audios.forEach(function(a){ a.play().catch(function(){}); }); }
+['pointerdown','keydown','click','touchstart'].forEach(function(ev){ window.addEventListener(ev, unlock, true); });
+
+function startVC(){
+  stopVC(true);
+  if (typeof Peer === 'undefined') { setStatus('Voice library failed to load'); return; }
+  var vc = VC = { hubId: hubIdFor(getKey()), alive: true, trying: false, peer: null, hubPeer: null, hubConn: null,
+    myId: null, members: new Map(), ids: [], calls: new Map(), audios: new Map(), stream: null, ctx: null, wd: null };
+  setStatus('Starting…');
+  var gum = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    ? navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+    : Promise.reject();
+  gum.then(function(s){ return s; }, function(){
+    vc.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    setStatus('Listen-only (no mic access)');
+    return vc.ctx.createMediaStreamDestination().stream;
+  }).then(function(stream){
+    if (!vc.alive) { stream.getTracks().forEach(function(t){ t.stop(); }); return; }
+    vc.stream = stream;
+    stream.getAudioTracks().forEach(function(t){ t.enabled = micOn; });
+    attachAnalyser('__me', stream);
+    vc.peer = new Peer(PEER_OPTS);
+    vc.peer.on('open', function(id){ vc.myId = id; if (!$('status').textContent.startsWith('Listen')) setStatus('Connected'); connectHub(vc); });
+    vc.peer.on('call', function(call){
+      if (!vc.alive) { call.close(); return; }
+      call.answer(vc.stream); wireCall(vc, call);
+    });
+    vc.peer.on('error', function(err){
+      if (err.type === 'peer-unavailable') {
+        // the hub id is still registered on the server but nobody answers (old hub left): drop the dead link and retry
+        var hc = vc.hubConn;
+        if (hc && !hc._open && String(err.message || err).indexOf(vc.hubId) >= 0 && hc._lost) hc._lost();
+      }
+      else if (['network','server-error','socket-error'].indexOf(err.type) >= 0) setStatus('Server issue');
+    });
+    vc.peer.on('disconnected', function(){ try { vc.peer.reconnect(); } catch(e){} });
+    // watchdog: re-elect a hub if we ended up without one, and retry any call that never came up
+    vc.wd = setInterval(function(){
+      if (!vc.alive || !vc.myId) return;
+      if (!vc.hubPeer && !vc.hubConn && !vc.trying) connectHub(vc);
+      if (vc.ids.length) handleList(vc, vc.ids);
+    }, 4000);
+  });
+  renderPeers();
+}
+
+/* The hub is just whoever manages to register the shared hub id first. It only hands out the list of who is online;
+   audio always flows directly peer to peer. If the hub leaves, everyone races to take the id and the rest rejoin. */
+function connectHub(vc){
+  if (!vc.alive || !vc.myId || vc.trying || vc.hubPeer || vc.hubConn) return;
+  vc.trying = true;
+  var hp = new Peer(vc.hubId, PEER_OPTS);
+  hp.on('open', function(){
+    vc.trying = false;
+    if (!vc.alive) { hp.destroy(); return; }
+    vc.hubPeer = hp;
+    vc.members.clear(); vc.members.set(vc.myId, null);
+    hp.on('connection', function(conn){
+      conn.on('data', function(m){
+        if (!m || m.t !== 'hi' || !m.id) return;
+        conn._mid = m.id;
+        var old = vc.members.get(m.id);
+        vc.members.set(m.id, conn);
+        if (old && old !== conn) { try { old.close(); } catch(e){} }
+        hubBroadcast(vc);
+      });
+      conn.on('close', function(){ if (conn._mid && vc.members.get(conn._mid) === conn) { vc.members.delete(conn._mid); hubBroadcast(vc); } });
+      conn.on('error', function(){ try { conn.close(); } catch(e){} });
+    });
+    hp.on('disconnected', function(){ try { hp.reconnect(); } catch(e){} });
+    hubBroadcast(vc);
+  });
+  hp.on('error', function(err){
+    if (err.type === 'unavailable-id') {
+      try { hp.destroy(); } catch(e){}
+      vc.trying = false;
+      joinHub(vc);
+    } else if (!vc.hubPeer) {
+      try { hp.destroy(); } catch(e){}
+      vc.trying = false;           // watchdog will try again
+    }
+  });
+}
+
+function joinHub(vc){
+  if (!vc.alive || !vc.peer || vc.hubConn || vc.hubPeer) return;
+  var conn = vc.peer.connect(vc.hubId, { reliable: true });
+  vc.hubConn = conn;
+  var t = setTimeout(function(){ if (!conn._open) lost(); }, 8000);
+  var lost = function(){
+    clearTimeout(t);
+    if (vc.hubConn !== conn) return;
+    vc.hubConn = null;
+    try { conn.close(); } catch(e){}
+    if (vc.alive) setTimeout(function(){ connectHub(vc); }, 300 + Math.random() * 2000);
+  };
+  conn._lost = lost;
+  conn.on('open', function(){ conn._open = true; clearTimeout(t); conn.send({ t: 'hi', id: vc.myId }); });
+  conn.on('data', function(m){ if (m && m.t === 'list' && Array.isArray(m.ids)) handleList(vc, m.ids); });
+  conn.on('close', lost); conn.on('error', lost);
+}
+
+function hubBroadcast(vc){
+  var ids = Array.from(vc.members.keys());
+  vc.members.forEach(function(c){ if (c) { try { c.send({ t: 'list', ids: ids }); } catch(e){} } });
+  handleList(vc, ids);
+}
+
+function handleList(vc, ids){
+  if (!vc.alive || !vc.peer) return;
+  vc.ids = ids;
+  ids.forEach(function(id){
+    // only the lower id dials, so two peers never call each other at the same time
+    if (id !== vc.myId && vc.myId && vc.myId < id && !vc.calls.has(id)) {
+      var call = vc.peer.call(id, vc.stream);
+      if (call) wireCall(vc, call);
+    }
+  });
+  vc.calls.forEach(function(call, id){ if (ids.indexOf(id) < 0) { try { call.close(); } catch(e){} dropPeer(vc, id); } });
+  renderPeers();
+}
+
+function wireCall(vc, call){
+  var id = call.peer;
+  if (vc.calls.has(id)) { var prev = vc.calls.get(id); vc.calls.delete(id); try { prev.close(); } catch(e){} }
+  vc.calls.set(id, call);
+  var got = false;
+  // a call that never produces audio is dropped so the watchdog can redial it
+  var tm = setTimeout(function(){ if (!got && vc.calls.get(id) === call) { try { call.close(); } catch(e){} dropPeer(vc, id); } }, 20000);
+  call.on('stream', function(stream){
+    got = true; clearTimeout(tm);
+    var a = vc.audios.get(id);
+    if (!a) { a = document.createElement('audio'); a.autoplay = true; root.appendChild(a); vc.audios.set(id, a); }
+    a.srcObject = stream; applyAudio(id); a.play().catch(function(){}); attachAnalyser(id, stream); renderPeers();
+  });
+  var gone = function(){ clearTimeout(tm); if (vc.calls.get(id) === call) dropPeer(vc, id); };
+  call.on('close', gone); call.on('error', gone);
+  renderPeers();
+}
+
+function dropPeer(vc, id){
+  vc.calls.delete(id);
+  var a = vc.audios.get(id);
+  if (a) { a.srcObject = null; a.remove(); vc.audios.delete(id); }
+  detachAnalyser(id);
+  renderPeers();
+}
+
+function stopVC(silent){
+  if (!VC) { if (!silent) renderPeers(); return; }
+  var vc = VC; vc.alive = false; VC = null;
+  vc.calls.forEach(function(c){ try { c.close(); } catch(e){} });
+  vc.audios.forEach(function(a){ a.srcObject = null; a.remove(); });
+  clearInterval(vc.wd);
+  try { vc.hubConn && vc.hubConn.close(); } catch(e){}
+  try { vc.hubPeer && vc.hubPeer.destroy(); } catch(e){}
+  try { vc.peer && vc.peer.destroy(); } catch(e){}
+  if (vc.stream) vc.stream.getTracks().forEach(function(t){ t.stop(); });
+  detachAll();
+  if (vc.ctx) vc.ctx.close().catch(function(){});
+  if (!silent) { setStatus('Voice off'); renderPeers(); }
+}
+
+function applyAudio(id){
+  var a = VC && VC.audios.get(id); if (!a) return;
+  var s = peerState[id] || {};
+  a.muted = !hearOn || allMuted || !!s.muted;
+  a.volume = s.vol == null ? 1 : s.vol;
+}
+
+/* ---------- speaking detection (Web Audio level meter per stream) ---------- */
+var ACX = window.AudioContext || window.webkitAudioContext, audCtx = null, MOD = new Map(), peerEls = {}, allMuted = false;
+function attachAnalyser(id, stream){
+  if (!ACX || !stream) return;
+  try {
+    if (!audCtx) audCtx = new ACX();
+    if (audCtx.state === 'suspended') audCtx.resume().catch(function(){});
+    detachAnalyser(id);
+    var src = audCtx.createMediaStreamSource(stream), an = audCtx.createAnalyser();
+    an.fftSize = 512; an.smoothingTimeConstant = 0.3;
+    src.connect(an);
+    MOD.set(id, { src: src, an: an, buf: new Uint8Array(an.fftSize), on: false });
+  } catch(e){}
+}
+function detachAnalyser(id){
+  var o = MOD.get(id); if (!o) return;
+  try { o.src.disconnect(); } catch(e){}
+  try { o.an.disconnect(); } catch(e){}
+  MOD.delete(id);
+}
+function detachAll(){
+  MOD.forEach(function(_, id){ detachAnalyser(id); });
+  if (audCtx) { try { audCtx.close(); } catch(e){} audCtx = null; }
+}
+setInterval(function(){
+  MOD.forEach(function(o, id){
+    o.an.getByteTimeDomainData(o.buf);
+    var s = 0, b = o.buf;
+    for (var i = 0; i < b.length; i++) { var v = (b[i] - 128) / 128; s += v * v; }
+    var rms = Math.sqrt(s / b.length), was = o.on;
+    if (rms > 0.035) o.on = true; else if (rms < 0.016) o.on = false;
+    if (was === o.on) return;
+    if (id === '__me') { var me = $('mMe'); if (me) me.classList.toggle('talk', o.on); }
+    else { var row = peerEls[id]; if (row) row.classList.toggle('talk', o.on); }
+  });
+}, 110);
+
+function renderPeers(){
+  var box = $('peers'); box.innerHTML = ''; peerEls = {};
+  paintChips();
+  var ids = VC ? Array.from(VC.calls.keys()) : [];
+  if (!ids.length) {
+    var e = document.createElement('div'); e.className = 'empty';
+    e.textContent = (VC && !VC.full) ? 'No one else here yet' : '';
+    box.appendChild(e); return;
+  }
+  ids.forEach(function(id, i){
+    var o = MOD.get(id);
+    var s = peerState[id] = peerState[id] || { muted: false, vol: 1 };
+    var d = document.createElement('div'); d.className = 'peer' + (o && o.on ? ' talk' : '');
+    var dot = document.createElement('i'); dot.className = 'tdot';
+    var n = document.createElement('div'); n.className = 'nm'; n.textContent = 'p' + (i + 1);
+    var r = document.createElement('input'); r.type = 'range'; r.min = 0; r.max = 1; r.step = .05; r.value = s.vol;
+    r.title = 'Volume';
+    r.oninput = function(){ s.vol = +r.value; applyAudio(id); };
+    var b = document.createElement('button');
+    b.className = 'mb' + (s.muted || allMuted ? ' muted' : '');
+    b.textContent = s.muted ? 'Muted' : 'Mute';
+    b.onclick = function(){ s.muted = !s.muted; applyAudio(id); renderPeers(); };
+    d.appendChild(dot); d.appendChild(n); d.appendChild(r); d.appendChild(b);
+    peerEls[id] = d;
+    box.appendChild(d);
+  });
+}
+
+function paintChips(){
+  var live = !!VC && !VC.full;
+  $('tOn').className = 'chip ' + (voiceOn ? 'on' : 'off');
+  $('tOn').textContent = voiceOn ? 'Voice on' : 'Voice off';
+  $('mAll').className = 'chip ' + (allMuted ? 'bad' : 'on');
+  $('mAll').textContent = allMuted ? 'Unmute all' : 'Mute all';
+  $('mMe').className = 'chip ' + (micOn ? 'on' : 'bad');
+  $('mMe').textContent = micOn ? 'Mute me' : 'Unmute me';
+  $('dot').classList.toggle('on', live);
+  $('count').textContent = live ? Math.max(VC.ids.length, VC.calls.size + 1) : 0;
+}
+$('tOn').onclick = function(){ voiceOn = !voiceOn; paintChips(); voiceOn ? startVC() : stopVC(); };
+$('mAll').onclick = function(){
+  allMuted = !allMuted;
+  if (VC) VC.calls.forEach(function(_, id){ applyAudio(id); });
+  renderPeers(); toast(allMuted ? 'Everyone muted' : 'Everyone unmuted');
+};
+$('mMe').onclick = function(){ toggleMic(); };
+
+paintChips();
+
+window.addEventListener('beforeunload', function(){ stopVC(true); });
+// some games rewrite document.body/documentElement; make sure our UI stays attached
+setInterval(function(){ if (!host.isConnected) ensureMounted(); }, 2000);
+
+
+/* ---------- self-mute key (default K, rebindable, can be turned off) ---------- */
+var MKK = 'gwvc_mkey', micKey = 'k';
+try { var mkSaved = localStorage.getItem(MKK); if (mkSaved !== null) micKey = mkSaved; } catch(e){}
+var keyWait = false;
+function keyName(k){
+  if (!k) return 'Off';
+  if (k === ' ') return 'Space';
+  return k.length === 1 ? k.toUpperCase() : k.charAt(0).toUpperCase() + k.slice(1);
+}
+function paintKey(){
+  var b = $('mkey'); if (!b) return;
+  b.textContent = keyWait ? '\u2026' : keyName(micKey);
+  b.className = 'kb' + (keyWait ? ' wait' : '');
+}
+function normKey(ev){
+  var k = ev.key || '';
+  if (k === 'Spacebar') k = ' ';
+  return k.toLowerCase();
+}
+function toggleMic(){
+  micOn = !micOn;
+  if (VC && VC.stream) VC.stream.getAudioTracks().forEach(function(t){ t.enabled = micOn; });
+  paintChips();
+  toast(micOn ? 'Mic on' : 'Mic muted');
+}
+$('mkey').onclick = function(){ keyWait = true; paintKey(); toast('Press a key for mic mute'); };
+$('mkeyClr').onclick = function(){
+  micKey = ''; keyWait = false;
+  try { localStorage.setItem(MKK, ''); } catch(e){}
+  paintKey(); toast('Mute key off');
+};
+
+// The client runs in a frame, and key events never cross a document boundary, so the parent window alone would
+// never see K while you are playing. Bind the same handler to every same-origin frame as well.
+function onKey(ev){
+  if (ev.key === 'F8' && !ev.repeat && !ev.ctrlKey && !ev.altKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); togglePanel(); return; }
+  if (ev.key === 'F9' && !ev.repeat && !ev.ctrlKey && !ev.altKey && !ev.metaKey) { ev.preventDefault(); ev.stopPropagation(); $('fg').value = fx.fg ? 0 : 4; fxChanged(); toast('Frame gen ' + (fx.fg ? 'on' : 'off')); return; }
+  if (keyWait) {
+    ev.preventDefault(); ev.stopPropagation();
+    var mk = ev.key || '';
+    if (mk === 'Escape') { keyWait = false; paintKey(); return; }
+    if (mk === 'Shift' || mk === 'Control' || mk === 'Alt' || mk === 'Meta' || mk === 'CapsLock' || mk === 'Tab') return;
+    micKey = normKey(ev); keyWait = false;
+    try { localStorage.setItem(MKK, micKey); } catch(e){}
+    paintKey(); toast('Mic mute: ' + keyName(micKey));
+    return;
+  }
+  if (!micKey || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+  if (normKey(ev) !== micKey) return;
+  var t = ev.target, tag = t && t.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+  ev.preventDefault(); ev.stopPropagation();
+  toggleMic();
+}
+function hookKeys(w){
+  try { if (!w || w.__gwvcK) return; w.__gwvcK = 1; w.addEventListener('keydown', onKey, true); } catch(e){}
+}
+function scanFrames(){
+  hookKeys(window);
+  try {
+    Array.prototype.forEach.call(document.querySelectorAll('iframe, frame'), function(f){
+      hookKeys(f.contentWindow);
+      try { if (!f.__gwvcL) { f.__gwvcL = 1; f.addEventListener('load', function(){ hookKeys(this.contentWindow); }); } } catch(e){}
+    });
+  } catch(e){}
+}
+scanFrames();
+setInterval(scanFrames, 1000);
+paintKey();
+
+/* ---------- real fps counter: placed in settings, then locked and click-through ---------- */
+var FPK = 'gwvc_fps', fp = { on: true, x: 0.985, y: 0.02 };
+try {
+  var f0 = JSON.parse(localStorage.getItem(FPK) || 'null');
+  if (f0) { if (f0.on === false) fp.on = false; if (typeof f0.x === 'number') fp.x = f0.x; if (typeof f0.y === 'number') fp.y = f0.y; }
+} catch(e){}
+function saveFp(){ try { localStorage.setItem(FPK, JSON.stringify(fp)); } catch(e){} }
+function placeFp(){
+  var el = $('fps'); if (!el) return;
+  var w = el.offsetWidth || 60, h = el.offsetHeight || 22;
+  var x = Math.round(Math.min(Math.max(0, fp.x * innerWidth), Math.max(0, innerWidth - w)));
+  var y = Math.round(Math.min(Math.max(0, fp.y * innerHeight), Math.max(0, innerHeight - h)));
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+}
+function showFp(){
+  var el = $('fps'); if (!el) return;
+  el.classList.toggle('show', !!fp.on);
+  if (fp.on) placeFp();
+  var c = $('fpsOn'); if (c) c.checked = !!fp.on;
+}
+var editFp = false;
+$('fpsOn').onchange = function(){ fp.on = $('fpsOn').checked; saveFp(); showFp(); };
+$('fpsMove').onclick = function(){
+  editFp = true; fp.on = true; showFp();
+  $('fps').classList.add('edit'); $('fpsSave').disabled = false;
+  toast('Drag the counter, then save');
+};
+$('fpsSave').onclick = function(){
+  var el = $('fps');
+  fp.x = (parseFloat(el.style.left) || 0) / Math.max(1, innerWidth);
+  fp.y = (parseFloat(el.style.top) || 0) / Math.max(1, innerHeight);
+  editFp = false; el.classList.remove('edit'); $('fpsSave').disabled = true;
+  saveFp(); placeFp(); toast('Position saved');
+};
+var dragFp = null;
+$('fps').addEventListener('pointerdown', function(ev){
+  if (!editFp) return;
+  ev.preventDefault(); ev.stopPropagation();
+  var r = $('fps').getBoundingClientRect();
+  dragFp = { dx: ev.clientX - r.left, dy: ev.clientY - r.top };
+  try { $('fps').setPointerCapture(ev.pointerId); } catch(e){}
+});
+$('fps').addEventListener('pointermove', function(ev){
+  if (!dragFp) return;
+  ev.preventDefault();
+  var el = $('fps'), w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(0, Math.min(innerWidth - w, ev.clientX - dragFp.dx)) + 'px';
+  el.style.top = Math.max(0, Math.min(innerHeight - h, ev.clientY - dragFp.dy)) + 'px';
+});
+$('fps').addEventListener('pointerup', function(){ dragFp = null; });
+window.addEventListener('resize', function(){ if (!dragFp) placeFp(); });
+
+// Count real frames: the game's own draw calls when they are hookable (that is the honest number when nothing is
+// generating), otherwise the page's real rAF cadence. Never a made-up multiplier.
+var fpsN = 0, fpsT = performance.now(), fpsVal = 0, gameN = 0, gameVal = 0, lastGameSample = performance.now();
+if (GT && GT.sched) { var sched0 = GT.sched; GT.sched = function(){ gameN++; if (E) sched0(); else GT.dirty = 0; }; }
+(function fpsTick(){
+  requestAnimationFrame(fpsTick);
+  fpsN++;
+  var now = performance.now(), d = now - fpsT;
+  if (d >= 500) {
+    fpsVal = Math.round(fpsN * 1000 / d); fpsN = 0; fpsT = now;
+    var gd = now - lastGameSample;
+    if (gd >= 400) { gameVal = Math.round(gameN * 1000 / gd); gameN = 0; lastGameSample = now; }
+    var el = $('fps');
+    if (el && fp.on) {
+      var fgs = E && E.fgOut && performance.now() - (E.outT || 0) < 2500;
+      el.textContent = fgs ? (gameVal + ' \u2192 ' + E.fgOut + ' fps') : ((E && gameVal ? gameVal : fpsVal) + ' fps');
+    }
+  }
+})(0);
+showFp();
+
+$('corner').value = corner;
+$('corner').onchange = function(){ corner = $('corner').value; try { localStorage.setItem(CORNER_K, corner); } catch(e){} placeUi(); };
+$('vkey').value = getKey();
+$('vkeyCopy').onclick = function(){
+  var done = function(){ toast('Key copied'); };
+  try { navigator.clipboard.writeText(getKey()).then(done, function(){ $('vkey').select(); document.execCommand('copy'); done(); }); }
+  catch(e){ try { $('vkey').select(); document.execCommand('copy'); done(); } catch(e2){} }
+};
+
+startVC();
+})();
+</script>
+
+<script>
+const $ = id => document.getElementById(id);
+let gameFile = null;
+
+// Random 100-bit key, shown as 5 groups of 4. Typing your own switches off auto-generation.
+const B32 = 'abcdefghijklmnopqrstuvwxyz234567';
+function genKey(){
+  const b = new Uint8Array(20); crypto.getRandomValues(b);
+  let s = ''; for (const x of b) s += B32[x & 31];
+  return s.match(/.{4}/g).join('-');
+}
+let customKey = false;
+$('key').value = genKey();
+$('key').addEventListener('input', () => { customKey = $('key').value.trim() !== ''; });
+$('newKey').onclick = () => { customKey = false; $('key').value = genKey(); };
+$('copyKey').onclick = async () => {
+  try { await navigator.clipboard.writeText($('key').value); }
+  catch(e){ $('key').select(); document.execCommand('copy'); }
+  $('copyKey').textContent = 'Copied'; setTimeout(() => $('copyKey').textContent = 'Copy', 1000);
+};
+
+
+$('drop').onclick = () => $('file').click();
+$('file').onchange = e => pick(e.target.files[0]);
+['dragover','dragenter'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave','drop'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', e => pick(e.dataTransfer.files[0]));
+function pick(f){
+  if (!f) return;
+  gameFile = f;
+  $('drop').classList.add('has');
+  $('dropTxt').textContent = f.name + '  ·  ' + (f.size / 1024).toFixed(0) + ' KB';
+  $('go').disabled = false;
+}
+
+$('go').onclick = async () => {
+  if (!gameFile) return;
+  const html = await gameFile.text();
+  const workerLit = JSON.stringify(document.getElementById('fxworker').textContent).replace(/</g, '\\u003c');
+  let key = $('key').value.trim();
+  if (!key) { key = genKey(); customKey = false; }
+  $('key').value = key;
+  const keyLit = JSON.stringify(key).replace(/</g, '\\u003c');
+  const layerJs = document.getElementById('layer').textContent.split('__WORKER__').join(workerLit).split('__KEY__').join(keyLit);
+  const inject = '\n<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></' + 'script>\n<script>' + layerJs + '</' + 'script>\n';
+  const earlyTag = '\n<script>' + document.getElementById('early').textContent + '</' + 'script>\n';
+  let out = html;
+  const at = (idx, str) => { out = out.slice(0, idx) + str + out.slice(idx); };
+  // early script goes first in <head> so it runs before the game's own scripts
+  let m = /<head(\s[^>]*)?>/i.exec(out);
+  if (m) {
+    // keep <meta charset> within the first 1024 bytes: put our script after it when it sits right at the top of <head>
+    const hs = m.index + m[0].length;
+    const mc = /<meta[^>]*charset[^>]*>/i.exec(out.slice(hs, hs + 600));
+    at(mc ? hs + mc.index + mc[0].length : hs, earlyTag);
+  }
+  else if ((m = /<html(\s[^>]*)?>/i.exec(out))) at(m.index + m[0].length, earlyTag);
+  else if ((m = /<!doctype[^>]*>/i.exec(out))) at(m.index + m[0].length, earlyTag);
+  else out = earlyTag + out;
+  // the last </body> must be followed by nothing but </html>/whitespace/comments; otherwise it is text inside a script or
+  // string and injecting there would corrupt the game, so the layer goes at the very end of the file instead
+  const i = out.toLowerCase().lastIndexOf('</body>');
+  const tail = i >= 0 ? out.slice(i + 7) : '';
+  if (i >= 0 && /^\s*(<\/html>\s*)?(<!--[\s\S]*?-->\s*)*$/i.test(tail)) at(i, inject); else out += inject;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([out], { type: 'text/html' }));
+  a.download = gameFile.name.replace(/\.html?$/i, '') + '-patched.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  $('msg').textContent = 'Done. Voice key: ' + key + ' \u2014 only copies patched with this key join the same voice chat (it is also shown, with a copy button, in the in-game settings). To patch more files into the same chat, paste this key above.';
+  // fresh key for the next patch unless you typed your own
+  if (!customKey) $('key').value = genKey();
+};
+</script>
+</body>
+</html>
