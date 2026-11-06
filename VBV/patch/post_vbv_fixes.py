@@ -236,6 +236,22 @@ if sp_marker not in sp_text:
 else:
     print("[VBV singleplayer] opt-in server-worker gate already installed.")
 
+# The original gate includes an outer parenthesized boolean expression.
+# Earlier replacement left the trailing call parentheses behind, producing
+# isServerWorkerFlagJS() /* marker */() and breaking Java compilation.
+broken_gate = r"isServerWorkerFlagJS\\(\\)\\s*/\\*\\s*" + sp_marker + r"\\s*\\*/\\s*\\(\\s*\\)"
+sp_text, repaired_gates = re.subn(
+    broken_gate,
+    "isServerWorkerFlagJS() /* " + sp_marker + " */",
+    sp_text,
+)
+if repaired_gates:
+    sp_path.write_text(sp_text, encoding="utf-8")
+    print("[VBV singleplayer] repaired", repaired_gates, "leftover worker-gate call suffix(es).")
+if sp_text.count(sp_marker) != 2 or re.search(broken_gate, sp_text):
+    raise RuntimeError("Server-worker opt-in gate did not normalize to two valid Java expressions")
+
+
 # Make the existing inventory hooks use the container's actual quick-move action.
 container_candidates = java_files_named("AbstractContainerScreen.java")
 if container_candidates:
