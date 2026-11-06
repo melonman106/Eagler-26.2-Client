@@ -26,11 +26,12 @@ for source in sorted(MODS.glob("*.zip")):
                 name = info.filename.replace("\\", "/").lstrip("/")
                 lower = name.lower()
                 blocked = (
-                    # OptiFine/Iris shader assets cannot run in the Eagler WebGL2 pipeline.
+                    # Drop OptiFine/Iris shader-pack roots, but preserve native Minecraft
+                    # assets/minecraft/shaders and assets/minecraft/post_effect pipelines.
                     lower.startswith("shaders/")
-                    or "/shaders/" in lower
+                    or lower.startswith("optifine/shaders/")
+                    or lower.startswith("iris/shaders/")
                     or lower.startswith("post_effect/")
-                    or "/post_effect/" in lower
                 )
                 if blocked:
                     changed = True

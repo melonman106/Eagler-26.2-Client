@@ -5,14 +5,14 @@ import net.lax1dude.eaglercraft.v1_8.EagRuntime;
 
 /** Persistent runtime settings consumed by the native Eagler Shine rendering hooks. */
 public final class ShineConfig {
-    private static final String STORAGE_KEY = "vbv_shine";
-    private static boolean enabled = true;
-    private static boolean bloom = true;
-    private static boolean coloredLighting = true;
-    private static boolean rimLighting = true;
+    private static final String STORAGE_KEY = "vbv_shaders_v2";
+    private static boolean enabled = false;
+    private static boolean bloom = false;
+    private static boolean coloredLighting = false;
+    private static boolean rimLighting = false;
     private static boolean disabledShading;
-    private static int quality = 2;
-    private static int lightRadius = 64;
+    private static int quality = 1;
+    private static int lightRadius = 32;
     private static float bloomStrength = 1.0F;
     private static float rimStrength = 1.0F;
 

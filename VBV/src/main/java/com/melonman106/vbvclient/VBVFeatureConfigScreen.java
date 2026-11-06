@@ -62,10 +62,10 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Food level text: " + onOff(VBVAppleSkin.isShowFoodText()), VBVAppleSkin::toggleFoodText);
             option(() -> "Saturation text: " + onOff(VBVAppleSkin.isShowSaturationText()), VBVAppleSkin::toggleSaturationText);
         } else if ("shine".equals(modId)) {
-            option(() -> "Shine effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
-            option(() -> "Screen-space bloom: " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
-            option(() -> "Colored lighting: " + onOff(ShineConfig.coloredLighting()), ShineConfig::toggleColoredLighting);
-            option(() -> "Rim lighting: " + onOff(ShineConfig.rimLighting()), ShineConfig::toggleRimLighting);
+            option(() -> "VBV shader effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
+            option(() -> "Bloom (optional): " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
+            option(() -> "Colored lighting (optional): " + onOff(ShineConfig.coloredLighting()), ShineConfig::toggleColoredLighting);
+            option(() -> "Rim lighting (optional): " + onOff(ShineConfig.rimLighting()), ShineConfig::toggleRimLighting);
             option(() -> "Disable vanilla shading: " + onOff(ShineConfig.disabledShading()), ShineConfig::toggleDisabledShading);
             option(() -> "Quality: " + ShineConfig.qualityLabel(), ShineConfig::cycleQuality);
             option(() -> "Light radius: " + ShineConfig.lightRadius(), ShineConfig::cycleLightRadius);

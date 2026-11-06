@@ -48,8 +48,8 @@ public final class VBVClient {
             "Previews the contents of shulker boxes in a 9×3 inventory grid when Shift-hovering a box in a container.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
         reg("custom-crosshair", "Custom Crosshair", "1.5.3", "melonman106",
             "Edit a 15×15 pixel crosshair with configurable scale, color, presets and locally saved patterns.", "vbvclient:textures/mods/viabackportvisuals-client.png");
-        reg("shine", "Shine", "1.5.3", "VBV",
-            "Experimental WebGL2 screen-space bloom with adjustable quality and intensity; advanced lighting controls remain experimental.",
+        reg("shine", "VBV Shaders (Fast)", "1.5.3", "VBV",
+            "Optional native Eagler WebGL2 shader effects and resource-pack pipeline overrides. Disabled by default with low-cost settings; OptiFine/Iris shader packs are not compatible.",
             "vbvclient:textures/mods/shine.png");
 
         registerFabricCallbacks();
