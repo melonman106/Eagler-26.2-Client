@@ -235,7 +235,7 @@ if sp_marker not in sp_text:
     if "isCrossOriginIsolatedJS()" not in sp_text:
         if worker_marker not in sp_text:
             raise RuntimeError("Could not find worker support JS bridge insertion point")
-        sp_text = sp_text.replace(worker_marker, worker_marker + "\\n" + worker_method, 1)
+        sp_text = sp_text.replace(worker_marker, worker_marker + "\n" + worker_method, 1)
     sp_path.write_text(sp_text, encoding="utf-8")
     print("[VBV singleplayer] integrated-server workers auto-enable only on cross-origin-isolated pages; ?singlethread remains an override.")
 else:
