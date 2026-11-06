@@ -4,13 +4,7 @@ run-name: "02 - Build VBV + Herz"
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "VBV/**"
-      - "ModsPack/**"
-      - ".github/workflows/02-compile-eagler-vbv.yml"
-
+  
 permissions:
   contents: read
 
