@@ -97,12 +97,9 @@ public final class VBVWorldMap {
             captureTerrainIfLoaded(minecraft, world, key, chunkX, chunkZ);
         }
 
-        // Spread the configurable nearby scan across individual ticks.
-        // One chunk is sampled per tick instead of processing the whole radius
-        // in one frame, avoiding the old 20k+ block-read spikes.
-        int radius = minimapRadius();
-        int diameter = radius * 2 + 1;
-        int totalNearbyChunks = diameter * diameter;
+        // The minimap HUD has been removed. Keep the full explored-world map
+        // player-driven only; do not run the old nearby minimap scan.
+        VBVMiniMap.enabled = false;
         if (worldMapDirty && ++worldMapSaveTicks >= 100) {
             saveWorld(world);
             worldMapDirty = storageWriteFailed;
