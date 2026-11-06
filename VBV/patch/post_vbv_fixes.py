@@ -226,7 +226,7 @@ if sp_marker not in sp_text:
     # Pinned U2 has this expression in both isServerWorkerModeRequested() and
     # startIntegratedServer(). Match whitespace flexibly, but require exactly
     # two replacements so an unexpected upstream change fails safely.
-    gate_pattern = r"net\.lax1dude\.eaglercraft\.v1_8\.internal\.teavm\.WasmWorkerBootstrap\.isWasmGC\(\)\s*\|\|\s*isServerWorkerFlagJS\(\)"
+    gate_pattern = r"(?:net\.lax1dude\.eaglercraft\.v1_8\.internal\.teavm\.WasmWorkerBootstrap\.isWasmGC\(\)|wasmGC)\s*\|\|\s*isServerWorkerFlagJS\(\)"
     sp_text, gate_count = re.subn(
         gate_pattern,
         "(isServerWorkerFlagJS() || isCrossOriginIsolatedJS())",
