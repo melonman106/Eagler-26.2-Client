@@ -154,7 +154,7 @@ jobs:
           grep -Fq 'Window.setTimeout(() -> callback.complete(null), millis);' "$sleep_src"
           ! grep -q 'VBVSleepTimer' "$sleep_src"
           ! grep -q 'vbvPendingSleepCallbacks' "$sleep_src"
-          grep -q 'VBV_SERVER_WORKER_EXPLICIT_OPT_IN' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
+          grep -q 'VBV_SERVER_WORKER_CROSS_ORIGIN_ISOLATED' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
           grep -q 'EaglerProfileScreen26' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
           grep -q 'EaglerProfile.getActiveSkinResourceLocation' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
           grep -q '"shine"' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVModsScreen.java
@@ -252,6 +252,10 @@ jobs:
           }'''
           if old_export in text: text = text.replace(old_export, new_export, 1)
           elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
+          old_workers = 'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;'
+          new_workers = 'const enableWorkers = window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("workers") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined"));'
+          if old_workers in text: text = text.replace(old_workers, new_workers, 1)
+          elif new_workers not in text: raise SystemExit("Expected worker-loading gate was not found in standalone packager")
           path.write_text(text, encoding="utf-8")
           PY
           # Remove the packager's original early release injection first.
@@ -331,9 +335,8 @@ jobs:
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          # The patched runtime must default to single-threaded mode.
-          # Worker WASM is compiled only when the URL explicitly contains ?workers.
-          grep -Fq 'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          # Web Workers auto-enable when the page is cross-origin isolated; ?singlethread forces fallback.
+          grep -Fq 'const enableWorkers = window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("workers") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined"));' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           grep -Fq 'const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           # Ensure the unsafe TeaVM resolver was replaced in the final packaged HTML.
           # Some pinned TeaVM outputs already contain no dynamic global resolver.
@@ -374,11 +377,36 @@ jobs:
           grep -q 'refresh();' eaglercraft-26.2-vbv-herz.html
           rm -f eaglercraft-26.2-vbv-herz-pre-console.html
           echo "Visible runtime console embedded: $(stat -c%s eaglercraft-26.2-vbv-herz.html) bytes"
+          web_root="eaglercraft-u2/target_teavm_wasm_gc/build/web"
+          test -s "$web_root/index.html"
+          cp VBV/patch/vbv-coi-sw.js "$web_root/vbv-sw.js"
+          node VBV/patch/inject_error_overlay.js "$web_root/index.html" "$web_root/index.html"
+          mkdir -p vbv-coi-standalone
+          cp eaglercraft-26.2-vbv-herz.html vbv-coi-standalone/index.html
+          cp VBV/patch/vbv-coi-sw.js vbv-coi-standalone/vbv-sw.js
+          python3 - <<'PY'
+          from zipfile import ZipFile, ZIP_DEFLATED
+          from pathlib import Path
+          root = Path("vbv-coi-standalone")
+          with ZipFile("eaglercraft-26.2-vbv-herz-coi.zip", "w", ZIP_DEFLATED, compresslevel=6) as archive:
+              for path in root.iterdir():
+                  archive.write(path, path.name)
+          PY
+          test -s eaglercraft-26.2-vbv-herz-coi.zip
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
           name: Eaglercraft-26.2-VBV-Herz-Single-HTML-${{ github.run_id }}
           path: eaglercraft-26.2-vbv-herz.html
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Upload cross-origin-isolated website bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-COI-Website-${{ github.run_id }}
+          path: eaglercraft-26.2-vbv-herz-coi.zip
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

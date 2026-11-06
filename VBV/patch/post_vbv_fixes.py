@@ -213,28 +213,33 @@ sp_path = ROOT / "platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/
 if not sp_path.is_file():
     raise RuntimeError("ClientPlatformSingleplayer.java not found for server-worker opt-in fix")
 sp_text = sp_path.read_text(encoding="utf-8")
-sp_marker = "VBV_SERVER_WORKER_EXPLICIT_OPT_IN"
+sp_marker = "VBV_SERVER_WORKER_CROSS_ORIGIN_ISOLATED"
 if sp_marker not in sp_text:
-    requested_old = """\t\t\t\t&& (net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC()
-\t\t\t\t\t\t|| isServerWorkerFlagJS());"""
-    requested_new = """\t\t\t\t&& isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
+    requested_old = """\t\t\t\t&& isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
+    requested_new = """\t\t\t\t&& (isServerWorkerFlagJS() || isCrossOriginIsolatedJS()); // VBV_SERVER_WORKER_CROSS_ORIGIN_ISOLATED"""
     if requested_old not in sp_text:
         raise RuntimeError("Could not find server-worker request gate in ClientPlatformSingleplayer")
     sp_text = sp_text.replace(requested_old, requested_new, 1)
     force_old = """\t\tboolean wasmGC = net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC();
 \t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
-\t\t\t\t&& workerSupportedJS() && (wasmGC || isServerWorkerFlagJS());"""
+\t\t\t\t&& workerSupportedJS() && isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
     force_new = """\t\tboolean wasmGC = net.lax1dude.eaglercraft.v1_8.internal.teavm.WasmWorkerBootstrap.isWasmGC();
 \t\tboolean forceServerWorker = !net.lax1dude.eaglercraft.v1_8.minecraft.EaglerHosted.liteModeEnabled
-\t\t\t\t&& workerSupportedJS() && isServerWorkerFlagJS(); // VBV_SERVER_WORKER_EXPLICIT_OPT_IN"""
+\t\t\t\t&& workerSupportedJS() && (isServerWorkerFlagJS() || isCrossOriginIsolatedJS()); // VBV_SERVER_WORKER_CROSS_ORIGIN_ISOLATED"""
     if force_old not in sp_text:
         raise RuntimeError("Could not find integrated-server worker force gate in ClientPlatformSingleplayer")
     sp_text = sp_text.replace(force_old, force_new, 1)
+    worker_marker = "private static native boolean workerSupportedJS();"
+    worker_method = """\t@JSBody(params = {}, script = "return typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated === true && typeof SharedArrayBuffer !== 'undefined' && !(typeof location !== 'undefined' && location.search && location.search.indexOf('singlethread') >= 0);")
+\tprivate static native boolean isCrossOriginIsolatedJS();"""
+    if "isCrossOriginIsolatedJS()" not in sp_text:
+        if worker_marker not in sp_text:
+            raise RuntimeError("Could not find worker support JS bridge insertion point")
+        sp_text = sp_text.replace(worker_marker, worker_marker + "\\n" + worker_method, 1)
     sp_path.write_text(sp_text, encoding="utf-8")
-    print("[VBV singleplayer] server workers now require explicit ?workers/serverWorker opt-in; default uses the single-thread controller.")
+    print("[VBV singleplayer] integrated-server workers auto-enable only on cross-origin-isolated pages; ?singlethread remains an override.")
 else:
-    print("[VBV singleplayer] explicit server-worker opt-in already installed.")
-
+    print("[VBV singleplayer] cross-origin-isolated worker gate already installed.")
 
 # Make the existing inventory hooks use the container's actual quick-move action.
 container_candidates = java_files_named("AbstractContainerScreen.java")

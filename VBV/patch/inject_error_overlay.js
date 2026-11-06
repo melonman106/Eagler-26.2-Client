@@ -30,6 +30,7 @@ function diag() {
     try { c.push("WasmGC=" + WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,95,1,120,0]))); } catch(e) { c.push("WasmGC=?"); }
     c.push("compileStreaming=" + (typeof WebAssembly.compileStreaming === "function"));
     c.push("SharedArrayBuffer=" + (typeof SharedArrayBuffer !== "undefined"));
+    c.push("crossOriginIsolated=" + (window.crossOriginIsolated === true));
     c.push("deviceMemoryGB=" + (navigator.deviceMemory || "?"));
     c.push("cores=" + (navigator.hardwareConcurrency || "?"));
     return c.join("  ");
@@ -107,11 +108,29 @@ function diag() {
   timer = setInterval(function() { var now = Date.now(); maxGap = Math.max(maxGap, now - lastBeat - 1000); lastBeat = now; refresh(); }, 1000);
 }
 
-const tag = '<script id="vbv-diag-script">(' + diag.toString() + ")();</script>";
-const html = fs.readFileSync(input, "utf8");
-if (html.includes('id="vbv-diag-script"')) { fs.writeFileSync(output, html); console.log("[overlay] already present; copied unchanged"); process.exit(0); }
-const body = /<body\b[^>]*>/i.exec(html), head = /<head[^>]*>/i.exec(html);
-if (!body && !head) { console.error("[overlay] ERROR: no <body> or <head> found"); process.exit(1); }
-const at = body ? body.index + body[0].length : head.index + head[0].length;
-fs.writeFileSync(output, html.slice(0, at) + tag + html.slice(at));
-console.log("[overlay] injected startup diagnostics into " + output);
+const diagTag = '<script id="vbv-diag-script">(' + diag.toString() + ")();</script>";
+const coiTag = `<script id="vbv-coi-bootstrap">(function(){
+  if (window.crossOriginIsolated === true) { try { sessionStorage.removeItem("vbv-coi-reload"); } catch(e) {} return; }
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+  try { if (sessionStorage.getItem("vbv-coi-reload") === "1") return; sessionStorage.setItem("vbv-coi-reload", "1"); } catch(e) {}
+  var reloading = false;
+  function reloadOnce() { if (reloading || window.crossOriginIsolated === true) return; reloading = true; location.reload(); }
+  navigator.serviceWorker.addEventListener("controllerchange", reloadOnce, { once: true });
+  navigator.serviceWorker.register("./vbv-sw.js", { scope: "./" })
+    .then(function() { return navigator.serviceWorker.ready; })
+    .then(function() { if (navigator.serviceWorker.controller) reloadOnce(); })
+    .catch(function(error) {
+      try { sessionStorage.removeItem("vbv-coi-reload"); } catch(e) {}
+      console.warn("[VBV] Cross-origin isolation unavailable; using the single-thread fallback.", error);
+    });
+})();</script>`;
+let html = fs.readFileSync(input, "utf8");
+if (!html.includes('id="vbv-coi-bootstrap"') || !html.includes('id="vbv-diag-script"')) {
+  const head = /<head[^>]*>/i.exec(html), body = /<body[^>]*>/i.exec(html);
+  if (!head && !body) { console.error("[overlay] ERROR: no <body> or <head> found"); process.exit(1); }
+  const at = head ? head.index + head[0].length : body.index + body[0].length;
+  const tags = (!html.includes('id="vbv-coi-bootstrap"') ? coiTag : "") + (!html.includes('id="vbv-diag-script"') ? diagTag : "");
+  html = html.slice(0, at) + tags + html.slice(at);
+}
+fs.writeFileSync(output, html);
+console.log("[overlay] injected diagnostics and cross-origin-isolation bootstrap into " + output);
