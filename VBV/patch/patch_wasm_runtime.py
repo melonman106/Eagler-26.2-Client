@@ -90,7 +90,7 @@ function vbvPatchStandaloneHtml(source) {
     if (headEnd < 0) throw new Error("VBV storage manager: standalone HTML has no closing </head> tag");
     html = html.slice(0, headEnd) + storageTag + html.slice(headEnd);
   }
-  const enableWorkers = 'window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0';
+  const enableWorkers = '(window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0) && window.location.search.indexOf("singlethread") < 0';
 
   const serverWorkerPattern = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g;
   const meshWorkerPattern = /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g;
