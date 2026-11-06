@@ -64,6 +64,24 @@ def patch_render_distance_limit():
  print("[VBV] Raised U2 render-distance option ceiling to 128 chunks in",path)
 patch_render_distance_limit()
 
+# Keep the native F3 debug information as text only, without per-line black boxes.
+def remove_vanilla_f3_backgrounds():
+ candidates = java_files_named("DebugScreenOverlay.java")
+ if not candidates:return
+ path = next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/gui/components/DebugScreenOverlay.java")), candidates[0])
+ source = path.read_text(encoding="utf-8")
+ marker = "VBV_F3_TEXT_ONLY"
+ if marker in source:return
+ old = "graphics.fill(left - 1, top - 1, left + width + 1, top + height - 1, -1873784752);"
+ if old not in source:
+  print("[VBV] Vanilla F3 background draw call not found; custom BetterF3 remains text-only.")
+  return
+ source = source.replace(old, "// " + marker + ": text-only debug output.", 1)
+ path.write_text(source, encoding="utf-8")
+ print("[VBV] Removed the vanilla F3 per-line background.")
+
+remove_vanilla_f3_backgrounds()
+
 hud_candidates=list(GAME.rglob("Hud.java"))
 if hud_candidates:
  hud=hud_candidates[0];t=hud.read_text(encoding="utf-8")
