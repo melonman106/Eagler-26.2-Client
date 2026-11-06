@@ -22,30 +22,34 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         EaglerProfile.readIfNeeded();
         clearWidgets();
 
-        // Dungeons-style left navigation: one dominant action followed by compact utility rows.
+        // Dungeons-inspired vertical navigation with one prominent Play action.
         int left = Math.max(28, width / 22);
-        int menuWidth = Math.min(270, Math.max(220, width / 4));
-        int smallWidth = (menuWidth - 6) / 2;
+        int menuWidth = Math.min(280, Math.max(220, width / 4));
+        int primaryHeight = 30;
         int buttonHeight = 24;
-        int gap = 6;
-        int y = Math.max(154, height / 2 - 18);
+        int gap = 5;
+        int totalHeight = primaryHeight + 6 * buttonHeight + 6 * gap;
+        int y = Math.max(64, (height - totalHeight) / 2);
 
-        addNativeButton("PLAY", left, y, menuWidth, buttonHeight,
+        addNativeButton("PLAY", left, y, menuWidth, primaryHeight,
             b -> VBVNav.openMultiplayer(this));
-        y += buttonHeight + gap;
-        addNativeButton("SINGLEPLAYER", left, y, smallWidth, buttonHeight,
+        y += primaryHeight + gap;
+        addNativeButton("SINGLEPLAYER", left, y, menuWidth, buttonHeight,
             b -> VBVNav.openSingleplayer(this));
-        addNativeButton("PARTY", left + smallWidth + gap, y, smallWidth, buttonHeight,
+        y += buttonHeight + gap;
+        addNativeButton("PARTY", left, y, menuWidth, buttonHeight,
             b -> VBVNav.open(new VBVPartyScreen(this)));
         y += buttonHeight + gap;
-        addNativeButton("HERO", left, y, smallWidth, buttonHeight,
+        addNativeButton("HERO", left, y, menuWidth, buttonHeight,
             b -> VBVNav.open(new net.lax1dude.eaglercraft.v1_8.profile.EaglerProfileScreen26(this)));
-        addNativeButton("MODS", left + smallWidth + gap, y, smallWidth, buttonHeight,
+        y += buttonHeight + gap;
+        addNativeButton("MODS", left, y, menuWidth, buttonHeight,
             b -> VBVNav.open(new VBVModsScreen(this)));
         y += buttonHeight + gap;
-        addNativeButton("OPTIONS", left, y, smallWidth, buttonHeight,
+        addNativeButton("OPTIONS", left, y, menuWidth, buttonHeight,
             b -> VBVNav.openOptions(this));
-        addNativeButton("STORAGE", left + smallWidth + gap, y, smallWidth, buttonHeight,
+        y += buttonHeight + gap;
+        addNativeButton("STORAGE", left, y, menuWidth, buttonHeight,
             b -> VBVNav.open(new VBVStorageScreen(this)));
         layoutWidth = width;
         layoutHeight = height;
@@ -66,10 +70,18 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         EaglerProfile.readIfNeeded();
 
-        // Cinematic dark panels keep the panorama visible while giving the menu the layered Dungeons look.
+        // Recompute the same anchor used by init(), including after browser fullscreen changes.
         int left = Math.max(28, width / 22);
-        int menuWidth = Math.min(270, Math.max(220, width / 4));
-        int menuTop = Math.max(148, height / 2 - 24);
+        int menuWidth = Math.min(280, Math.max(220, width / 4));
+        int primaryHeight = 30;
+        int buttonHeight = 24;
+        int gap = 5;
+        int totalHeight = primaryHeight + 6 * buttonHeight + 6 * gap;
+        int menuTop = Math.max(64, (height - totalHeight) / 2);
+        Identifier logo = Identifier.parse("minecraft:textures/gui/title/minecraft.png");
+        graphics.blit(RenderPipelines.GUI_TEXTURED, logo, left, Math.max(8, menuTop - 78),
+            0, 0, menuWidth, 68, 256, 64, 256, 64);
+        graphics.text(font, "YOUR ADVENTURE STARTS HERE", left, menuTop - 8, 0xFFDDDDDD, true);
 
         // Small status/profile area, similar to the player-facing corner UI used by Dungeons.
         String name = EaglerProfile.getName();
@@ -79,6 +91,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int textX = width - 16 - nameWidth;
         int headX = textX - 25;
         int headY = 12;
+        graphics.fill(headX - 5, headY - 4, width - 10, headY + 25, 0x66000000);
         graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 8, 8, 20, 20, 8, 8, 64, 64);
         graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 40, 8, 20, 20, 8, 8, 64, 64);
         graphics.text(font, name, textX, headY + 6, 0xFFFFFFFF, true);
@@ -95,8 +108,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
             }
         }
 
-        // Menu section labels and a subtle footer keep the screen readable without covering the world.
-        graphics.text(font, "ADVENTURE", left, menuTop - 30, 0xFFFFFFFF, true);
-        graphics.text(font, "EXPLORE THE WORLD", left + 82, menuTop - 30, 0xFFCCCCCC, false);
+        // A small edition label anchors the lower edge without obscuring the panorama.
+        graphics.text(font, "VBV EDITION  •  26.2", left, height - 18, 0xFFB8B8B8, false);
     }
 }
