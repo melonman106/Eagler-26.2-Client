@@ -18,7 +18,7 @@ public final class VBVWorldMapScreen extends Screen {
     }
 
     public VBVWorldMapScreen(Screen parent, double focusX, double focusZ) {
-        super(Component.literal("World Map"));
+        super(Component.literal("Xaero's World Map"));
         this.parent = parent;
         if (Double.isNaN(focusX) || Double.isNaN(focusZ)) {
             Player player = Minecraft.getInstance().player;

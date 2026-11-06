@@ -170,6 +170,13 @@ PATCH_URL = (
 req = Request(PATCH_URL, headers={"User-Agent": "VBV-native-builder"})
 with urlopen(req, timeout=60) as response:
     upstream = response.read()
+# Use the dedicated world-map artwork for the renamed Xaero-style map entry.
+old_map_icon = b'"vbv-minimap": "Minimap.png"'
+new_map_icon = b'"vbv-minimap": "Worldmap.png"'
+if old_map_icon in upstream:
+    upstream = upstream.replace(old_map_icon, new_map_icon, 1)
+elif new_map_icon not in upstream:
+    raise SystemExit("::error::Could not locate the native map icon mapping in the pinned upstream patch")
 
 upstream_path = CLIENT_SIDE / "patch/.upstream_apply_vbv_patch.py"
 upstream_path.write_bytes(upstream)
