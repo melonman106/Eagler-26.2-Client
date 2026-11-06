@@ -210,47 +210,31 @@ if custom_start >= 0 or sleep_marker in sleep_text:
 elif "private static void sleep(int millis, final AsyncCallback<Void> callback)" not in sleep_text:
     raise RuntimeError("Expected upstream PlatformRuntime.sleep implementation was not found")
 print("[VBV runtime] using upstream TeaVM async sleep callback; custom VBVSleepTimer bridge is disabled.")
-# Keep server-worker activation compatible with the pinned U2 source.
-# U2 already uses a WASM-GC auto-enable gate; replace that gate with an explicit
-# cross-origin-isolation check so workers are enabled only where SharedArrayBuffer
-# is actually available. Preserve the explicit ?serverworker / eaglercraftXOpts flag.
+# Keep server-worker activation opt-in, matching the low-memory HTML bootstrap.
+# ?workers or ?serverworker enables the matching worker modules and server flag;
+# ordinary pages remain single-threaded even when cross-origin isolated.
 sp_path = ROOT / "platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java"
 if not sp_path.is_file():
     raise RuntimeError("ClientPlatformSingleplayer.java not found for server-worker opt-in fix")
 sp_text = sp_path.read_text(encoding="utf-8")
-sp_marker = "VBV_SERVER_WORKER_CROSS_ORIGIN_ISOLATED"
+sp_marker = "VBV_SERVER_WORKER_OPT_IN_ONLY"
 if sp_marker not in sp_text:
-    worker_marker = "private static native boolean workerSupportedJS();"
-    worker_method = """\t@JSBody(params = {}, script = "return typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated === true && typeof SharedArrayBuffer !== 'undefined' && !(typeof location !== 'undefined' && location.search && location.search.indexOf('singlethread') >= 0);")
-\tprivate static native boolean isCrossOriginIsolatedJS();"""
-    if "isCrossOriginIsolatedJS()" not in sp_text:
-        if worker_marker not in sp_text:
-            raise RuntimeError("Could not find worker support JS bridge insertion point")
-        sp_text = sp_text.replace(worker_marker, worker_marker + "\n" + worker_method, 1)
-
-    # Pinned U2 has this expression in both isServerWorkerModeRequested() and
-    # startIntegratedServer(). Match whitespace flexibly, but require exactly
-    # two replacements so an unexpected upstream change fails safely.
-    gate_pattern = r"(?:net\.lax1dude\.eaglercraft\.v1_8\.internal\.teavm\.)?(?:WasmWorkerBootstrap\.isWasmGC\(\)|\bwasmGC)\s*\|\|\s*isServerWorkerFlagJS\(\)"
+    # U2's two original gates are fully-qualified in isServerWorkerModeRequested()
+    # and local-variable based in startIntegratedServer(). Match both safely.
+    gate_pattern = r"(?:net\\.lax1dude\\.eaglercraft\\.v1_8\\.internal\\.teavm\\.)?(?:WasmWorkerBootstrap\\.isWasmGC\\(\\)|\\bwasmGC)\\s*\\|\\|\\s*isServerWorkerFlagJS\\(\\)"
     sp_text, gate_count = re.subn(
         gate_pattern,
-        "(isServerWorkerFlagJS() || isCrossOriginIsolatedJS())",
+        "isServerWorkerFlagJS() /* " + sp_marker + " */",
         sp_text,
     )
     if gate_count != 2:
         raise RuntimeError(
             "Expected two U2 WASM-GC server-worker gates, found " + str(gate_count)
         )
-
-    # Mark the changed policy so reruns are idempotent.
-    sp_text = sp_text.replace(
-        "(isServerWorkerFlagJS() || isCrossOriginIsolatedJS())",
-        "(isServerWorkerFlagJS() || isCrossOriginIsolatedJS()) /* " + sp_marker + " */",
-    )
     sp_path.write_text(sp_text, encoding="utf-8")
-    print("[VBV singleplayer] integrated-server workers auto-enable only on cross-origin-isolated pages; explicit ?serverworker remains supported.")
+    print("[VBV singleplayer] server workers remain opt-in via ?workers or ?serverworker.")
 else:
-    print("[VBV singleplayer] cross-origin-isolated worker gate already installed.")
+    print("[VBV singleplayer] opt-in server-worker gate already installed.")
 
 # Make the existing inventory hooks use the container's actual quick-move action.
 container_candidates = java_files_named("AbstractContainerScreen.java")
