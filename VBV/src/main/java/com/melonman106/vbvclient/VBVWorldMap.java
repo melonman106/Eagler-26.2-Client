@@ -106,12 +106,8 @@ public final class VBVWorldMap {
             worldMapSaveTicks = 0;
         }
 
-        if (!VBVMiniMap.enabled) {
-            nearbyScanCursor = 0;
-            nearbyScanTicks = 0;
-            nearbyPruneTicks = 0;
-            nearbyScanWorld = "";
-        } else {
+        // The nearby minimap scan was removed; the full world map records
+        // only chunks the player actually enters. else {
             nearbyPruneTicks++;
             boolean scanWorldChanged = !world.equals(nearbyScanWorld);
             boolean restartScan = enteredNewChunk || scanWorldChanged
