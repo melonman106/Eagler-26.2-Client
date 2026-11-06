@@ -257,7 +257,6 @@ jobs:
           # the shell option here (the write hook validates and patches it later).
           path.write_text(text, encoding="utf-8")
           print("Preserved the VBV low-memory opt-in worker bootstrap")
-          print("Enabled COI-gated server workers in the standalone HTML output")
           PY
           # Remove the packager's original early release injection first.
           python3 - <<'PY'
