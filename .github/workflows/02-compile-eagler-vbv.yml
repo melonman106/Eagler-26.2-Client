@@ -154,7 +154,7 @@ jobs:
           grep -Fq 'Window.setTimeout(() -> callback.complete(null), millis);' "$sleep_src"
           ! grep -q 'VBVSleepTimer' "$sleep_src"
           ! grep -q 'vbvPendingSleepCallbacks' "$sleep_src"
-          grep -q 'VBV_SERVER_WORKER_CROSS_ORIGIN_ISOLATED' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
+          grep -q 'VBV_SERVER_WORKER_OPT_IN_ONLY' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java
           grep -q 'EaglerProfileScreen26' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
           grep -q 'EaglerProfile.getActiveSkinResourceLocation' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVDungeonsTitleScreen.java
           grep -q '"shine"' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVModsScreen.java
@@ -252,26 +252,11 @@ jobs:
           }'''
           if old_export in text: text = text.replace(old_export, new_export, 1)
           elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
-          # The packager reads index.html from build/web. Patch the in-memory
-          # HTML immediately after it is loaded so the actual standalone output
-          # receives the COI-gated serverWorker setting.
-          load_anchor = 'let html = read("index.html").toString("utf8");'
-          if load_anchor not in text:
-              raise SystemExit("Could not locate standalone HTML load point in build-single-html.js")
-          worker_patch = load_anchor + '''
-          const oldServerWorker = 'serverWorker: window.location.search.indexOf("singlethread") < 0,';
-          const newServerWorker = 'serverWorker: window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("serverworker") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined")),';
-          if (html.includes(oldServerWorker)) {
-            html = html.replace(oldServerWorker, newServerWorker);
-          } else if (!html.includes(newServerWorker)) {
-            fail("Expected U2 serverWorker option was not found in standalone HTML");
-          }
-          '''
-          if load_anchor in text and "const oldServerWorker" not in text:
-              text = text.replace(load_anchor, worker_patch, 1)
-          elif "const newServerWorker" not in text:
-              raise SystemExit("Unexpected standalone HTML worker patch state")
+          # VBV/patch/patch_wasm_runtime.py owns the final worker policy.
+          # Keep its opt-in ?workers / ?serverworker gate intact; do not rewrite
+          # the shell option here (the write hook validates and patches it later).
           path.write_text(text, encoding="utf-8")
+          print("Preserved the VBV low-memory opt-in worker bootstrap")
           print("Enabled COI-gated server workers in the standalone HTML output")
           PY
           # Remove the packager's original early release injection first.
@@ -347,12 +332,16 @@ jobs:
           EAGLER_SERVER_LINK_CAP_MIB: "13312"
           EAGLER_SERVER_LINK_HEAP_MIB: "11264"
           EAGLER_BUILD_CAP_MIB: "13312"
+          EAGLER_BROTLI_QUALITY: "6"
+          EAGLER_COMPRESS_JOBS: "3"
         run: |
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          # U2 gates integrated-server workers through its serverWorker option.
-          grep -Fq 'serverWorker: window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("serverworker") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined")),' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          # The VBV low-memory bootstrap keeps worker compilation opt-in.
+          grep -Fq 'serverWorker: (window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -Fq 'meshWorkers: (window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          grep -Fq 'VBV low-memory worker bootstrap' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           # Ensure the unsafe TeaVM resolver was replaced in the final packaged HTML.
           # Some pinned TeaVM outputs already contain no dynamic global resolver.
           # In that valid case there is no function globalPath() to require; the
