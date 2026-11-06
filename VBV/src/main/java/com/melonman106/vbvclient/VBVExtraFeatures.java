@@ -234,7 +234,7 @@ public final class VBVExtraFeatures {
         int lineHeight = mc.font.lineHeight + (debugCompact ? 0 : 2);
         int maxWidth = Math.max(120, graphics.guiWidth() / 2 - 14);
         int visible = Math.min(lines.size(), Math.max(1, (graphics.guiHeight() - 12) / lineHeight));
-        graphics.fill(x, y, x + maxWidth + 8, y + visible * lineHeight + 6, 0xB0101010);
+        // Text-only BetterF3 layout: no opaque panel behind the debug lines.
         for (int i = 0; i < visible; i++) {
             String line = lines.get(i);
             if (mc.font.width(line) > maxWidth) {
