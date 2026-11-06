@@ -160,16 +160,9 @@ if gui_marker not in gui_text:
     gui.write_text(gui_text,encoding="utf-8")
     print("[VBV Dungeons UI] Hooked Gui.setScreen so the custom menu is active on the first boot.")
 title_marker="VBV_DUNGEONS_TITLE_HOOK";title_code=f"// {title_marker}\nif ({param} instanceof net.minecraft.client.gui.screens.TitleScreen && !({param} instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) {{\n    this.{method}(new com.melonman106.vbvclient.VBVDungeonsTitleScreen());\n    return;\n}}";text=inject_once(text,title_marker,title_code,method,param);text=force_initial_dungeons_screen(text)
-backgrounds=prepare_assets();configure_loading_class(backgrounds);configure_slime_frames()
-if backgrounds:
-    connect_files=list(GAME.rglob("ConnectScreen.java"))
-    if not connect_files:raise RuntimeError("ConnectScreen.java not found")
-    connect_screen=next((p for p in connect_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/ConnectScreen.java")),connect_files[0]);connect_text=connect_screen.read_text(encoding="utf-8");connect_marker="VBV_DUNGEONS_CONNECT_BACKGROUND"
-    if connect_marker not in connect_text:
-        render_match=re.search(r"(\bextractRenderState\s*\(\s*(?:final\s+)?(?:[\w.$]+\.)?GuiGraphicsExtractor\s+(\w+)[^)]*\)\s*\{)",connect_text)
-        if not render_match:raise RuntimeError("Could not locate ConnectScreen.extractRenderState")
-        graphics_name=render_match.group(2);connect_text=connect_text[:render_match.end()]+f"\n        // {connect_marker}\n        com.melonman106.vbvclient.VBVServerLoadingScreen.renderConnectionBackground({graphics_name}, this.width, this.height);"+connect_text[render_match.end():]
-    status_pattern=re.compile(r"graphics\.centeredText\(this\.font,\s*this\.status,\s*this\.width\s*/\s*2,\s*this\.height\s*/\s*2\s*-\s*50,\s*-1\);");connect_text,status_count=status_pattern.subn("com.melonman106.vbvclient.VBVServerLoadingScreen.renderConnectionStatus(graphics, this.font, this.width, this.height);",connect_text,count=1)
-    if status_count!=1:raise RuntimeError("Could not replace ConnectScreen status text")
-    connect_screen.write_text(connect_text,encoding="utf-8")
+# Custom server connection artwork and animated loading text were removed.
+loading_assets = RES/"assets/vbvclient/textures/loadingscreen"
+if loading_assets.exists():
+    shutil.rmtree(loading_assets)
+# ConnectScreen retains Minecraft's original status text and background.
 minecraft.write_text(text,encoding="utf-8");print("[VBV Dungeons UI] Patched Minecraft screen navigation:",method,param)
