@@ -4,6 +4,12 @@ run-name: "02 - Build VBV + Herz"
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "VBV/**"
+      - "ModsPack/**"
+      - ".github/workflows/02-compile-eagler-vbv.yml"
 
 permissions:
   contents: read
@@ -92,6 +98,16 @@ jobs:
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
+          pack_registry="$vbv_src/VBVGeneratedPackMods.java"
+          test -s "$pack_registry" || { echo "::error::Generated resource-pack registry is missing"; exit 1; }
+          expected_pack_count="$(find "$GITHUB_WORKSPACE/ModsPack" -type f -name '*.zip' ! -path '*/__MACOSX/*' | wc -l)"
+          actual_pack_count="$(grep -c 'VBVClient.registerMod(new VBVModInfo(' "$pack_registry" || true)"
+          if [ "$actual_pack_count" -ne "$expected_pack_count" ]; then
+            echo "::error::Only $actual_pack_count of $expected_pack_count resource packs were imported"
+            exit 1
+          fi
+          grep -qi 'qrafty' "$pack_registry" || { echo "::error::Qrafty font pack was not registered"; exit 1; }
+          echo "Verified $actual_pack_count embedded resource packs, including the custom font pack."
           for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
