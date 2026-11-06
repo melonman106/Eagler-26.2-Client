@@ -13,10 +13,8 @@ if not MODS.is_dir():
     print("ModsPack/ not present; nothing to sanitize.")
     raise SystemExit(0)
 
-# Eagler's built-in font atlas is not compatible with arbitrary Java resource
-# pack font overrides. A bad font atlas manifests as every character becoming
-# the unknown-glyph rectangle. Keep pack HUD textures (including AppleSkin's
-# assets/appleskin/textures/icons.png) while protecting the core font.
+# Keep normal resource-pack assets, including font definitions, font atlases,
+# GUI icons and HUD textures. Only Java/Iris shader-pack files are unsupported.
 for source in sorted(MODS.glob("*.zip")):
     fd, temp_name = tempfile.mkstemp(prefix=source.stem + "-", suffix=".zip", dir=source.parent)
     os.close(fd)
@@ -28,12 +26,8 @@ for source in sorted(MODS.glob("*.zip")):
                 name = info.filename.replace("\\", "/").lstrip("/")
                 lower = name.lower()
                 blocked = (
-                    lower.startswith("assets/minecraft/font/")
-                    or "/assets/minecraft/font/" in lower
-                    or lower.startswith("assets/minecraft/textures/font/")
-                    or "/assets/minecraft/textures/font/" in lower
                     # OptiFine/Iris shader assets cannot run in the Eagler WebGL2 pipeline.
-                    or lower.startswith("shaders/")
+                    lower.startswith("shaders/")
                     or "/shaders/" in lower
                     or lower.startswith("post_effect/")
                     or "/post_effect/" in lower
@@ -44,7 +38,7 @@ for source in sorted(MODS.glob("*.zip")):
                 zout.writestr(info, zin.read(info.filename))
         if changed:
             shutil.move(temp, source)
-            print("Sanitized incompatible font overrides:", source.name)
+            print("Removed unsupported Java/Iris shader files:", source.name)
         else:
             temp.unlink(missing_ok=True)
     finally:
