@@ -101,7 +101,7 @@ jobs:
           pack_registry="$vbv_src/VBVGeneratedPackMods.java"
           test -s "$pack_registry" || { echo "::error::Generated resource-pack registry is missing"; exit 1; }
           expected_pack_count="$(find "$GITHUB_WORKSPACE/ModsPack" -type f -name '*.zip' ! -path '*/__MACOSX/*' | wc -l)"
-          actual_pack_count="$(grep -c 'VBVClient.registerMod(new VBVModInfo(' "$pack_registry" || true)"
+          actual_pack_count="$(grep -Fc 'VBVClient.registerMod' "$pack_registry" || true)"
           if [ "$actual_pack_count" -ne "$expected_pack_count" ]; then
             echo "::error::Only $actual_pack_count of $expected_pack_count resource packs were imported"
             exit 1
