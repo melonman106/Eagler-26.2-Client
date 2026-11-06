@@ -252,20 +252,27 @@ jobs:
           }'''
           if old_export in text: text = text.replace(old_export, new_export, 1)
           elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
-          # U2 configures worker startup in the source HTML, not in the Node packager.
-          # Enable the integrated-server worker automatically only when SharedArrayBuffer
-          # is usable; retain ?serverworker as an explicit opt-in and ?singlethread as
-          # the force-disable switch.
-          shell_path = Path("target_teavm_wasm_gc/src/web/index.html")
-          shell = shell_path.read_text(encoding="utf-8")
-          old_server = 'serverWorker: window.location.search.indexOf("singlethread") < 0,'
-          new_server = 'serverWorker: window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("serverworker") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined")),'
-          if old_server in shell:
-              shell = shell.replace(old_server, new_server, 1)
-          elif new_server not in shell:
-              raise SystemExit("Expected U2 serverWorker option was not found in target_teavm_wasm_gc/src/web/index.html")
-          shell_path.write_text(shell, encoding="utf-8")
-          print("Enabled COI-gated server workers in the U2 HTML shell")
+          # The packager reads index.html from build/web. Patch the in-memory
+          # HTML immediately after it is loaded so the actual standalone output
+          # receives the COI-gated serverWorker setting.
+          load_anchor = 'let html = read("index.html").toString("utf8");'
+          if load_anchor not in text:
+              raise SystemExit("Could not locate standalone HTML load point in build-single-html.js")
+          worker_patch = load_anchor + '''
+          const oldServerWorker = 'serverWorker: window.location.search.indexOf("singlethread") < 0,';
+          const newServerWorker = 'serverWorker: window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("serverworker") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined")),';
+          if (html.includes(oldServerWorker)) {
+            html = html.replace(oldServerWorker, newServerWorker);
+          } else if (!html.includes(newServerWorker)) {
+            fail("Expected U2 serverWorker option was not found in standalone HTML");
+          }
+          '''
+          if load_anchor in text and "const oldServerWorker" not in text:
+              text = text.replace(load_anchor, worker_patch, 1)
+          elif "const newServerWorker" not in text:
+              raise SystemExit("Unexpected standalone HTML worker patch state")
+          path.write_text(text, encoding="utf-8")
+          print("Enabled COI-gated server workers in the standalone HTML output")
           PY
           # Remove the packager's original early release injection first.
           python3 - <<'PY'
