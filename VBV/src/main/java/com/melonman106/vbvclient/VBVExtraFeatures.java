@@ -205,6 +205,7 @@ public final class VBVExtraFeatures {
             right.add(String.format(java.util.Locale.ROOT, "Memory: %d / %d MB", usedMb, maxMb));
             right.add("Runtime: " + System.getProperty("java.version", "browser"));
             right.add("Render distance: " + mc.options.renderDistance().get() + " chunks");
+            right.add("Effective/server-limited distance: " + mc.options.getEffectiveRenderDistance() + " chunks");
             right.add("Simulation distance: " + mc.options.simulationDistance().get() + " chunks");
             right.add("Rendered entities: " + renderedEntities);
             right.add("Connection: " + (mc.getCurrentServer() == null ? "Singleplayer" : mc.getCurrentServer().ip));
