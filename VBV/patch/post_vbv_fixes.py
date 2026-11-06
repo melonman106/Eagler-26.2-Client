@@ -239,7 +239,7 @@ else:
 # The original gate includes an outer parenthesized boolean expression.
 # Earlier replacement left the trailing call parentheses behind, producing
 # isServerWorkerFlagJS() /* marker */() and breaking Java compilation.
-broken_gate = r"isServerWorkerFlagJS\\(\\)\\s*/\\*\\s*" + sp_marker + r"\\s*\\*/\\s*\\(\\s*\\)"
+broken_gate = r"isServerWorkerFlagJS\(\)\s*/\*\s*" + sp_marker + r"\s*\*/\s*\(\s*\)"
 sp_text, repaired_gates = re.subn(
     broken_gate,
     "isServerWorkerFlagJS() /* " + sp_marker + " */",
