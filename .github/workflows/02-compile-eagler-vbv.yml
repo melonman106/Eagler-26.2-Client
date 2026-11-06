@@ -252,11 +252,20 @@ jobs:
           }'''
           if old_export in text: text = text.replace(old_export, new_export, 1)
           elif 'fs.existsSync(musicSource)' not in text: raise SystemExit("Expected optional music export block was not found")
-          old_workers = 'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;'
-          new_workers = 'const enableWorkers = window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("workers") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined"));'
-          if old_workers in text: text = text.replace(old_workers, new_workers, 1)
-          elif new_workers not in text: raise SystemExit("Expected worker-loading gate was not found in standalone packager")
-          path.write_text(text, encoding="utf-8")
+          # U2 configures worker startup in the source HTML, not in the Node packager.
+          # Enable the integrated-server worker automatically only when SharedArrayBuffer
+          # is usable; retain ?serverworker as an explicit opt-in and ?singlethread as
+          # the force-disable switch.
+          shell_path = Path("target_teavm_wasm_gc/src/web/index.html")
+          shell = shell_path.read_text(encoding="utf-8")
+          old_server = 'serverWorker: window.location.search.indexOf("singlethread") < 0,'
+          new_server = 'serverWorker: window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("serverworker") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined")),'
+          if old_server in shell:
+              shell = shell.replace(old_server, new_server, 1)
+          elif new_server not in shell:
+              raise SystemExit("Expected U2 serverWorker option was not found in target_teavm_wasm_gc/src/web/index.html")
+          shell_path.write_text(shell, encoding="utf-8")
+          print("Enabled COI-gated server workers in the U2 HTML shell")
           PY
           # Remove the packager's original early release injection first.
           python3 - <<'PY'
@@ -335,9 +344,8 @@ jobs:
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          # Web Workers auto-enable when the page is cross-origin isolated; ?singlethread forces fallback.
-          grep -Fq 'const enableWorkers = window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("workers") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined"));' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -Fq 'const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          # U2 gates integrated-server workers through its serverWorker option.
+          grep -Fq 'serverWorker: window.location.search.indexOf("singlethread") < 0 && (window.location.search.indexOf("serverworker") >= 0 || (window.crossOriginIsolated === true && typeof SharedArrayBuffer !== "undefined")),' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           # Ensure the unsafe TeaVM resolver was replaced in the final packaged HTML.
           # Some pinned TeaVM outputs already contain no dynamic global resolver.
           # In that valid case there is no function globalPath() to require; the
