@@ -29,6 +29,11 @@ def matching_brace(text,brace):
 
 dest=GAME/"com/melonman106/vbvclient";dest.mkdir(parents=True,exist_ok=True)
 for source in SRC.rglob("*.java"):
+ # The upstream injector generates this class from ModsPack/*.zip.
+ # Do not overwrite that generated registry with the intentionally empty
+ # repository template in VBV/src/main/java.
+ if source.name == "VBVGeneratedPackMods.java":
+  continue
  target=dest/source.relative_to(SRC);target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
 icon_root=CLIENT/"PackIcons";icon_dst=RES/"assets/vbvclient/textures/mods";icon_dst.mkdir(parents=True,exist_ok=True)
 for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.jpeg"),("Viabackportvisuals-client.png","viabackportvisuals-client.png")):
