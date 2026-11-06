@@ -150,5 +150,38 @@ def remove_oxer_credit():
             source = source.replace("o_xer", "")
             path.write_text(source, encoding="utf-8")
 
-gif=find_slime_gif(); patch_loading_animation(extract_gif(gif,RES/"assets/vbvclient/textures/loadingscreen/slime") if gif else 0)
+# The multiplayer connection screen uses vanilla again; no custom loading assets.
+loading_assets = RES/"assets/vbvclient/textures/loadingscreen"
+if loading_assets.exists():
+    shutil.rmtree(loading_assets)
 suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay(); patch_platform_input_raf(); remove_oxer_credit()
+
+def patch_startup_console():
+    candidates = list(GAME.rglob("LoadingOverlay.java"))
+    if not candidates:
+        raise RuntimeError("LoadingOverlay.java not found for startup progress console")
+    path = next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/LoadingOverlay.java")), candidates[0])
+    source = path.read_text(encoding="utf-8")
+    marker = "VBV_STARTUP_CONSOLE"
+    if marker in source:
+        return
+    anchor = "int progressPercent = Mth.clamp(Math.round(this.currentProgress * 100.0F), 0, 100);"
+    if source.count(anchor) != 1:
+        raise RuntimeError("Could not uniquely locate Mojang loading progress percentage")
+    console = anchor + """
+          // VBV_STARTUP_CONSOLE: compact diagnostics panel on the red Mojang screen.
+          String vbvStage = this.reload.isDone() ? "Finalizing resources" : "Loading textures, fonts and models";
+          int vbvConsoleX = 12;
+          int vbvConsoleY = barY - 70;
+          graphics.fill(vbvConsoleX, vbvConsoleY, vbvConsoleX + 224, vbvConsoleY + 58, 0xB9000000);
+          graphics.text(this.minecraft.font, "STARTUP CONSOLE", vbvConsoleX + 8, vbvConsoleY + 6, 0xFFB98AFF, true);
+          graphics.text(this.minecraft.font, "> " + vbvStage, vbvConsoleX + 8, vbvConsoleY + 21, 0xFFFFFFFF, true);
+          graphics.text(this.minecraft.font, "Progress: " + progressPercent + "%", vbvConsoleX + 8, vbvConsoleY + 36, 0xFFB8FFB8, true);
+          int vbvFilled = progressPercent / 5;
+          String vbvBar = "[" + "#".repeat(vbvFilled) + "-".repeat(20 - vbvFilled) + "]";
+          graphics.text(this.minecraft.font, vbvBar, vbvConsoleX + 116, vbvConsoleY + 36, 0xFFFFFFFF, true);
+"""
+    path.write_text(source.replace(anchor, console, 1), encoding="utf-8")
+    print("[VBV] Added startup console with current resource stage and progress percentage.")
+
+patch_startup_console()
