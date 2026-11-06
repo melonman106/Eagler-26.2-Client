@@ -172,7 +172,7 @@ def patch_startup_console():
           // VBV_STARTUP_CONSOLE: compact diagnostics panel on the red Mojang screen.
           String vbvStage = this.reload.isDone() ? "Finalizing resources" : "Loading textures, fonts and models";
           int vbvConsoleX = 12;
-          int vbvConsoleY = barY - 70;
+          int vbvConsoleY = barY - 92;
           graphics.fill(vbvConsoleX, vbvConsoleY, vbvConsoleX + 224, vbvConsoleY + 58, 0xB9000000);
           graphics.text(this.minecraft.font, "STARTUP CONSOLE", vbvConsoleX + 8, vbvConsoleY + 6, 0xFFB98AFF, true);
           graphics.text(this.minecraft.font, "> " + vbvStage, vbvConsoleX + 8, vbvConsoleY + 21, 0xFFFFFFFF, true);
