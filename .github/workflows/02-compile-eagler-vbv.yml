@@ -337,36 +337,52 @@ jobs:
           set -euo pipefail
           npm run build:single -- --output "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
           test -s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          # The VBV low-memory bootstrap keeps worker compilation opt-in.
-          grep -Fq 'serverWorker: (window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -Fq 'meshWorkers: (window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -Fq 'VBV low-memory worker bootstrap' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          # Ensure the unsafe TeaVM resolver was replaced in the final packaged HTML.
-          # Some pinned TeaVM outputs already contain no dynamic global resolver.
-          # In that valid case there is no function globalPath() to require; the
-          # two unsafe-resolver checks below are the authoritative safety gate.
-          if grep -Fq 'function globalPath(name)' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
+      - name: Verify standalone HTML and embedded runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          html="$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
+          test -s "$html"
+          require_marker() {
+            if ! grep -Fq "$1" "$html"; then
+              echo "::error::Standalone HTML is missing required marker: $1"
+              exit 1
+            fi
+          }
+          # Worker compilation is opt-in; the HTML and Java-side gates must agree.
+          require_marker 'serverWorker: (window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0)'
+          require_marker 'meshWorkers: (window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0)'
+          require_marker 'VBV low-memory worker bootstrap'
+          if grep -Fq 'function globalPath(name)' "$html"; then
             echo "Validated the safe globalPath resolver in the final HTML"
           else
             echo "No TeaVM global resolver was emitted; verified no unsafe dynamic resolver remains"
           fi
-          if grep -Fq 'new Function("return " + name + ";")' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
+          if grep -Fq 'new Function("return " + name + ";")' "$html"; then
             echo "::error::Unsafe TeaVM global resolver remains in final HTML"
             exit 1
           fi
-          if grep -Fq 'new Function("value", name + " = value;")' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then
+          if grep -Fq 'new Function("value", name + " = value;")' "$html"; then
             echo "::error::Unsafe TeaVM global setter remains in final HTML"
             exit 1
           fi
-          grep -q 'eag-inline-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'eag-inline-mesh-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'eag-inline-server-wasm-br' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'eag-inline-assets' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'eag-inline-sounds' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          if grep -q 'eag-inline-music' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"; then echo "::error::Lean build unexpectedly embedded music.epk"; exit 1; fi
-          grep -q 'VBV_WASM_GC_ASYNC_I64_BRIDGE' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          grep -q 'VBV_WASM_I64_EXPORT_GUARD_V1' "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html"
-          echo "Built HTML: $(stat -c%s "$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.html") bytes"
+          for marker in eag-inline-wasm-br eag-inline-mesh-wasm-br eag-inline-server-wasm-br eag-inline-assets eag-inline-sounds VBV_WASM_GC_ASYNC_I64_BRIDGE VBV_WASM_I64_EXPORT_GUARD_V1; do
+            require_marker "$marker"
+          done
+          if grep -Fq 'eag-inline-music' "$html"; then
+            echo "::error::Lean build unexpectedly embedded music.epk"
+            exit 1
+          fi
+          echo "Built HTML: $(stat -c%s "$html") bytes"
+      - name: Preserve raw standalone HTML if build verification fails
+        if: failure() && hashFiles('eaglercraft-26.2-vbv-herz.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-Raw-Debug-${{ github.run_id }}
+          path: eaglercraft-26.2-vbv-herz.html
+          if-no-files-found: ignore
+          retention-days: 3
+          compression-level: 0
       - name: Inject visible runtime console into the main standalone HTML
         shell: bash
         run: |
