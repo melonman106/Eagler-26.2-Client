@@ -10,6 +10,9 @@ import net.minecraft.network.chat.Component;
 
 /** VBV home screen styled after the cinematic Minecraft Dungeons II menu layout. */
 public final class VBVDungeonsTitleScreen extends TitleScreen {
+    private int layoutWidth = -1;
+    private int layoutHeight = -1;
+
     public VBVDungeonsTitleScreen() { super(); }
 
     @Override protected void init() {
@@ -44,6 +47,8 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
             b -> VBVNav.openOptions(this));
         addNativeButton("STORAGE", left + smallWidth + gap, y, smallWidth, buttonHeight,
             b -> VBVNav.open(new VBVStorageScreen(this)));
+        layoutWidth = width;
+        layoutHeight = height;
     }
 
     private void addNativeButton(String label, int x, int y, int w, int h, Button.OnPress action) {
@@ -51,6 +56,13 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     }
 
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        int currentWidth = graphics.guiWidth();
+        int currentHeight = graphics.guiHeight();
+        if (currentWidth != layoutWidth || currentHeight != layoutHeight) {
+            // Browser fullscreen can resize the canvas without a normal window event.
+            // Rebuild all button bounds against the new GUI dimensions before drawing.
+            this.init(currentWidth, currentHeight);
+        }
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         EaglerProfile.readIfNeeded();
 
