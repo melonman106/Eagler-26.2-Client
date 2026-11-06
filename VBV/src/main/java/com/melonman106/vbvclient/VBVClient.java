@@ -40,8 +40,8 @@ public final class VBVClient {
             "Adds configurable hold or toggle zoom with adjustable field of view.", "vbvclient:textures/mods/zoomify.png");
         reg("betterf3", "BetterF3", "1.5.3", "TreyRuffy",
             "Reorganizes technical debug information into a clearer, configurable on-screen layout.", "vbvclient:textures/mods/betterf3.png");
-        reg("vbv-minimap", "VBV Minimap", "1.5.3", "melonman106",
-            "Displays a compact map of cached nearby terrain and the player position, with a low-overhead rendering mode.", "vbvclient:textures/mods/vbv-minimap.png");
+        reg("vbv-minimap", "Xaero's World Map", "1.5.3", "melonman106",
+            "Displays explored terrain, saved waypoints and the player's explored world map. The minimap HUD overlay is disabled.", "vbvclient:textures/mods/vbv-minimap.png");
         reg("jade", "Jade", "1.5.3", "Snownee",
             "Shows contextual information about the block or entity under the crosshair, including optional coordinates.", "vbvclient:textures/mods/jade.png");
         reg("shulkerboxtooltip", "ShulkerBoxTooltip", "1.5.3", "MisterPeModder",
@@ -72,7 +72,6 @@ public final class VBVClient {
             VBVArmorHud.render(graphics);
             VBVExtraFeatures.renderGammaStatus(graphics);
             VBVAppleSkin.render(graphics);
-            VBVMiniMap.render(graphics);
             VBVJadeHud.render(graphics);
             VBVCrosshair.render(graphics);
         });
