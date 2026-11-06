@@ -221,7 +221,7 @@ sp_marker = "VBV_SERVER_WORKER_OPT_IN_ONLY"
 if sp_marker not in sp_text:
     # U2's two original gates are fully-qualified in isServerWorkerModeRequested()
     # and local-variable based in startIntegratedServer(). Match both safely.
-    gate_pattern = r"(?:net\\.lax1dude\\.eaglercraft\\.v1_8\\.internal\\.teavm\\.)?(?:WasmWorkerBootstrap\\.isWasmGC\\(\\)|\\bwasmGC)\\s*\\|\\|\\s*isServerWorkerFlagJS\\(\\)"
+    gate_pattern = r"(?:net\.lax1dude\.eaglercraft\.v1_8\.internal\.teavm\.)?(?:WasmWorkerBootstrap\.isWasmGC\(\)|\bwasmGC)\s*\|\|\s*isServerWorkerFlagJS()"
     sp_text, gate_count = re.subn(
         gate_pattern,
         "isServerWorkerFlagJS() /* " + sp_marker + " */",
