@@ -107,39 +107,7 @@ public final class VBVWorldMap {
         }
 
         // The nearby minimap scan was removed; the full world map records
-        // only chunks the player actually enters. else {
-            nearbyPruneTicks++;
-            boolean scanWorldChanged = !world.equals(nearbyScanWorld);
-            boolean restartScan = enteredNewChunk || scanWorldChanged
-                || nearbyScanRadius != radius || ++nearbyScanTicks >= 100;
-            if (scanWorldChanged) {
-                pruneUnexploredTerrain(world, chunkX, chunkZ);
-                nearbyPruneTicks = 0;
-            }
-            if (restartScan) {
-                nearbyScanTicks = 0;
-                nearbyScanCursor = 0;
-                nearbyScanCenterX = chunkX;
-                nearbyScanCenterZ = chunkZ;
-                nearbyScanWorld = world;
-                nearbyScanRadius = radius;
-            }
-            if (nearbyScanCursor < totalNearbyChunks) {
-                int dx = nearbyScanCursor % diameter - radius;
-                int dz = nearbyScanCursor / diameter - radius;
-                int cx = nearbyScanCenterX + dx;
-                int cz = nearbyScanCenterZ + dz;
-                long nearbyKey = pack(cx, cz);
-                if (!hasTerrain(world, nearbyKey)) {
-                    captureTerrainIfLoaded(minecraft, world, nearbyKey, cx, cz);
-                }
-                nearbyScanCursor++;
-            }
-            if (nearbyScanCursor >= totalNearbyChunks && nearbyPruneTicks >= 600) {
-                nearbyPruneTicks = 0;
-                pruneUnexploredTerrain(world, chunkX, chunkZ);
-            }
-        }
+        // only chunks the player actually enters.
     }
 
     private static boolean hasTerrain(String world, long key) {
