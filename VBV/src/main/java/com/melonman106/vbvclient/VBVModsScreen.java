@@ -19,8 +19,8 @@ import net.minecraft.network.chat.Component;
 public final class VBVModsScreen extends Screen {
     private static final int RIGHT_PANE_Y = 48;
     private static final int LIST_TOP = 67;
-    private static final int ROW_HEIGHT = 72;
-    private static final int ICON = 64;
+    private static final int ROW_HEIGHT = 40;
+    private static final int ICON = 32;
     private static final int DESC_TOP = RIGHT_PANE_Y + ICON + 10;
 
     private final Screen parent;
@@ -239,10 +239,10 @@ public final class VBVModsScreen extends Screen {
             if (info == selected) { graphics.fill(rowLeft - 2, y - 2, rowLeft + rowWidth + 2, y + ICON + 2, 0xFFFFFFFF); graphics.fill(rowLeft - 1, y - 1, rowLeft + rowWidth + 1, y + ICON + 1, 0xFF000000); }
             drawIcon(graphics, info, rowLeft, y, ICON);
             int textX = rowLeft + ICON + 3, maxNameWidth = rowWidth - ICON - 3;
-            String name = ellipsize(String.valueOf(info.name()), maxNameWidth); graphics.text(font, name, textX, y + 8, 0xFFFFFFFF, true);
-            drawBadges(graphics, info, textX + font.width(name) + 2, y + 8, rowLeft + rowWidth);
+            String name = ellipsize(String.valueOf(info.name()), maxNameWidth); graphics.text(font, name, textX, y + 4, 0xFFFFFFFF, true);
+            drawBadges(graphics, info, textX + font.width(name) + 2, y + 4, rowLeft + rowWidth);
             List<String> summary = wrap(String.valueOf(info.description()), rowWidth - ICON - 7, 1);
-            for (int i = 0; i < summary.size(); i++) graphics.text(font, summary.get(i), textX + 4, y + font.lineHeight + 9 + i * font.lineHeight, 0xFF808080, false);
+            for (int i = 0; i < summary.size(); i++) graphics.text(font, summary.get(i), textX + 4, y + font.lineHeight + 5 + i * font.lineHeight, 0xFF808080, false);
         }
         drawScrollbar(graphics, paneWidth - 6, LIST_TOP, listBottom(), shown.size(), visibleRows(), listScroll);
     }
@@ -251,7 +251,7 @@ public final class VBVModsScreen extends Screen {
         drawIcon(graphics, selected, x + 2, RIGHT_PANE_Y, ICON);
         int imageOffset = ICON + 8;
         int maxNameWidth = width - (x + imageOffset) - (configButton != null && configButton.visible ? 58 : 4);
-        String name = ellipsize(String.valueOf(selected.name()), maxNameWidth); graphics.text(font, name, x + imageOffset, RIGHT_PANE_Y + 8, 0xFFFFFFFF, true);
+        String name = ellipsize(String.valueOf(selected.name()), maxNameWidth); graphics.text(font, name, x + imageOffset, RIGHT_PANE_Y + 4, 0xFFFFFFFF, true);
         drawBadges(graphics, selected, x + imageOffset + font.width(name) + 2, RIGHT_PANE_Y + 8, width - (configButton != null && configButton.visible ? 58 : 28));
         int lineSpacing = font.lineHeight + 1;
         graphics.text(font, String.valueOf(selected.version()), x + imageOffset, RIGHT_PANE_Y + 8 + lineSpacing, 0xFFAAAAAA, true);
