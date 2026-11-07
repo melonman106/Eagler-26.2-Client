@@ -177,6 +177,23 @@ if old_map_icon in upstream:
     upstream = upstream.replace(old_map_icon, new_map_icon, 1)
 elif new_map_icon not in upstream:
     raise SystemExit("::error::Could not locate the native map icon mapping in the pinned upstream patch")
+# Qrafty uses font providers that the Eagler 26.2 text renderer does not fully
+# support. Its global default-font override can make every UI glyph render as
+# a missing-character box. Keep the pack entry/icon, but retain vanilla fonts.
+font_branch = """            elif relative.startswith("assets/"):
+                target = RESOURCE_ROOT / relative"""
+font_branch_fixed = """            elif relative.startswith("assets/"):
+                if mod_id == "qrafty-s-capitalized-font-4.1" and (
+                    relative.startswith("assets/minecraft/font/")
+                    or relative.startswith("assets/minecraft/textures/font/")
+                ):
+                    print("[VBV font compatibility] skipped unsupported Qrafty font override:", relative)
+                    continue
+                target = RESOURCE_ROOT / relative"""
+if upstream.count(font_branch.encode("utf-8")) != 1:
+    raise SystemExit("::error::Expected resource-pack asset extraction branch was not found exactly once")
+upstream = upstream.replace(font_branch.encode("utf-8"), font_branch_fixed.encode("utf-8"), 1)
+print("[VBV font compatibility] protected the native vanilla Minecraft font.")
 
 upstream_path = CLIENT_SIDE / "patch/.upstream_apply_vbv_patch.py"
 upstream_path.write_bytes(upstream)
