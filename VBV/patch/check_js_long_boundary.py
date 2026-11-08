@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Fail if a Java \`long\` / \`Long\` crosses the TeaVM JavaScript boundary.
+"""Fail if a Java `long` / `Long` crosses the TeaVM JavaScript boundary.
 
-Why this matters (TeaVM WebAssembly-GC): a Java \`long\` is a wasm i64, and a wasm i64 can only be
-exchanged with JavaScript as a BigInt. A \`@JSBody\` that returns a normal JS Number (for example
-\`return 0;\`) for a \`long\` result - or JS that receives a \`long\` parameter as a BigInt it did not
+Why this matters (TeaVM WebAssembly-GC): a Java `long` is a wasm i64, and a wasm i64 can only be
+exchanged with JavaScript as a BigInt. A `@JSBody` that returns a normal JS Number (for example
+`return 0;`) for a `long` result - or JS that receives a `long` parameter as a BigInt it did not
 expect - throws "TypeError: Cannot convert 0 to a BigInt" at runtime, and nothing in javac or Gradle
-warns about it. Use \`double\` (or \`int\`) at the boundary and convert in Java.
+warns about it. Use `double` (or `int`) at the boundary and convert in Java.
 
 Checks, per .java file:
-  * \`native\` methods (the @JSBody pattern): return type or any parameter is long/Long.
+  * `native` methods (the @JSBody pattern): return type or any parameter is long/Long.
   * Abstract methods of interfaces/classes that extend/implement a JSObject type (JSO interfaces):
     same rule.
 Strings and comments are blanked first, so braces/keywords inside @JSBody script text cannot confuse it.
