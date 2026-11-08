@@ -279,7 +279,7 @@ if container_candidates:
     # Normalize the entire qualified expression. The upstream injection may
     # already prepend net.minecraft.client.; replacing only the inner
     # Minecraft token would duplicate that package prefix.
-    shift_pattern = r"(?:net\\.minecraft\\.client\\.)*Minecraft\\.getInstance\\(\\)\\.options\\.keyShift\\.isDown\\(\\)"
+    shift_pattern = r"(?:net\.minecraft\.client\.)*Minecraft\.getInstance\(\)\.options\.keyShift\.isDown\(\)"
     ct, shift_count = re.subn(
         shift_pattern,
         "net.minecraft.client.Minecraft.getInstance().options.keyShift.isDown()",
