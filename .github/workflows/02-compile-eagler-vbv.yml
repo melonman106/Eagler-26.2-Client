@@ -203,8 +203,11 @@ jobs:
           set -euo pipefail
           web="eaglercraft-u2/target_teavm_wasm_gc/build/web"
           mkdir -p "$web"
-          sounds_url="https://raw.githubusercontent.com/melonman106/Eagler-26.2-Client/generated-u2-source/sounds.epk"
-          curl -fL --retry 5 --retry-delay 2 "$sounds_url" -o "$web/sounds.epk"
+          # sounds.epk is committed at the repository root and already checked out
+          # above. It used to be downloaded from the generated-u2-source branch,
+          # which no longer exists (the download returned HTTP 404).
+          test -s "$GITHUB_WORKSPACE/sounds.epk" || { echo "::error::sounds.epk is missing from the repository root"; exit 1; }
+          cp "$GITHUB_WORKSPACE/sounds.epk" "$web/sounds.epk"
           test -s "$web/sounds.epk"
           sha256sum "$web/sounds.epk"
       - name: Patch standalone packager for lean no-music build
