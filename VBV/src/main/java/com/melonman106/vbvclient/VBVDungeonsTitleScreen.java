@@ -12,8 +12,11 @@ import net.minecraft.resources.Identifier;
 
 /**
  * VBV home screen styled after the Minecraft Dungeons main menu: a dark,
- * ember-lit night scene with drifting fireflies, the logo up top, and one
- * tall left-hand menu with a glowing gold PLAY button.
+ * ember-lit night scene with drifting fireflies, the logo up top, and a short
+ * left-hand menu (PLAY, SINGLEPLAYER, MODS, OPTIONS) with a glowing accent-colour
+ * PLAY button. Hero, Party, Storage and resource packs live in the launcher
+ * ({@link VBVLauncherScreen}), reached from the profile card or the LAUNCHER button.
+ * The accent colour comes from {@link VBVTheme}.
  *
  * The animated panorama is drawn by TitleScreen itself; everything here is
  * layered on top of it. Layout is computed in one place ({@link #computeLayout()})
@@ -27,15 +30,11 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     private static final int LOGO_TEX_H = 64;
     private static final int LOGO_ART_H = 44;
 
-    private static final int GOLD = 0xFFE8B44A;
-    private static final int GOLD_LIGHT = 0xFFFFD36B;
-    private static final int TEXT = 0xFFE9E2D0;
-    private static final int TEXT_DIM = 0xFFB8B0A0;
-    private static final int PANEL = 0xB0100C08;
-    private static final int PANEL_HOVER = 0xE02A200E;
+    private static final int TEXT = VBVUi.TEXT;
+    private static final int TEXT_DIM = VBVUi.TEXT_DIM;
 
     private static final int FIREFLIES = 26;
-    private static final int SECONDARY_BUTTONS = 6;
+    private static final int SECONDARY_BUTTONS = 3;
 
     private int layoutWidth = -1;
     private int layoutHeight = -1;
@@ -69,42 +68,42 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         addRenderableOnly((graphics, mouseX, mouseY, a) -> renderAtmosphere(graphics));
 
         int y = menuY;
-        addDungeonsButton("PLAY", y, primaryH, true, b -> VBVNav.openMultiplayer(this));
+        addMenuButton("PLAY", y, primaryH, VBVUi.Style.PRIMARY, b -> VBVNav.openMultiplayer(this));
         y += primaryH + gap;
-        addDungeonsButton("SINGLEPLAYER", y, buttonH, false, b -> VBVNav.openSingleplayer(this));
+        addMenuButton("SINGLEPLAYER", y, buttonH, VBVUi.Style.MENU, b -> VBVNav.openSingleplayer(this));
         y += buttonH + gap;
-        addDungeonsButton("PARTY", y, buttonH, false, b -> VBVNav.open(new VBVPartyScreen(this)));
+        addMenuButton("MODS", y, buttonH, VBVUi.Style.MENU, b -> VBVNav.open(new VBVModsScreen(this)));
         y += buttonH + gap;
-        addDungeonsButton("HERO", y, buttonH, false,
-            b -> VBVNav.open(new net.lax1dude.eaglercraft.v1_8.profile.EaglerProfileScreen26(this)));
-        y += buttonH + gap;
-        addDungeonsButton("MODS", y, buttonH, false, b -> VBVNav.open(new VBVModsScreen(this)));
-        y += buttonH + gap;
-        addDungeonsButton("OPTIONS", y, buttonH, false, b -> VBVNav.openOptions(this));
-        y += buttonH + gap;
-        addDungeonsButton("STORAGE", y, buttonH, false, b -> VBVNav.open(new VBVStorageScreen(this)));
+        addMenuButton("OPTIONS", y, buttonH, VBVUi.Style.MENU, b -> VBVNav.openOptions(this));
+
+        addRenderableWidget(new ProfileCard(this));
+        int launcherW = 112;
+        int launcherH = 22;
+        addRenderableWidget(new LauncherButton(width - launcherW - 10, height - launcherH - 10, launcherW, launcherH,
+            b -> VBVNav.open(new VBVLauncherScreen(this))));
+
         layoutWidth = width;
         layoutHeight = height;
     }
 
-    private void addDungeonsButton(String label, int y, int h, boolean primary, Button.OnPress action) {
-        addRenderableWidget(new DungeonsButton(left, y, menuW, h, label, primary, action));
+    private void addMenuButton(String label, int y, int h, VBVUi.Style style, Button.OnPress action) {
+        addRenderableWidget(new VBVUi.ThemedButton(left, y, menuW, h, label, style, action));
     }
 
     /** Sizes the logo and menu so the whole block fits the current GUI size. */
     private void computeLayout() {
         left = Math.max(14, width / 16);
-        menuW = Math.max(150, Math.min(300, Math.min(width * 3 / 10 + 40, width - left * 2)));
+        menuW = Math.max(140, Math.min(240, Math.min(width / 4 + 40, width - left * 2)));
 
         int margin = 10;
         int footer = 16;
         int avail = height - margin - footer;
 
-        int lh = Math.min(menuW, LOGO_TEX_W) * LOGO_ART_H / LOGO_TEX_W;
-        int bh = 24;
-        int g = 4;
+        int lh = Math.min(menuW + 20, LOGO_TEX_W) * LOGO_ART_H / LOGO_TEX_W;
+        int bh = 26;
+        int g = 5;
         int sub = 18;
-        int headGap = 10;
+        int headGap = 12;
         // Shrink in order of least visual damage until the block fits.
         for (int guard = 0; guard < 64 && blockHeight(lh, sub, headGap, bh, g) > avail; guard++) {
             if (bh > 16) {
@@ -121,7 +120,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         }
 
         buttonH = bh;
-        primaryH = bh + 10;
+        primaryH = bh + 12;
         gap = g;
         logoH = lh;
         logoW = lh * LOGO_TEX_W / LOGO_ART_H;
@@ -134,7 +133,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     }
 
     private static int blockHeight(int logoH, int subtitleH, int headGap, int buttonH, int gap) {
-        return logoH + subtitleH + headGap + (buttonH + 10) + SECONDARY_BUTTONS * (buttonH + gap);
+        return logoH + subtitleH + headGap + (buttonH + 12) + SECONDARY_BUTTONS * (buttonH + gap);
     }
 
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -152,17 +151,16 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         graphics.blit(RenderPipelines.GUI_TEXTURED, LOGO, left, logoY,
             0.0F, 0.0F, logoW, logoH, LOGO_TEX_W, LOGO_ART_H, LOGO_TEX_W, LOGO_TEX_H);
         if (showSubtitle) {
-            graphics.fill(left, subtitleY + 4, left + 10, subtitleY + 5, GOLD);
+            graphics.fill(left, subtitleY + 4, left + 10, subtitleY + 5, VBVTheme.accent());
             graphics.text(font, "YOUR ADVENTURE STARTS HERE", left + 15, subtitleY, TEXT_DIM, true);
         }
 
-        renderProfileCard(graphics);
         renderPartyPanel(graphics);
 
         // A small edition label anchors the lower edge without obscuring the panorama
         // (skipped on tiny GUI sizes where the menu already reaches the bottom).
         if (menuBottom <= height - 14) {
-            graphics.text(font, "VBV EDITION  •  26.2", left, height - 14, TEXT_DIM, false);
+            graphics.text(font, "VBV EDITION  \u2022  26.2", left, height - 14, TEXT_DIM, false);
         }
     }
 
@@ -186,6 +184,8 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         graphics.fillGradient(0, Math.max(0, h - 52), w, h, 0x00000000, 0xB0000000);
 
         // Fireflies, like the Creeper Woods camp: slow drifting pinpoints that pulse.
+        int glow = VBVTheme.accentLight() & 0xFFFFFF;
+        int halo0 = VBVTheme.accent() & 0xFFFFFF;
         long now = System.currentTimeMillis();
         double time = now / 1000.0;
         for (int i = 0; i < FIREFLIES; i++) {
@@ -197,8 +197,8 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
             double pulse = 0.5 + 0.5 * Math.sin(time * 1.7 + seed * 3.0);
             int core = (int) (50 + pulse * 170);
             int halo = (int) (8 + pulse * 28);
-            graphics.fill(x - 1, y - 1, x + 3, y + 3, (halo << 24) | 0xB8E04A);
-            graphics.fill(x, y, x + 2, y + 2, (core << 24) | 0xEFFF8A);
+            graphics.fill(x - 1, y - 1, x + 3, y + 3, (halo << 24) | halo0);
+            graphics.fill(x, y, x + 2, y + 2, (core << 24) | glow);
         }
     }
 
@@ -206,29 +206,14 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         return value - Math.floor(value);
     }
 
-    private void renderProfileCard(GuiGraphicsExtractor graphics) {
-        String name = EaglerProfile.getName();
-        if (name == null || name.isEmpty()) name = "Player";
-        Identifier skin = EaglerProfile.getActiveSkinResourceLocation();
-        int nameWidth = font.width(name);
-        int textX = width - 16 - nameWidth;
-        int headX = textX - 25;
-        int headY = 12;
-        graphics.fill(headX - 5, headY - 4, width - 10, headY + 25, PANEL);
-        graphics.fill(headX - 5, headY + 24, width - 10, headY + 25, GOLD);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 8, 8, 20, 20, 8, 8, 64, 64);
-        graphics.blit(RenderPipelines.GUI_TEXTURED, skin, headX, headY, 40, 8, 20, 20, 8, 8, 64, 64);
-        graphics.text(font, name, textX, headY + 6, 0xFFFFFFFF, true);
-    }
-
     private void renderPartyPanel(GuiGraphicsExtractor graphics) {
         String[] party = VBVParty.players();
         if (party.length == 0) return;
         int shown = Math.min(4, party.length);
-        int py = 12 + 28;
-        graphics.fill(width - 188, py - 4, width - 10, py + shown * 18 + 16, PANEL);
-        graphics.fill(width - 188, py - 4, width - 186, py + shown * 18 + 16, GOLD);
-        graphics.text(font, "PARTY", width - 176, py, GOLD_LIGHT, true);
+        int py = 12 + 32;
+        graphics.fill(width - 188, py - 4, width - 10, py + shown * 18 + 16, VBVTheme.panel(0xB0));
+        graphics.fill(width - 188, py - 4, width - 186, py + shown * 18 + 16, VBVTheme.accent());
+        graphics.text(font, "PARTY", width - 176, py, VBVTheme.accentLight(), true);
         py += 14;
         for (int i = 0; i < shown; i++) {
             graphics.text(font, party[i], width - 166, py, TEXT, false);
@@ -236,65 +221,60 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         }
     }
 
-    /** Flat, dark menu bar with a gold accent; PLAY is a solid glowing gold slab. */
-    private static final class DungeonsButton extends Button {
-        private final String label;
-        private final boolean primary;
+    /** Skin head and name in the top-right corner; opens the launcher on the Hero tab. */
+    private static final class ProfileCard extends Button {
+        ProfileCard(VBVDungeonsTitleScreen screen) {
+            super(screen.width - 10 - cardWidth(), 8, cardWidth(), 28, Component.literal("Hero"),
+                b -> VBVNav.open(new VBVLauncherScreen(screen, VBVLauncherScreen.Tab.HERO)), DEFAULT_NARRATION);
+        }
 
-        DungeonsButton(int x, int y, int w, int h, String label, boolean primary, Button.OnPress onPress) {
-            super(x, y, w, h, Component.literal(label), onPress, DEFAULT_NARRATION);
-            this.label = label;
-            this.primary = primary;
+        private static int cardWidth() {
+            Font font = Minecraft.getInstance().font;
+            return 8 + 20 + 8 + font.width(profileName()) + 12;
+        }
+
+        private static String profileName() {
+            String name = EaglerProfile.getName();
+            return name == null || name.isEmpty() ? "Player" : name;
         }
 
         @Override
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
             Font font = Minecraft.getInstance().font;
-            boolean lit = this.isHoveredOrFocused() && this.active;
+            boolean lit = this.isHoveredOrFocused();
             int x = this.getX();
             int y = this.getY();
             int w = this.getWidth();
             int h = this.getHeight();
+            graphics.fill(x, y, x + w, y + h, lit ? VBVTheme.panel(0xE8) : VBVTheme.panel(0xB0));
+            graphics.fill(x, y + h - 1, x + w, y + h, lit ? VBVTheme.accentLight() : VBVTheme.accent());
+            Identifier skin = EaglerProfile.getActiveSkinResourceLocation();
+            graphics.blit(RenderPipelines.GUI_TEXTURED, skin, x + 6, y + 4, 8, 8, 20, 20, 8, 8, 64, 64);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, skin, x + 6, y + 4, 40, 8, 20, 20, 8, 8, 64, 64);
+            graphics.text(font, profileName(), x + 34, y + (h - font.lineHeight) / 2 + 1,
+                lit ? VBVTheme.accentLight() : 0xFFFFFFFF, true);
+        }
+    }
 
-            if (primary) {
-                graphics.fillGradient(x, y, x + w, y + h, lit ? 0xFFFFDC7A : 0xFFF4C75A, lit ? 0xFFE8A230 : 0xFFD08F24);
-                graphics.outline(x, y, w, h, 0xFF5A3A08);
-                float scale = h >= 30 ? 1.5F : 1.0F;
-                int textW = (int) (font.width(label) * scale);
-                int textH = (int) (font.lineHeight * scale);
-                graphics.pose().pushMatrix();
-                graphics.pose().translate(x + 14, y + (h - textH) / 2.0F + 0.5F);
-                graphics.pose().scale(scale, scale);
-                graphics.text(font, label, 0, 0, 0xFF2B1A04, false);
-                graphics.pose().popMatrix();
-                if (lit && w > textW + 40) {
-                    drawChevron(graphics, x + w - 20, y + (h - 9) / 2, 0xFF2B1A04);
-                }
-                return;
-            }
-
-            graphics.fill(x, y, x + w, y + h, lit ? PANEL_HOVER : PANEL);
-            int textX = x + 12;
-            if (lit) {
-                graphics.fill(x, y, x + 3, y + h, GOLD_LIGHT);
-                graphics.outline(x, y, w, h, 0x80E8B44A);
-                textX += 3;
-                if (w > font.width(label) + 44) {
-                    drawChevron(graphics, x + w - 18, y + (h - 9) / 2, GOLD_LIGHT);
-                }
-            } else {
-                graphics.fill(x, y, x + 2, y + h, 0x80E8B44A);
-            }
-            int color = !this.active ? 0xFF706860 : (lit ? GOLD_LIGHT : TEXT);
-            graphics.text(font, label, textX, y + (h - font.lineHeight) / 2 + 1, color, true);
+    /** Small launcher shortcut in the bottom-right corner. */
+    private static final class LauncherButton extends Button {
+        LauncherButton(int x, int y, int w, int h, Button.OnPress onPress) {
+            super(x, y, w, h, Component.literal("LAUNCHER"), onPress, DEFAULT_NARRATION);
         }
 
-        /** A small right-pointing chevron, 5 wide and 9 tall. */
-        private static void drawChevron(GuiGraphicsExtractor graphics, int x, int y, int color) {
-            for (int k = 0; k < 5; k++) {
-                graphics.fill(x + k, y + k, x + k + 2, y + k + 1, color);
-                graphics.fill(x + k, y + 8 - k, x + k + 2, y + 9 - k, color);
-            }
+        @Override
+        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            Font font = Minecraft.getInstance().font;
+            boolean lit = this.isHoveredOrFocused();
+            int x = this.getX();
+            int y = this.getY();
+            int w = this.getWidth();
+            int h = this.getHeight();
+            graphics.fill(x, y, x + w, y + h, lit ? VBVTheme.panel(0xF0) : VBVTheme.panel(0xC0));
+            graphics.outline(x, y, w, h, lit ? VBVTheme.accentLight() : VBVTheme.accentAlpha(0xA0));
+            VBVUi.gridIcon(graphics, x + 9, y + (h - 11) / 2, lit ? VBVTheme.accentLight() : VBVTheme.accent());
+            graphics.text(font, "LAUNCHER", x + 26, y + (h - font.lineHeight) / 2 + 1,
+                lit ? VBVTheme.accentLight() : TEXT, true);
         }
     }
 }

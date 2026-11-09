@@ -112,7 +112,14 @@ public final class VBVConfigStore {
             integer("crosshair.color", 0xFFFFFFFF, Integer.MIN_VALUE, Integer.MAX_VALUE), crosshairPattern);
 
         VBVFirstPersonAnimations.setEnabled(bool("firstPerson.enabled", true));
+        VBVFirstPersonAnimations.setOffsets(
+            integer("firstPerson.x", VBVFirstPersonAnimations.DEFAULT_X, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),
+            integer("firstPerson.y", VBVFirstPersonAnimations.DEFAULT_Y, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),
+            integer("firstPerson.z", VBVFirstPersonAnimations.DEFAULT_Z, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX));
         VBVShulkerViewer.enabled = bool("shulker.enabled", true);
+        VBVAppleSkin.setFoodPreview(bool("appleskin.preview", true));
+        VBVTheme.load(integer("theme.preset", 0, 0, VBVTheme.CUSTOM_INDEX),
+            integer("theme.custom", 0xA66BFF, 0, 0xFFFFFF));
 
         VBVExtraFeatures.loadSettings(
             bool("gamma.enabled", true), decimal("gamma.strength", 4.0D, 1.0D, 8.0D),
@@ -166,7 +173,13 @@ public final class VBVConfigStore {
         write("crosshair.pattern", pattern.toString());
 
         write("firstPerson.enabled", VBVFirstPersonAnimations.isEnabled());
+        write("firstPerson.x", VBVFirstPersonAnimations.getOffsetX());
+        write("firstPerson.y", VBVFirstPersonAnimations.getOffsetY());
+        write("firstPerson.z", VBVFirstPersonAnimations.getOffsetZ());
         write("shulker.enabled", VBVShulkerViewer.enabled);
+        write("appleskin.preview", VBVAppleSkin.isFoodPreview());
+        write("theme.preset", VBVTheme.getPreset());
+        write("theme.custom", VBVTheme.getCustomRgb());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());

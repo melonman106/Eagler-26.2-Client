@@ -1,4 +1,6 @@
 package com.melonman106.vbvclient;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Supplier;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -8,12 +10,14 @@ import net.minecraft.network.chat.Component;
 public final class VBVFeatureConfigScreen extends Screen {
     private final Screen parent;
     private final String modId;
-    private int nextY = 42;
+    private record Entry(Supplier<String> text, Runnable action, boolean save) {}
+    private final List<Entry> entries = new ArrayList<>();
     public VBVFeatureConfigScreen(Screen parent, String modId, String title) {
         super(Component.literal(title + " Config")); this.parent = parent; this.modId = modId;
     }
     @Override protected void init() {
         super.init();
+        entries.clear();
         if ("gamma-utils".equals(modId)) {
             option(() -> "Gamma feature: " + onOff(VBVExtraFeatures.isGammaFeatureEnabled()), VBVExtraFeatures::toggleGammaFeature);
             option(() -> "Brightness strength: " + (int) VBVExtraFeatures.gammaLevel(), VBVExtraFeatures::cycleGammaLevel);
@@ -40,24 +44,19 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Frame: " + onOff(VBVMiniMap.showFrame), () -> VBVMiniMap.showFrame = !VBVMiniMap.showFrame);
             option(() -> "Player marker: " + onOff(VBVMiniMap.showPlayerMarker), () -> VBVMiniMap.showPlayerMarker = !VBVMiniMap.showPlayerMarker);
             option(() -> "North indicator: " + onOff(VBVMiniMap.showNorth), () -> VBVMiniMap.showNorth = !VBVMiniMap.showNorth);
-            addRenderableWidget(Button.builder(Component.literal("Edit minimap position"),
-                button -> VBVNav.open(new VBVHudEditorScreen(this)))
-                .bounds(width / 2 - 130, nextY, 260, 22).build());
-            nextY += 27;
+            link("Edit minimap position", () -> VBVNav.open(new VBVHudEditorScreen(this)));
         } else if ("jade".equals(modId)) {
             option(() -> "Jade overlay: " + onOff(VBVJadeHud.enabled), () -> VBVJadeHud.enabled = !VBVJadeHud.enabled);
             option(() -> "Show coordinates: " + onOff(VBVJadeHud.showCoordinates), () -> VBVJadeHud.showCoordinates = !VBVJadeHud.showCoordinates);
             option(() -> "Entity health: " + onOff(VBVJadeHud.showEntityHealth), () -> VBVJadeHud.showEntityHealth = !VBVJadeHud.showEntityHealth);
             option(() -> "Block hardness: " + onOff(VBVJadeHud.showBlockHardness), () -> VBVJadeHud.showBlockHardness = !VBVJadeHud.showBlockHardness);
             option(() -> "Target name: " + onOff(VBVJadeHud.showTargetName), () -> VBVJadeHud.showTargetName = !VBVJadeHud.showTargetName);
-            addRenderableWidget(Button.builder(Component.literal("Edit Jade position"),
-                button -> VBVNav.open(new VBVHudEditorScreen(this, true)))
-                .bounds(width / 2 - 130, nextY, 260, 22).build());
-            nextY += 27;
+            link("Edit Jade position", () -> VBVNav.open(new VBVHudEditorScreen(this, true)));
         } else if ("shulkerboxtooltip".equals(modId)) {
             option(() -> "Shulker preview: " + onOff(VBVShulkerViewer.enabled), VBVShulkerViewer::toggle);
         } else if ("appleskin".equals(modId)) {
             option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
+            option(() -> "Held food preview: " + onOff(VBVAppleSkin.isFoodPreview()), VBVAppleSkin::toggleFoodPreview);
             option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
             option(() -> "Food level text: " + onOff(VBVAppleSkin.isShowFoodText()), VBVAppleSkin::toggleFoodText);
             option(() -> "Saturation text: " + onOff(VBVAppleSkin.isShowSaturationText()), VBVAppleSkin::toggleSaturationText);
@@ -72,19 +71,49 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Bloom strength: " + ShineConfig.bloomStrength(), ShineConfig::cycleBloomStrength);
             option(() -> "Rim strength: " + ShineConfig.rimStrength(), ShineConfig::cycleRimStrength);
         }
+        layoutEntries();
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());
     }
     private void option(Supplier<String> text, Runnable action) {
-        addRenderableWidget(Button.builder(Component.literal(text.get()), button -> { action.run(); VBVConfigStore.saveAll(); button.setMessage(Component.literal(text.get())); }).bounds(width / 2 - 130, nextY, 260, 22).build());
-        nextY += 27;
+        entries.add(new Entry(text, action, true));
+    }
+    private void link(String label, Runnable action) {
+        entries.add(new Entry(() -> label, action, false));
+    }
+    /** Lays the options out to fit the current GUI height, switching to two columns when needed. */
+    private void layoutEntries() {
+        int n = entries.size();
+        if (n == 0) return;
+        int top = 36;
+        int avail = Math.max(24, height - 56 - top);
+        boolean twoColumns = n * 27 > avail && width >= 330 && n > 1;
+        int perColumn = twoColumns ? (n + 1) / 2 : n;
+        int rowH = Math.max(22, Math.min(27, avail / perColumn));
+        int buttonH = Math.min(22, rowH - 3);
+        int colW = twoColumns ? Math.min(250, (width - 30) / 2) : 260;
+        int totalW = twoColumns ? colW * 2 + 10 : colW;
+        int left = width / 2 - totalW / 2;
+        for (int i = 0; i < n; i++) {
+            Entry entry = entries.get(i);
+            int col = twoColumns ? i / perColumn : 0;
+            int row = twoColumns ? i % perColumn : i;
+            int x = left + col * (colW + 10);
+            int y = top + row * rowH;
+            addRenderableWidget(Button.builder(Component.literal(entry.text().get()), button -> {
+                entry.action().run();
+                if (entry.save()) VBVConfigStore.saveAll();
+                button.setMessage(Component.literal(entry.text().get()));
+            }).bounds(x, y, colW, buttonH).build());
+        }
     }
     private static String onOff(boolean value) { return value ? "ON" : "OFF"; }
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xFF151515);
         String heading = title.getString();
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 12, 0xFFFFFFFF, true);
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 12, VBVTheme.accentLight(), true);
+        graphics.fill(width / 2 - 20, 24, width / 2 + 20, 25, VBVTheme.accent());
         String note = "Changes apply immediately; keybinds shown are fixed in this build.";
-        graphics.text(font, note, width / 2 - font.width(note) / 2, height - 48, 0xFFAAAAAA, true);
+        if (height >= 200) graphics.text(font, note, width / 2 - font.width(note) / 2, height - 44, 0xFFAAAAAA, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }

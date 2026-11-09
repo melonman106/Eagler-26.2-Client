@@ -26,10 +26,11 @@ if "public static void apply(" not in adapter_text:
 text = renderer.read_text(encoding="utf-8")
 marker = "VBV_FIRST_PERSON_HELD_ARM"
 hook = """poseStack.pushPose();
-         // VBV_FIRST_PERSON_ITEM_OFFSET: move the hand/item pair slightly forward.
+         // VBV_FIRST_PERSON_ITEM_OFFSET: nudge the hand/item pair up and toward the camera
+         // (user-tunable in the First-Person Animations config; positive Z = closer to the camera).
          if (com.melonman106.vbvclient.VBVFirstPersonAnimations.isEnabled() && !itemStack.isEmpty() && !itemStack.has(DataComponents.MAP_ID)) {
             float vbvHandSide = arm == HumanoidArm.RIGHT ? 1.0F : -1.0F;
-            poseStack.translate(vbvHandSide * 0.015F, 0.01F, -0.12F);
+            poseStack.translate(vbvHandSide * com.melonman106.vbvclient.VBVFirstPersonAnimations.blocksX(), com.melonman106.vbvclient.VBVFirstPersonAnimations.blocksY(), com.melonman106.vbvclient.VBVFirstPersonAnimations.blocksZ());
             // Actually 3D Stuff's Hold My Items Lua pose layer, ported to native Java.
             com.melonman106.vbvclient.Actually3DStuffCompat.apply(
                poseStack, itemStack, player, hand == InteractionHand.MAIN_HAND, frameInterp
