@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the Dungeons II-inspired title screen and title-screen-only animated panorama overlay."""
 from pathlib import Path
-import re, shutil, subprocess, sys
+import os, re, shutil, subprocess, sys
 ROOT=Path(sys.argv[1]).resolve(); CLIENT=Path(__file__).resolve().parent.parent
 GAME=ROOT/"game/src/main/java"; RES=ROOT/"game/src/main/resources"
 
@@ -61,11 +61,18 @@ def configure_panorama_overlay():
     if animated:
         ffmpeg=shutil.which("ffmpeg")
         if not ffmpeg: raise RuntimeError("panorama_overlay.gif/mp4 is present but FFmpeg is unavailable")
-        subprocess.run([ffmpeg,"-y","-hide_banner","-loglevel","error","-i",str(animated),"-vf","fps=12,scale=w='min(1280,iw)':h='min(720,ih)':force_original_aspect_ratio=decrease","-vsync","0","-pix_fmt","rgba",str(frame_dir/"frame_%04d.png")],check=True)
+        # Menu backdrop frames: 8-bit palette PNGs at a modest size. Full-size RGBA frames
+        # made a 13 MB video grow to ~230 MB of PNGs (and ~700 MB of GPU textures).
+        # The browser decodes palette PNGs natively, so they load like any other texture.
+        # Override with VBV_PANORAMA_FPS / VBV_PANORAMA_WIDTH if you want to trade size for quality.
+        fps=max(1,min(30,int(os.environ.get("VBV_PANORAMA_FPS","10")))); max_w=max(160,int(os.environ.get("VBV_PANORAMA_WIDTH","854")))
+        vf=(f"fps={fps},scale=w='min({max_w},iw)':h=-2:flags=lanczos,split[a][b];"
+            "[a]palettegen=stats_mode=single[p];[b][p]paletteuse=new=1:dither=bayer:bayer_scale=4")
+        subprocess.run([ffmpeg,"-y","-hide_banner","-loglevel","error","-i",str(animated),"-an","-vf",vf,"-vsync","0","-compression_level","9",str(frame_dir/"frame_%04d.png")],check=True)
         frames=sorted(frame_dir.glob("frame_*.png")); java_files=list(GAME.rglob("VBVPanoramaOverlay.java"))
         if not frames or not java_files: raise RuntimeError("Panorama animation produced no frames")
         java=java_files[0]; source=java.read_text(encoding="utf-8"); entries=",\n        ".join(f'Identifier.parse("vbvclient:textures/panorama_overlay/{p.name}")' for p in frames)
-        source=re.sub(r"private static final Identifier\[\] FRAMES = new Identifier\[\] \{.*?\};","private static final Identifier[] FRAMES = new Identifier[] {\n        "+entries+"\n    };",source,count=1,flags=re.S); java.write_text(source,encoding="utf-8")
+        source=re.sub(r"private static final Identifier\[\] FRAMES = new Identifier\[\] \{.*?\};","private static final Identifier[] FRAMES = new Identifier[] {\n        "+entries+"\n    };",source,count=1,flags=re.S); source=re.sub(r"FRAME_MS = \d+L",f"FRAME_MS = {round(1000/fps)}L",source,count=1); java.write_text(source,encoding="utf-8")
     elif png.is_file():
         shutil.copy2(png,frame_dir/"frame_0001.png")
         java_files=list(GAME.rglob("VBVPanoramaOverlay.java"))
@@ -75,18 +82,22 @@ def configure_panorama_overlay():
     else:
         return
 
-    # The animation belongs only to the custom title screen. Never hook base Screen:
-    # that class is shared by inventory, chat, HUD editor, pause, crafting and furnace menus.
-
-    # TitleScreen has its own panorama pass after the base Screen pass, so it
-    # needs the VBV layer after extractPanorama to keep the custom scene visible.
+    # Hook Screen.extractPanorama(): the one method every menu-with-a-panorama goes through
+    # (TitleScreen, options, world/server lists, generic message screens, loading screens).
+    # Screen.extractBackground only calls it while no level is loaded, so inventory, chat,
+    # pause and other in-world screens are unaffected.
+    screen_files=[p for p in GAME.rglob("Screen.java") if p.as_posix().endswith("/net/minecraft/client/gui/screens/Screen.java")]
+    if not screen_files: raise RuntimeError("Screen.java not found for panorama overlay hook")
+    screen=screen_files[0]; ss=screen.read_text(encoding="utf-8"); marker="VBV_PANORAMA_OVERLAY_RENDER"
+    if marker not in ss:
+        anchor="this.minecraft.gameRenderer.panorama().extractRenderState(graphics, this.width, this.height);"
+        if ss.count(anchor)!=1: raise RuntimeError("Could not uniquely locate Screen.extractPanorama panorama render call")
+        hook=anchor+f"\n      // {marker}\n      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);"
+        screen.write_text(ss.replace(anchor,hook,1),encoding="utf-8")
+    # An older build hooked TitleScreen directly; drop it so the overlay is never drawn twice.
     if title is not None:
-        ts=title.read_text(encoding="utf-8"); marker="VBV_PANORAMA_OVERLAY_RENDER"
-        if marker not in ts:
-            anchor="this.extractPanorama(graphics, a);"
-            if ts.count(anchor)!=1: raise RuntimeError("Could not locate title panorama render call")
-            hook=anchor+f"\n      // {marker}\n      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);"
-            title.write_text(ts.replace(anchor,hook,1),encoding="utf-8")
+        ts=title.read_text(encoding="utf-8"); old_hook="\n      // VBV_PANORAMA_OVERLAY_RENDER\n      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);"
+        if old_hook in ts: title.write_text(ts.replace(old_hook,"",1),encoding="utf-8")
 
 def _matching_brace(text, brace):
     depth=0; i=brace; quote=None; escaped=False
