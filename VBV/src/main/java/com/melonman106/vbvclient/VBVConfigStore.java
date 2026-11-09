@@ -117,6 +117,7 @@ public final class VBVConfigStore {
             integer("firstPerson.y", VBVFirstPersonAnimations.DEFAULT_Y, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),
             integer("firstPerson.z", VBVFirstPersonAnimations.DEFAULT_Z, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX));
         VBVShulkerViewer.enabled = bool("shulker.enabled", true);
+        VBVAppleSkin.setFoodPreview(bool("appleskin.preview", true));
         VBVTheme.load(integer("theme.preset", 0, 0, VBVTheme.CUSTOM_INDEX),
             integer("theme.custom", 0xA66BFF, 0, 0xFFFFFF));
 
@@ -176,6 +177,7 @@ public final class VBVConfigStore {
         write("firstPerson.y", VBVFirstPersonAnimations.getOffsetY());
         write("firstPerson.z", VBVFirstPersonAnimations.getOffsetZ());
         write("shulker.enabled", VBVShulkerViewer.enabled);
+        write("appleskin.preview", VBVAppleSkin.isFoodPreview());
         write("theme.preset", VBVTheme.getPreset());
         write("theme.custom", VBVTheme.getCustomRgb());
 
