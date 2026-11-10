@@ -32,6 +32,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_first_person_arms.py",
     "patch_pack_installer_hook.py",
     "patch_screen_resize_guard.py",
+    "patch_lod_hooks.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -62,6 +63,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(first_person_arms)",
     "subprocess.run([sys.executable, str(pack_installer_hook)",
     "subprocess.run([sys.executable, str(screen_resize_guard)",
+    "subprocess.run([sys.executable, str(lod_hooks)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -288,6 +290,12 @@ if pack_installer_hook.is_file():
 screen_resize_guard = PATCH_DIR / "patch_screen_resize_guard.py"
 if screen_resize_guard.is_file():
     subprocess.run([sys.executable, str(screen_resize_guard), *sys.argv[1:]], check=True)
+
+# Level of Detail: Options > Modded Settings button, far-terrain draw call, fog/far-plane
+# adjustments and chunk capture. Inert while the LOD setting is Off.
+lod_hooks = PATCH_DIR / "patch_lod_hooks.py"
+if lod_hooks.is_file():
+    subprocess.run([sys.executable, str(lod_hooks), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.
