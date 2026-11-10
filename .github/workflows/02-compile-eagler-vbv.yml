@@ -102,7 +102,32 @@ jobs:
           fi
           grep -qi 'qrafty' "$pack_registry" || { echo "::error::Qrafty font pack was not registered"; exit 1; }
           echo "Verified $actual_pack_count embedded resource packs, including the custom font pack."
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java; do
+          python3 - <<'PYFONT'
+          import glob, json, sys
+          path = "eaglercraft-u2/game/src/main/resources/assets/minecraft/font/default.json"
+          have_enchant = bool(glob.glob("ModsPack/enchant-icons*.zip"))
+          try:
+              providers = json.load(open(path, encoding="utf-8"))["providers"]
+          except (OSError, ValueError, KeyError) as exc:
+              if have_enchant:
+                  sys.exit(f"::error::Merged font definition {path} is missing or unreadable: {exc}")
+              sys.exit(0)
+          glyphs = {c for p in providers if p.get("type") == "bitmap" for row in p.get("chars", []) for c in row}
+          if have_enchant and "" not in glyphs:
+              sys.exit("::error::Enchant Icons glyph U+EFE1 is not in the merged font definition")
+          print(f"Verified merged font definition: {len(providers)} providers, {len(glyphs)} custom glyphs.")
+          PYFONT
+          python3 - <<'PYKEYS'
+          import pathlib, sys
+          path = pathlib.Path("eaglercraft-u2/game/src/main/java/net/minecraft/client/KeyboardHandler.java")
+          text = path.read_text(encoding="utf-8") if path.is_file() else ""
+          if "VBVWorldMapScreen(screen)" not in text:
+              sys.exit("::error::The M (World Map) hotkey was not installed in KeyboardHandler")
+          if "&& screen == null) {\n            if (event.key() == 86)" not in text:
+              sys.exit("::error::The V/M hotkeys are not limited to the plain game view; M would open the map from menus")
+          print("Verified V/M hotkeys only open when no menu is showing.")
+          PYKEYS
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVMapPainter.java VBVWorldMapScreen.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }

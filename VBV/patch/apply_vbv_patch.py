@@ -33,6 +33,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_pack_installer_hook.py",
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
+    "pack_font_merge.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -183,24 +184,55 @@ if old_map_icon in upstream:
     upstream = upstream.replace(old_map_icon, new_map_icon, 1)
 elif new_map_icon not in upstream:
     raise SystemExit("::error::Could not locate the native map icon mapping in the pinned upstream patch")
-# Keep the custom bitmap font atlases (Qrafty replaces ascii/accented/nonlatin
-# textures), but do not let resource packs replace the native font provider
-# definitions. Eagler 26.2 supports the vanilla bitmap-provider JSON layout;
-# arbitrary pack definitions can fail to load and turn every glyph into tofu.
+# Keep the custom bitmap font atlases (Qrafty replaces ascii/accented/nonlatin textures) and
+# MERGE pack font definitions (Enchant Icons, Boss Bar) into the native ones. Copying a pack's
+# font JSON over the native file deleted every native provider and turned all text into tofu;
+# skipping it instead meant the packs' custom characters never rendered. pack_font_merge.py
+# keeps the native providers, puts the pack's validated glyph providers in front of them, and
+# drops anything Eagler's font loader cannot handle.
 font_branch = """            elif relative.startswith("assets/"):
                 target = RESOURCE_ROOT / relative"""
 font_branch_fixed = """            elif relative.startswith("assets/"):
                 if (
-                    relative.startswith("assets/minecraft/font/")
+                    relative.split("/")[2:3] == ["font"]
                     and relative.lower().endswith(".json")
                 ):
-                    print("[VBV font compatibility] kept native font definition; skipped pack JSON:", mod_id, relative)
+                    try:
+                        vbv_font_bytes = zf.read(raw_name)
+                    except KeyError:
+                        continue
+                    vbv_pack_names = {n.lstrip("/") for n in names}
+                    print(vbv_merge_font_definition(
+                        vbv_font_bytes,
+                        RESOURCE_ROOT / relative,
+                        mod_id + " " + relative,
+                        lambda ns, path: (root + "assets/" + ns + "/" + path) in vbv_pack_names
+                        or (RESOURCE_ROOT / "assets" / ns / path).is_file(),
+                    ))
                     continue
                 target = RESOURCE_ROOT / relative"""
 if upstream.count(font_branch.encode("utf-8")) != 1:
     raise SystemExit("::error::Expected resource-pack asset extraction branch was not found exactly once")
 upstream = upstream.replace(font_branch.encode("utf-8"), font_branch_fixed.encode("utf-8"), 1)
-print("[VBV font compatibility] custom font texture atlases are enabled; native font mappings are protected.")
+
+font_helper = (PATCH_DIR / "pack_font_merge.py").read_text(encoding="utf-8")
+extract_def = b"def extract_resource_pack(zippath, mod_id):\n"
+if upstream.count(extract_def) != 1:
+    raise SystemExit("::error::Expected extract_resource_pack definition was not found exactly once")
+upstream = upstream.replace(extract_def, (font_helper + "\n\n").encode("utf-8") + extract_def, 1)
+print("[VBV font compatibility] pack font definitions are merged into the native ones; custom glyphs are enabled.")
+
+# The V (Mods) and M (World Map) hotkeys fired in every screen unless a text box had focus, so M
+# opened the map from the inventory, the creative menu, a book or a sign. Only open them from the
+# plain game view.
+hotkey_old = b"""&& (screen == null || !(screen.getFocused() instanceof EditBox))) {
+            if (event.key() == 86) {"""
+hotkey_new = b"""&& screen == null) {
+            if (event.key() == 86) {"""
+if upstream.count(hotkey_old) != 1:
+    raise SystemExit("::error::Expected V/M hotkey dispatch was not found exactly once")
+upstream = upstream.replace(hotkey_old, hotkey_new, 1)
+print("[VBV hotkeys] V (Mods) and M (World Map) now only open when no menu is showing.")
 upstream_path = CLIENT_SIDE / "patch/.upstream_apply_vbv_patch.py"
 upstream_path.write_bytes(upstream)
 try:

@@ -43,8 +43,24 @@ public final class VBVWorldMap {
     private static boolean worldMapDirty;
     private static int worldMapSaveTicks;
     private static boolean storageWriteFailed;
+    /** Bumped whenever the explored set or terrain changes, so the map screen knows to repaint. */
+    private static int dataVersion;
+    /** Serialized "T:" lines per chunk. Terrain never changes once captured, so each is built once. */
+    private static final Map<String, Map<Long, SerializedChunk>> SERIALIZED = new HashMap<>();
+
+    private static final class SerializedChunk {
+        final int[] colors;
+        final String line;
+
+        SerializedChunk(int[] colors, String line) {
+            this.colors = colors;
+            this.line = line;
+        }
+    }
 
     private VBVWorldMap() {}
+
+    public static int dataVersion() { return dataVersion; }
 
     private static final int TERRAIN_SIDE = 16;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
@@ -89,7 +105,10 @@ public final class VBVWorldMap {
             lastChunk = key;
             lastWorld = world;
             // Only the chunk the player actually enters is marked explored.
-            if (exploredSet(world, true).add(key)) worldMapDirty = true;
+            if (exploredSet(world, true).add(key)) {
+                worldMapDirty = true;
+                dataVersion++;
+            }
         }
         // Retry the player's current chunk until its terrain data is actually
         // available. A one-time failed capture must not leave the map blank forever.
@@ -100,7 +119,7 @@ public final class VBVWorldMap {
         // The minimap HUD has been removed. Keep the full explored-world map
         // player-driven only; do not run the old nearby minimap scan.
         VBVMiniMap.enabled = false;
-        if (worldMapDirty && ++worldMapSaveTicks >= 100) {
+        if (worldMapDirty && ++worldMapSaveTicks >= 200) {
             saveWorld(world);
             worldMapDirty = storageWriteFailed;
             worldMapSaveTicks = 0;
@@ -186,8 +205,11 @@ public final class VBVWorldMap {
             }
         }
         terrain.put(key, colors);
-        // Persist terrain only for chunks the player has actually explored.
-        if (exploredSet(world, false).contains(key)) saveWorld(world);
+        dataVersion++;
+        // Persist terrain only for chunks the player has actually explored. Saving rewrites the
+        // whole world, so it is batched by the periodic save in tick() rather than done per chunk,
+        // which used to cause a stutter every time a new chunk was entered.
+        if (exploredSet(world, false).contains(key)) worldMapDirty = true;
     }
 
     public static int terrainSide() { return TERRAIN_SIDE; }
@@ -244,6 +266,8 @@ public final class VBVWorldMap {
                 EXPLORED.remove(world);
                 TERRAIN.remove(world);
                 WAYPOINTS.remove(world);
+                SERIALIZED.remove(world);
+                dataVersion++;
                 lastChunk = Long.MIN_VALUE;
                 lastWorld = "";
             }
@@ -295,6 +319,7 @@ public final class VBVWorldMap {
         } catch (Exception exception) {
             System.err.println("[VBV World Map] Could not restore saved map data: " + exception.getMessage());
         }
+        dataVersion++;
     }
 
     private static void saveWorld(String world) {
@@ -323,19 +348,25 @@ public final class VBVWorldMap {
         StringBuilder output = new StringBuilder();
         Set<Long> explored = exploredSet(world, false);
         Map<Long, int[]> terrain = TERRAIN.getOrDefault(world, Collections.emptyMap());
+        Map<Long, SerializedChunk> cache = SERIALIZED.computeIfAbsent(world, ignored -> new HashMap<>());
         for (long chunk : explored) {
             output.append("E:").append(chunk).append('\n');
             int[] colors = terrain.get(chunk);
             if (colors != null && colors.length == TERRAIN_SAMPLES) {
-                ByteBuffer buffer = ByteBuffer.allocate(colors.length * Short.BYTES);
-                for (int color : colors) {
-                    int r = (color >> 19) & 31;
-                    int g = (color >> 10) & 63;
-                    int b = (color >> 3) & 31;
-                    buffer.putShort((short)((r << 11) | (g << 5) | b));
+                SerializedChunk cached = cache.get(chunk);
+                if (cached == null || cached.colors != colors) {
+                    ByteBuffer buffer = ByteBuffer.allocate(colors.length * Short.BYTES);
+                    for (int color : colors) {
+                        int r = (color >> 19) & 31;
+                        int g = (color >> 10) & 63;
+                        int b = (color >> 3) & 31;
+                        buffer.putShort((short)((r << 11) | (g << 5) | b));
+                    }
+                    cached = new SerializedChunk(colors, "T:" + chunk + ':'
+                        + Base64.getEncoder().encodeToString(buffer.array()) + '\n');
+                    cache.put(chunk, cached);
                 }
-                output.append("T:").append(chunk).append(':')
-                    .append(Base64.getEncoder().encodeToString(buffer.array())).append('\n');
+                output.append(cached.line);
             }
         }
         for (VBVWaypoint waypoint : WAYPOINTS.getOrDefault(world, Collections.emptyMap()).values()) {
