@@ -74,6 +74,7 @@ public final class VBVClient {
             VBVAppleSkin.render(graphics);
             VBVJadeHud.render(graphics);
             VBVCrosshair.render(graphics);
+            VBVPerf.render(graphics);
         });
 
         // The explored map records the local player's current chunk at end tick.
