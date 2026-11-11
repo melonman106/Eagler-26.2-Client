@@ -17,6 +17,8 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private final Screen parent;
     private Button lodButton;
+    private Button cullingButton;
+    private Button meterButton;
     private int lodDescY;
 
     public VBVModdedSettingsScreen(Screen parent) {
@@ -47,17 +49,44 @@ public final class VBVModdedSettingsScreen extends Screen {
         int descLines = tight ? 3 : 5;
         y += descLines * (font.lineHeight + 1) + 6;
 
+        // Two-column grid: links on the first rows, then the performance tools.
         int half = (rowW - 4) / 2;
+        int right = left + half + 4;
         addRenderableWidget(Button.builder(Component.literal("Mod Settings..."),
             button -> VBVNav.open(new VBVModsScreen(this))).bounds(left, y, half, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Hand Position..."),
-            button -> VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this))).bounds(left + half + 4, y, half, 20).build());
+            button -> VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this))).bounds(right, y, half, 20).build());
         y += 20 + gap;
         addRenderableWidget(Button.builder(Component.literal("Menu Colour..."),
-            button -> VBVNav.open(new VBVLauncherScreen(this, VBVLauncherScreen.Tab.APPEARANCE))).bounds(left, y, rowW, 20).build());
+            button -> VBVNav.open(new VBVLauncherScreen(this, VBVLauncherScreen.Tab.APPEARANCE))).bounds(left, y, half, 20).build());
+        cullingButton = Button.builder(cullingLabel(), button -> {
+            VBVEntityCulling.toggle();
+            VBVConfigStore.saveAll();
+            button.setMessage(cullingLabel());
+        }).bounds(right, y, half, 20).build();
+        addRenderableWidget(cullingButton);
+        y += 20 + gap;
+        meterButton = Button.builder(meterLabel(), button -> {
+            VBVPerf.toggleMeter();
+            VBVConfigStore.saveAll();
+            button.setMessage(meterLabel());
+        }).bounds(left, y, half, 20).build();
+        addRenderableWidget(meterButton);
+        addRenderableWidget(Button.builder(Component.literal("Copy Perf Report"), button -> {
+            VBVPerf.copyReport();
+            button.setMessage(Component.literal("Copied!"));
+        }).bounds(right, y, half, 20).build());
 
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
             .bounds(cx - 100, height - 27, 200, 20).build());
+    }
+
+    private static Component cullingLabel() {
+        return Component.literal("Entity Culling: " + (VBVEntityCulling.isEnabled() ? "ON" : "OFF"));
+    }
+
+    private static Component meterLabel() {
+        return Component.literal("FPS Meter: " + (VBVPerf.isMeter() ? "ON" : "OFF"));
     }
 
     private static Component lodLabel() {

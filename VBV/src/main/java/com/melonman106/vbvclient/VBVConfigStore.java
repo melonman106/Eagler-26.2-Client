@@ -121,6 +121,8 @@ public final class VBVConfigStore {
         VBVTheme.load(integer("theme.preset", 0, 0, VBVTheme.CUSTOM_INDEX),
             integer("theme.custom", 0xA66BFF, 0, 0xFFFFFF));
         VBVLod.load(integer("lod.level", VBVLod.OFF, VBVLod.OFF, VBVLod.FULL));
+        VBVEntityCulling.setEnabled(bool("entityCulling.enabled", true));
+        VBVPerf.setMeter(bool("perf.meter", false));
 
         VBVExtraFeatures.loadSettings(
             bool("gamma.enabled", true), decimal("gamma.strength", 4.0D, 1.0D, 8.0D),
@@ -182,6 +184,8 @@ public final class VBVConfigStore {
         write("theme.preset", VBVTheme.getPreset());
         write("theme.custom", VBVTheme.getCustomRgb());
         write("lod.level", VBVLod.getLevel());
+        write("entityCulling.enabled", VBVEntityCulling.isEnabled());
+        write("perf.meter", VBVPerf.isMeter());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());

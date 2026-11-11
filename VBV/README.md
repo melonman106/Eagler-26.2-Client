@@ -63,6 +63,8 @@ The client project preserves normal 26.2 textures rather than replacing them wit
 - Server profiles can be listed, applied and deleted. Their saved render-distance setting is applied when the matching server is joined; the profile editor supports up to 128 chunks.
 - The U2 render-distance option ceiling is raised to 128. Actual server view distance and browser/GPU memory limits can still impose a lower effective distance.
 - Shine now attempts its bundled screen-space bloom post-chain on the supported renderer. It disables itself after a renderer error; other lighting controls remain experimental.
+- Options > Modded Settings > **Entity Culling** skips drawing entities and block entities (chests, signs, banners...) that are fully hidden behind solid blocks. Entities closer than 10 blocks or farther than 96 blocks, beacon beams and end portals are never culled, results are cached for 6 frames, and the ray work is capped per frame. If the culler ever throws it switches itself off for the session.
+- **FPS Meter** (same screen) draws an FPS readout with a frame-time graph and a spike log on the HUD; **Copy Perf Report** copies average/1%-low FPS and the worst spikes to the clipboard, so lag can be reported with numbers.
 
 ## Actually 3D Stuff Eagler 26.2 U2 port
 
