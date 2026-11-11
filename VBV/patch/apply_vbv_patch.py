@@ -33,7 +33,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_pack_installer_hook.py",
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
-    "pack_font_merge.py",
+    "pack_json_merge.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -187,7 +187,7 @@ elif new_map_icon not in upstream:
 # Keep the custom bitmap font atlases (Qrafty replaces ascii/accented/nonlatin textures) and
 # MERGE pack font definitions (Enchant Icons, Boss Bar) into the native ones. Copying a pack's
 # font JSON over the native file deleted every native provider and turned all text into tofu;
-# skipping it instead meant the packs' custom characters never rendered. pack_font_merge.py
+# skipping it instead meant the packs' custom characters never rendered. pack_json_merge.py
 # keeps the native providers, puts the pack's validated glyph providers in front of them, and
 # drops anything Eagler's font loader cannot handle.
 font_branch = """            elif relative.startswith("assets/"):
@@ -210,12 +210,29 @@ font_branch_fixed = """            elif relative.startswith("assets/"):
                         or (RESOURCE_ROOT / "assets" / ns / path).is_file(),
                     ))
                     continue
+                if (
+                    relative.split("/")[2:3] == ["atlases"]
+                    and relative.lower().endswith(".json")
+                ):
+                    # Atlas definitions combine across packs. Copying one over the native file
+                    # (visual_armor_trims ships items.json with only its own sources) dropped the
+                    # `directory item/` source and made every item texture missing.
+                    try:
+                        vbv_atlas_bytes = zf.read(raw_name)
+                    except KeyError:
+                        continue
+                    print(vbv_merge_atlas_definition(
+                        vbv_atlas_bytes,
+                        RESOURCE_ROOT / relative,
+                        mod_id + " " + relative,
+                    ))
+                    continue
                 target = RESOURCE_ROOT / relative"""
 if upstream.count(font_branch.encode("utf-8")) != 1:
     raise SystemExit("::error::Expected resource-pack asset extraction branch was not found exactly once")
 upstream = upstream.replace(font_branch.encode("utf-8"), font_branch_fixed.encode("utf-8"), 1)
 
-font_helper = (PATCH_DIR / "pack_font_merge.py").read_text(encoding="utf-8")
+font_helper = (PATCH_DIR / "pack_json_merge.py").read_text(encoding="utf-8")
 extract_def = b"def extract_resource_pack(zippath, mod_id):\n"
 if upstream.count(extract_def) != 1:
     raise SystemExit("::error::Expected extract_resource_pack definition was not found exactly once")

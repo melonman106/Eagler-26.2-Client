@@ -117,6 +117,25 @@ jobs:
               sys.exit("::error::Enchant Icons glyph U+EFE1 is not in the merged font definition")
           print(f"Verified merged font definition: {len(providers)} providers, {len(glyphs)} custom glyphs.")
           PYFONT
+          python3 - <<'PYATLAS'
+          import json, pathlib, sys
+          res = pathlib.Path("eaglercraft-u2/game/src/main/resources/assets/minecraft/atlases")
+          for name in ("items.json", "blocks.json"):
+              path = res / name
+              if not path.is_file():
+                  sys.exit(f"::error::Native atlas {path} is missing")
+              try:
+                  sources = json.loads(path.read_text(encoding="utf-8"))["sources"]
+              except (ValueError, KeyError) as exc:
+                  sys.exit(f"::error::Atlas {path} is unreadable: {exc}")
+              directories = [s for s in sources if s.get("type", "").endswith("directory")]
+              if not directories:
+                  sys.exit(f"::error::Atlas {name} lost its directory sources; every texture in it would be missing")
+              print(f"Verified atlas {name}: {len(sources)} sources, {len(directories)} directory source(s).")
+          items = json.loads((res / "items.json").read_text(encoding="utf-8"))["sources"]
+          if not any(s.get("type", "").endswith("directory") and s.get("prefix") == "item/" for s in items):
+              sys.exit("::error::items.json no longer has the `item/` directory source; all item textures would be missing")
+          PYATLAS
           python3 - <<'PYKEYS'
           import pathlib, sys
           path = pathlib.Path("eaglercraft-u2/game/src/main/java/net/minecraft/client/KeyboardHandler.java")
