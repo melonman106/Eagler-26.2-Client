@@ -76,7 +76,7 @@ Use the matching `Actually-3D-Stuff-Eagler-26.2-U2.zip` resource pack with a bui
 
 ## Resource-pack compatibility
 
-Every ZIP under `ModsPack/` is imported automatically during the build, including the newer Creepers Revamped and Emissive End Portal packs. The sanitizer preserves normal textures, models, sounds and language files, and removes third-party shader/post-effect files that cannot run in the Eagler WebGL2 pipeline. A pack's `font/*.json` custom glyphs (Enchant Icons, the Boss Bar pack) are merged into the game's own font definition instead of replacing it, and any glyph entry Eagler cannot load is dropped on its own. Generated pack entries use the client release version `1.5.3`.
+Every ZIP under `ModsPack/` is imported automatically during the build, including the newer Creepers Revamped and Emissive End Portal packs. The sanitizer preserves normal textures, models, sounds and language files, and removes third-party shader/post-effect files that cannot run in the Eagler WebGL2 pipeline. A pack's `font/*.json` custom glyphs (Enchant Icons, the Boss Bar pack) and `atlases/*.json` sprite sources (visual_armor_trims) are merged into the game's own definitions instead of replacing them, and any entry Eagler cannot load is dropped on its own. Replacing the native atlas file is what made every item texture go missing. Generated pack entries use the client release version `1.5.3`.
 
 ## Online party service
 
