@@ -19,6 +19,7 @@ public final class VBVModdedSettingsScreen extends Screen {
     private Button lodButton;
     private Button cullingButton;
     private Button meterButton;
+    private Button cemButton;
     private int lodDescY;
 
     public VBVModdedSettingsScreen(Screen parent) {
@@ -76,6 +77,14 @@ public final class VBVModdedSettingsScreen extends Screen {
             VBVPerf.copyReport();
             button.setMessage(Component.literal("Copied!"));
         }).bounds(right, y, half, 20).build());
+        y += 20 + gap;
+        cemButton = Button.builder(cemLabel(), button -> {
+            VBVCem.toggle();
+            VBVConfigStore.saveAll();
+            // Entity models are baked during a resource reload, so the change shows after F3+T.
+            button.setMessage(Component.literal("Models " + (VBVCem.isEnabled() ? "ON" : "OFF") + " - press F3+T"));
+        }).bounds(left, y, half, 20).build();
+        addRenderableWidget(cemButton);
 
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
             .bounds(cx - 100, height - 27, 200, 20).build());
@@ -83,6 +92,10 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private static Component cullingLabel() {
         return Component.literal("Entity Culling: " + (VBVEntityCulling.isEnabled() ? "ON" : "OFF"));
+    }
+
+    private static Component cemLabel() {
+        return Component.literal("Custom Models: " + (VBVCem.isEnabled() ? "ON" : "OFF"));
     }
 
     private static Component meterLabel() {

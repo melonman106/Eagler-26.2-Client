@@ -34,6 +34,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
+    "patch_cem_hooks.py",
     "pack_json_merge.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
@@ -67,6 +68,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(screen_resize_guard)",
     "subprocess.run([sys.executable, str(lod_hooks)",
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
+    "subprocess.run([sys.executable, str(cem_hooks)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -353,6 +355,12 @@ if lod_hooks.is_file():
 entity_culling_hooks = PATCH_DIR / "patch_entity_culling_hooks.py"
 if entity_culling_hooks.is_file():
     subprocess.run([sys.executable, str(entity_culling_hooks), *sys.argv[1:]], check=True)
+
+# Custom entity models: resource-pack .jem/.jpm files (OptiFine format) replace parts of the
+# vanilla entity models. Three small hooks; inert when the setting is off.
+cem_hooks = PATCH_DIR / "patch_cem_hooks.py"
+if cem_hooks.is_file():
+    subprocess.run([sys.executable, str(cem_hooks), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.
