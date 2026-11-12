@@ -123,6 +123,7 @@ public final class VBVConfigStore {
         VBVLod.load(integer("lod.level", VBVLod.OFF, VBVLod.OFF, VBVLod.FULL));
         VBVEntityCulling.setEnabled(bool("entityCulling.enabled", true));
         VBVPerf.setMeter(bool("perf.meter", false));
+        VBVCem.setEnabled(bool("cem.enabled", true));
 
         VBVExtraFeatures.loadSettings(
             bool("gamma.enabled", true), decimal("gamma.strength", 4.0D, 1.0D, 8.0D),
@@ -186,6 +187,7 @@ public final class VBVConfigStore {
         write("lod.level", VBVLod.getLevel());
         write("entityCulling.enabled", VBVEntityCulling.isEnabled());
         write("perf.meter", VBVPerf.isMeter());
+        write("cem.enabled", VBVCem.isEnabled());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());
