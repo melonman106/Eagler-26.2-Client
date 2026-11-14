@@ -124,6 +124,7 @@ public final class VBVConfigStore {
         VBVEntityCulling.setEnabled(bool("entityCulling.enabled", true));
         VBVPerf.setMeter(bool("perf.meter", false));
         VBVCem.setEnabled(bool("cem.enabled", true));
+        VBVCem.setAnimationsEnabled(bool("cem.animations", true));
 
         VBVExtraFeatures.loadSettings(
             bool("gamma.enabled", true), decimal("gamma.strength", 4.0D, 1.0D, 8.0D),
@@ -188,6 +189,7 @@ public final class VBVConfigStore {
         write("entityCulling.enabled", VBVEntityCulling.isEnabled());
         write("perf.meter", VBVPerf.isMeter());
         write("cem.enabled", VBVCem.isEnabled());
+        write("cem.animations", VBVCem.isAnimationsEnabled());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());

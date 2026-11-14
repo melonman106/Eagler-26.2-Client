@@ -7,10 +7,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -27,23 +29,29 @@ import net.minecraft.util.GsonHelper;
 
 /**
  * OptiFine-style custom entity models: a resource pack can ship {@code optifine/cem/<entity>.jem}
- * (and {@code .jpm} part files) to replace parts of an entity's model.
+ * (and {@code .jpm} part files) to replace the model of an entity, including its animation formulas
+ * (this is what the "Fresh Animations" pack is made of).
  *
- * <p>Supported: boxes (size add, texture offset, per-face UVs, mirrorTexture u), submodels, translate,
- * rotate, invertAxis, {@code .jpm} references, {@code attach}, and the JEM {@code texture}/{@code textureSize}.
- * Not supported (ignored, the vanilla behaviour is kept): {@code animations}, per-part textures,
- * {@code .properties} variant rules (name/nbt/biome...), random entity textures and sprites.</p>
+ * <p>How a model is put together follows the OptiFine format as implemented by Entity Model
+ * Features (LGPL-3.0, https://github.com/Traben-0/Entity_Model_Features, used as a behavioural
+ * reference only): every top-level JEM part is attached as a child of the vanilla part it names; unless
+ * it says {@code attach} the vanilla boxes of that part are removed and the vanilla child parts the
+ * pack does not mention are hidden. Submodels become child parts. Custom UV boxes only draw the faces
+ * they give UVs for. After the vanilla model has posed itself, the pack's animation lines run and write into the
+ * parts ({@link VBVCemRig}).</p>
  *
- * <p>The hooks are {@code EntityModelSet.bakeLayer}, {@code EntityRenderDispatcher.onResourceManagerReload}
- * and {@code TextureManager.getTexture} (see patch_cem_hooks.py). Anything unexpected switches the
- * feature off for the rest of the session and the vanilla model is baked instead.</p>
+ * <p>Not supported (ignored, vanilla behaviour kept): {@code .properties} variant rules, random entity
+ * textures, per-part textures, armor / layer models (only each entity's main model), sprites, leash and
+ * shadow settings, and any animation input the game's entity state does not carry (it reads as 0).</p>
+ *
+ * <p>The hooks are {@code EntityModelSet.bakeLayer}, {@code EntityRenderDispatcher.onResourceManagerReload},
+ * {@code TextureManager.getTexture} and {@code ModelFeatureRenderer.prepareModel} (see patch_cem_hooks.py).
+ * Anything unexpected switches that model back to the vanilla one and logs why.</p>
  */
 public final class VBVCem {
     private static final String LOG = "[VBV CEM] ";
     private static final String CEM_DIR = "optifine/cem/";
-    private static final Direction[] POLYGON_FACING = {
-        Direction.DOWN, Direction.UP, Direction.WEST, Direction.NORTH, Direction.EAST, Direction.SOUTH
-    };
+    private static final long FRAME_GAP_NANOS = 4_000_000L;
 
     /** Vanilla default texture of each entity whose renderer uses a single fixed texture. */
     private static final Map<String, String> VANILLA_TEXTURES = new HashMap<>();
@@ -67,11 +75,19 @@ public final class VBVCem {
     }
 
     private static boolean enabled = true;
+    private static boolean animations = true;
     private static ResourceManager manager;
     /** Entity name -> parsed model, or null when the pack has none (so the lookup happens once). */
-    private static final Map<String, VBVCemModel> models = new HashMap<>();
+    private static final Map<String, VBVCemJem> models = new HashMap<>();
     private static final Map<Identifier, Identifier> redirects = new HashMap<>();
     private static final Set<String> reported = new HashSet<>();
+    /** Baked root part -> its animation rig. */
+    private static final Map<ModelPart, VBVCemRig> rigs = new IdentityHashMap<>();
+
+    private static long lastCall;
+    private static long frameStart;
+    private static int frameCounter;
+    private static float frameTime = 0.016F;
 
     private VBVCem() {}
 
@@ -87,12 +103,25 @@ public final class VBVCem {
         enabled = !enabled;
     }
 
+    public static boolean isAnimationsEnabled() {
+        return animations;
+    }
+
+    public static void setAnimationsEnabled(boolean value) {
+        animations = value;
+    }
+
+    public static void toggleAnimations() {
+        animations = !animations;
+    }
+
     /** Called at the start of every entity renderer rebuild (resource reload). */
     public static void reload(ResourceManager resourceManager) {
         manager = resourceManager;
         models.clear();
         redirects.clear();
         reported.clear();
+        rigs.clear();
     }
 
     /** Called by {@code TextureManager.getTexture}; maps a vanilla entity texture to the pack's JEM texture. */
@@ -111,9 +140,9 @@ public final class VBVCem {
             try {
                 name = entityName(id);
                 if (name != null) {
-                    VBVCemModel model = modelFor(name);
-                    if (model != null && !model.parts.isEmpty()) {
-                        return bakeWith(name, model, layer);
+                    VBVCemJem jem = modelFor(name);
+                    if (jem != null && !jem.parts.isEmpty()) {
+                        return bakeWith(name, jem, layer);
                     }
                 }
             } catch (Throwable error) {
@@ -132,6 +161,35 @@ public final class VBVCem {
         return layer.bakeRoot();
     }
 
+    /**
+     * Called by {@code ModelFeatureRenderer.prepareModel} right after the model posed itself for an
+     * entity: runs the pack's animation lines for that model, if it has any.
+     */
+    public static void animate(Model<?> model, Object state) {
+        if (rigs.isEmpty() || !enabled || !animations) {
+            return;
+        }
+        VBVCemRig rig = rigs.get(model.root());
+        if (rig == null || rig.broken) {
+            return;
+        }
+        try {
+            long now = System.nanoTime();
+            if (now - lastCall > FRAME_GAP_NANOS) {
+                frameCounter++;
+                float seconds = frameStart == 0L ? 0.016F : (now - frameStart) / 1.0e9F;
+                frameTime = Math.max(0.001F, Math.min(0.25F, seconds));
+                frameStart = now;
+            }
+            lastCall = now;
+            rig.fill(state, frameTime, frameCounter);
+            rig.run();
+        } catch (Throwable error) {
+            rig.broken = true;
+            System.err.println(LOG + "stopped the animations of one model after an error: " + error);
+        }
+    }
+
     private static String entityName(ModelLayerLocation id) {
         if (!"main".equals(id.layer()) || !"minecraft".equals(id.model().getNamespace())) {
             return null;
@@ -139,22 +197,26 @@ public final class VBVCem {
         return id.model().getPath();
     }
 
-    private static VBVCemModel modelFor(String name) {
+    private static VBVCemJem modelFor(String name) {
         if (models.containsKey(name)) {
             return models.get(name);
         }
-        VBVCemModel model = null;
+        VBVCemJem model = null;
         JsonObject json = readJson(CEM_DIR + name + ".jem");
         if (json != null) {
             try {
-                model = VBVCemModel.parse(json, VBVCem::loadJpm);
+                model = VBVCemJem.parse(json, VBVCem::loadJpm);
+                if (model.texW <= 0 || model.texH <= 0) {
+                    System.out.println(LOG + name + ".jem has no textureSize and is ignored");
+                    model = null;
+                }
             } catch (RuntimeException error) {
                 System.err.println(LOG + name + ".jem could not be parsed and is ignored: " + error);
+                model = null;
             }
         }
         models.put(name, model);
         if (model != null) {
-            System.out.println(LOG + "loaded " + name + ".jem (" + model.parts.size() + " parts)");
             registerTexture(name, model);
         }
         return model;
@@ -164,6 +226,9 @@ public final class VBVCem {
         String ref = reference.trim();
         if (ref.startsWith("./")) {
             ref = ref.substring(2);
+        }
+        if (!ref.endsWith(".jpm")) {
+            ref = ref + ".jpm";
         }
         String path = ref.startsWith("optifine/") ? ref : CEM_DIR + ref;
         return readJson(path);
@@ -182,7 +247,7 @@ public final class VBVCem {
         }
     }
 
-    private static void registerTexture(String name, VBVCemModel model) {
+    private static void registerTexture(String name, VBVCemJem model) {
         String vanilla = VANILLA_TEXTURES.get(name);
         if (vanilla == null || model.texture == null) {
             return;
@@ -226,110 +291,205 @@ public final class VBVCem {
     // Binding a parsed model onto a vanilla layer
     // ---------------------------------------------------------------------------------------
 
-    private static ModelPart bakeWith(String name, VBVCemModel model, LayerDefinition layer) {
-        final Map<String, VBVCemModel.Box> patches = new HashMap<>();
+    private static ModelPart bakeWith(String name, VBVCemJem jem, LayerDefinition layer) {
+        final Binding binding = new Binding(name, jem);
         final MeshDefinition[] captured = new MeshDefinition[1];
-        LayerDefinition applied = layer.apply(mesh -> {
+        layer.apply(mesh -> {
             MeshDefinition copy = mesh.transformed(pose -> pose);
-            for (VBVCemModel.Part part : model.parts) {
-                install(name, copy.getRoot(), part, patches);
-            }
+            binding.install(copy.getRoot());
             captured[0] = copy;
             return copy;
         });
-        LayerDefinition result = model.texW > 0 ? LayerDefinition.create(captured[0], model.texW, model.texH) : applied;
-        ModelPart root = result.bakeRoot();
-        if (model.texW > 0 && !patches.isEmpty()) {
-            patchFaces(root, patches, model.texW, model.texH);
-        }
+        ModelPart root = LayerDefinition.create(captured[0], jem.texW, jem.texH).bakeRoot();
+        binding.patchFaces(root);
+        binding.registerRig(root);
         return root;
     }
 
-    private static void install(String entity, PartDefinition root, VBVCemModel.Part part, Map<String, VBVCemModel.Box> patches) {
-        List<String> path = null;
-        for (String candidate : aliases(part.name)) {
-            path = find(root, candidate);
-            if (path != null) {
-                break;
+    /** Everything that is known while one model is being put together. */
+    private static final class Binding {
+        final String entity;
+        final VBVCemJem jem;
+        /** Joined path of the parts a custom box list sits in -> boxes with their own UVs ("path#index"). */
+        final Map<String, VBVCemJem.Box> patches = new HashMap<>();
+        /** Custom part id -> names from the root down to it. */
+        final Map<String, List<String>> customPaths = new HashMap<>();
+        /** OptiFine part name -> names from the root down to the vanilla part it replaces. */
+        final Map<String, List<String>> vanillaPaths = new HashMap<>();
+        /** Copy-on-write copies of the vanilla definitions on the paths that were changed. */
+        final Map<String, PartDefinition> copies = new HashMap<>();
+        int skippedParts;
+
+        Binding(String entity, VBVCemJem jem) {
+            this.entity = entity;
+            this.jem = jem;
+        }
+
+        void install(PartDefinition root) {
+            // 1. Which vanilla part does each top-level JEM part belong to? (before anything is changed)
+            Set<String> specified = new HashSet<>();
+            Map<VBVCemJem.Part, List<String>> targets = new java.util.LinkedHashMap<>();
+            for (VBVCemJem.Part part : jem.parts) {
+                List<String> path = locate(root, part.part);
+                if (path == null) {
+                    skippedParts++;
+                    report("part-" + entity + "-" + part.part, entity + ".jem: no part named '" + part.part + "' in the vanilla model, skipped");
+                    continue;
+                }
+                targets.put(part, path);
+                vanillaPaths.putIfAbsent(part.part, path);
+                specified.add(path.isEmpty() ? "root" : path.get(path.size() - 1));
+            }
+
+            // 2. Change the vanilla definitions (on copies) and add the custom parts.
+            Set<String> cleaned = new HashSet<>();
+            for (Map.Entry<VBVCemJem.Part, List<String>> entry : targets.entrySet()) {
+                VBVCemJem.Part part = entry.getKey();
+                List<String> path = entry.getValue();
+                String key = String.join("/", path);
+                PartDefinition target = copyOf(root, path);
+                if (!part.attach && cleaned.add(key)) {
+                    if (!path.isEmpty()) {
+                        // Drop the vanilla boxes of this part, keep its pose and children.
+                        PartDefinition parent = copyOf(root, path.subList(0, path.size() - 1));
+                        target = parent.addOrReplaceChild(path.get(path.size() - 1), CubeListBuilder.create(), poseOf(target));
+                        copies.put(key, target);
+                    }
+                    // Vanilla child parts the pack does not mention disappear with it.
+                    List<String> hide = new ArrayList<>();
+                    for (Map.Entry<String, PartDefinition> child : target.getChildren()) {
+                        if (!specified.contains(child.getKey()) && !child.getKey().startsWith("EMF_")) {
+                            hide.add(child.getKey());
+                        }
+                    }
+                    for (String childName : hide) {
+                        target.clearChild(childName).clearRecursively();
+                    }
+                }
+                addCustom(target, path, part);
             }
         }
-        if (path == null) {
-            report("part-" + entity + "-" + part.name, entity + ".jem: no part named '" + part.name + "' in the vanilla model, skipped");
-            return;
-        }
 
-        // Copy the path down to the target so the shared vanilla definitions are never modified,
-        // and add up the ancestors' pivots to express the JEM's absolute pivot relative to them.
-        PartDefinition parent = root;
-        float parentX = 0.0F;
-        float parentY = 0.0F;
-        float parentZ = 0.0F;
-        StringBuilder pathText = new StringBuilder();
-        for (int i = 0; i < path.size() - 1; i++) {
-            String segment = path.get(i);
-            PartDefinition copy = parent.getChild(segment).transformed(pose -> pose);
-            parent.addOrReplaceChild(segment, copy);
-            PartPose pose = poseOf(copy);
-            parentX += pose.x();
-            parentY += pose.y();
-            parentZ += pose.z();
-            parent = copy;
-            pathText.append('/').append(segment);
-        }
-        String targetName = path.get(path.size() - 1);
-        pathText.append('/').append(targetName);
-        String targetPath = pathText.toString();
-        PartPose vanillaPose = poseOf(parent.getChild(targetName));
-
-        if (part.attach) {
-            // Keep the vanilla boxes and add the JEM ones next to them.
-            float vx = parentX + vanillaPose.x();
-            float vy = parentY + vanillaPose.y();
-            float vz = parentZ + vanillaPose.z();
-            PartDefinition target = parent.getChild(targetName);
-            String extra = "vbv_attach_" + part.name;
-            PartDefinition attached = target.addOrReplaceChild(
-                extra, boxes(part, targetPath + "/" + extra, patches),
-                PartPose.offsetAndRotation(part.absX - vx, part.absY - vy, part.absZ - vz, part.xRot, part.yRot, part.zRot)
-            );
-            addChildren(attached, part, targetPath + "/" + extra, patches);
-            return;
-        }
-
-        PartDefinition target = parent.addOrReplaceChild(
-            targetName, boxes(part, targetPath, patches),
-            PartPose.offsetAndRotation(part.x - parentX, part.y - parentY, part.z - parentZ, part.xRot, part.yRot, part.zRot)
-        );
-        addChildren(target, part, targetPath, patches);
-    }
-
-    private static void addChildren(PartDefinition target, VBVCemModel.Part part, String targetPath, Map<String, VBVCemModel.Box> patches) {
-        int index = 0;
-        for (VBVCemModel.Part child : part.children) {
-            String label = child.id != null ? child.id : (child.name != null ? child.name : "sub" + index);
-            String childName = "vbv_" + label;
-            String childPath = targetPath + "/" + childName;
-            PartDefinition built = target.addOrReplaceChild(
-                childName, boxes(child, childPath, patches),
-                PartPose.offsetAndRotation(child.x, child.y, child.z, child.xRot, child.yRot, child.zRot)
-            );
-            addChildren(built, child, childPath, patches);
-            index++;
-        }
-    }
-
-    private static CubeListBuilder boxes(VBVCemModel.Part part, String path, Map<String, VBVCemModel.Box> patches) {
-        CubeListBuilder builder = CubeListBuilder.create();
-        int index = 0;
-        for (VBVCemModel.Box box : part.boxes) {
-            builder.texOffs(box.u, box.v).mirror(box.mirror)
-                .addBox(box.x, box.y, box.z, box.w, box.h, box.d, new CubeDeformation(box.grow));
-            if (box.hasFaceUv()) {
-                patches.put(path + "#" + index, box);
+        private void addCustom(PartDefinition parent, List<String> parentPath, VBVCemJem.Part part) {
+            List<String> path = new ArrayList<>(parentPath);
+            path.add(part.id);
+            PartPose pose = new PartPose(part.x, part.y, part.z, part.xRot, part.yRot, part.zRot, part.scale, part.scale, part.scale);
+            PartDefinition definition = parent.addOrReplaceChild(part.id, boxes(part, path), pose);
+            customPaths.putIfAbsent(part.id, path);
+            for (VBVCemJem.Part child : part.children) {
+                addCustom(definition, path, child);
             }
-            index++;
         }
-        return builder;
+
+        private CubeListBuilder boxes(VBVCemJem.Part part, List<String> path) {
+            CubeListBuilder builder = CubeListBuilder.create();
+            String key = "/" + String.join("/", path);
+            int index = 0;
+            for (VBVCemJem.Box box : part.boxes) {
+                builder.texOffs(box.u, box.v).mirror(box.standard && part.mirrorU)
+                    .addBox(box.x, box.y, box.z, box.w, box.h, box.d, new CubeDeformation(box.growX, box.growY, box.growZ));
+                if (!box.standard) {
+                    patches.put(key + "#" + index, box);
+                }
+                index++;
+            }
+            return builder;
+        }
+
+        /** The copy of the vanilla definition at a path, made once; the shared originals are never changed. */
+        private PartDefinition copyOf(PartDefinition root, List<String> path) {
+            if (path.isEmpty()) {
+                return root;
+            }
+            String key = String.join("/", path);
+            PartDefinition known = copies.get(key);
+            if (known != null) {
+                return known;
+            }
+            PartDefinition parent = copyOf(root, path.subList(0, path.size() - 1));
+            String name = path.get(path.size() - 1);
+            PartDefinition copy = parent.getChild(name).transformed(pose -> pose);
+            parent.addOrReplaceChild(name, copy);
+            copies.put(key, copy);
+            return copy;
+        }
+
+        /** Finds the vanilla part an OptiFine part name stands for; null when it does not exist. */
+        private List<String> locate(PartDefinition root, String optifineName) {
+            if ("root".equals(optifineName)) {
+                return new ArrayList<>();
+            }
+            String mapped = VBVCemNames.vanilla(entity, optifineName);
+            List<String> path = find(root, mapped);
+            if (path == null && !mapped.equals(optifineName)) {
+                path = find(root, optifineName);
+            }
+            if (path == null) {
+                for (String alias : aliases(optifineName)) {
+                    path = find(root, alias);
+                    if (path != null) {
+                        break;
+                    }
+                }
+            }
+            return path;
+        }
+
+        /** Applies the custom face UVs (and hides the faces without one) on the baked cubes. */
+        void patchFaces(ModelPart root) {
+            if (patches.isEmpty()) {
+                return;
+            }
+            final int w = jem.texW;
+            final int h = jem.texH;
+            root.visit(new PoseStack(), (pose, partPath, cubeIndex, cube) -> {
+                VBVCemJem.Box box = patches.get(partPath + "#" + cubeIndex);
+                if (box != null) {
+                    patchCube(cube, box, w, h);
+                }
+            });
+        }
+
+        void registerRig(ModelPart root) {
+            Map<String, ModelPart> named = new HashMap<>();
+            named.put("root", root);
+            for (Map.Entry<String, List<String>> entry : vanillaPaths.entrySet()) {
+                ModelPart part = walk(root, entry.getValue());
+                if (part != null) {
+                    named.putIfAbsent(entry.getKey(), part);
+                }
+            }
+            for (Map.Entry<String, List<String>> entry : customPaths.entrySet()) {
+                ModelPart part = walk(root, entry.getValue());
+                if (part != null) {
+                    named.putIfAbsent(entry.getKey(), part);
+                }
+            }
+            List<String[]> lines = new ArrayList<>();
+            for (VBVCemJem.Part part : jem.parts) {
+                lines.addAll(part.animations);
+            }
+            VBVCemRig rig = null;
+            if (!lines.isEmpty()) {
+                rig = new VBVCemRig(entity, named, root.createPartLookup(), lines);
+                rigs.put(root, rig);
+            }
+            System.out.println(LOG + entity + ".jem: " + customPaths.size() + " custom parts, "
+                + (jem.parts.size() - skippedParts) + "/" + jem.parts.size() + " vanilla parts replaced, "
+                + (rig == null ? 0 : rig.lineCount()) + " animation lines"
+                + (rig != null && rig.skippedCount() > 0 ? " (" + rig.skippedCount() + " skipped)" : ""));
+        }
+    }
+
+    private static ModelPart walk(ModelPart root, List<String> path) {
+        ModelPart current = root;
+        for (String name : path) {
+            if (!current.hasChild(name)) {
+                return null;
+            }
+            current = current.getChild(name);
+        }
+        return current;
     }
 
     /** Breadth-first search for a part by name; returns the names from the root down to it. */
@@ -363,47 +523,77 @@ public final class VBVCem {
         return out[0];
     }
 
-    /** OptiFine's part names -> the names used by the 26.x models (first one found wins). */
+    /** Older names that some resource packs and OptiFine tables use, tried when the usual lookup fails. */
     private static String[] aliases(String name) {
         switch (name) {
-            case "headwear": return new String[]{"headwear", "hat"};
-            case "right": return new String[]{"right", "right_body_stick"};
-            case "left": return new String[]{"left", "left_body_stick"};
-            case "waist": return new String[]{"waist", "shoulder_stick"};
-            case "base": return new String[]{"base", "base_plate"};
-            case "leg1": return new String[]{"leg1", "right_hind_leg"};
-            case "leg2": return new String[]{"leg2", "left_hind_leg"};
-            case "leg3": return new String[]{"leg3", "right_front_leg"};
-            case "leg4": return new String[]{"leg4", "left_front_leg"};
-            default: return new String[]{name};
+            case "headwear": return new String[]{"hat"};
+            case "right": return new String[]{"right_body_stick"};
+            case "left": return new String[]{"left_body_stick"};
+            case "waist": return new String[]{"shoulder_stick"};
+            case "base": return new String[]{"base_plate"};
+            case "leg1": return new String[]{"right_hind_leg"};
+            case "leg2": return new String[]{"left_hind_leg"};
+            case "leg3": return new String[]{"right_front_leg"};
+            case "leg4": return new String[]{"left_front_leg"};
+            default: return new String[0];
         }
     }
 
-    /** Applies per-face UV rectangles to cubes baked from boxes that declared them. */
-    private static void patchFaces(ModelPart root, Map<String, VBVCemModel.Box> patches, int texW, int texH) {
-        root.visit(new PoseStack(), (pose, partPath, cubeIndex, cube) -> {
-            VBVCemModel.Box box = patches.get(partPath + "#" + cubeIndex);
-            if (box == null || cube.polygons.length != 6) {
+    // ---------------------------------------------------------------------------------------
+    // Custom UV boxes
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Corner indices of the polygon drawn for each JEM face key (down, up, north, south, west, east).
+     * The JEM keys are given for flipped y/x axes, which is how every exporter writes them, so "up" is
+     * the box's lower-y face and "west" its higher-x face, as in Entity Model Features.
+     */
+    private static final int[][] FACE_CORNERS = {
+        {7, 6, 2, 3}, // uvDown
+        {0, 1, 5, 4}, // uvUp
+        {1, 0, 3, 2}, // uvNorth
+        {4, 5, 6, 7}, // uvSouth
+        {5, 1, 2, 6}, // uvWest
+        {0, 4, 7, 3}  // uvEast
+    };
+    private static final Direction[] FACE_FACING = {
+        Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST
+    };
+
+    /**
+     * Replaces the six polygons of a baked cube: faces with a UV rectangle are drawn from it, every
+     * other face collapses to nothing (all four vertices on one corner). The game's cube renderer
+     * takes positions from the vertices' corner indices, so those are kept.
+     */
+    private static void patchCube(ModelPart.Cube cube, VBVCemJem.Box box, int texW, int texH) {
+        if (cube.polygons.length != 6) {
+            return;
+        }
+        ModelPart.Vertex[] corner = new ModelPart.Vertex[8];
+        for (ModelPart.Polygon polygon : cube.polygons) {
+            for (ModelPart.Vertex vertex : polygon.vertices()) {
+                corner[vertex.corner()] = vertex;
+            }
+        }
+        for (ModelPart.Vertex vertex : corner) {
+            if (vertex == null) {
                 return;
             }
-            boolean mirror = box.mirror;
-            for (int i = 0; i < 6; i++) {
-                float[] rect = box.faceUv[i];
-                if (rect == null) {
-                    continue;
+        }
+        for (int face = 0; face < 6; face++) {
+            float[] rect = box.uv[face];
+            ModelPart.Vertex[] vertices = new ModelPart.Vertex[4];
+            if (rect == null) {
+                for (int i = 0; i < 4; i++) {
+                    vertices[i] = corner[0];
                 }
-                ModelPart.Polygon old = cube.polygons[i];
-                ModelPart.Vertex[] vertices = old.vertices().clone();
-                if (mirror) {
-                    // The Polygon constructor reverses mirrored vertices; undo that before rebuilding.
-                    for (int a = 0, b = vertices.length - 1; a < b; a++, b--) {
-                        ModelPart.Vertex swap = vertices[a];
-                        vertices[a] = vertices[b];
-                        vertices[b] = swap;
-                    }
+                cube.polygons[face] = new ModelPart.Polygon(vertices, 0.0F, 0.0F, 0.0F, 0.0F, texW, texH, false, Direction.DOWN);
+            } else {
+                for (int i = 0; i < 4; i++) {
+                    vertices[i] = corner[FACE_CORNERS[face][i]];
                 }
-                cube.polygons[i] = new ModelPart.Polygon(vertices, rect[0], rect[1], rect[2], rect[3], texW, texH, mirror, POLYGON_FACING[i]);
+                cube.polygons[face] = new ModelPart.Polygon(vertices, rect[0], rect[1], rect[2], rect[3], texW, texH, false, FACE_FACING[face]);
             }
-        });
+        }
     }
 }
