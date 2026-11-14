@@ -16,6 +16,14 @@ Instead of relying on browser-side JavaScript mod loaders or converted Fabric mo
 
 The result is a standalone browser client with native modifications, custom interfaces, additional HUD elements, improved storage management, and integrated resource-pack features.
 
+### Custom OptiFine Support
+The client includes custom compatibility support for OptiFine-style Custom Entity Models (CEM), bringing custom entity rendering to Eaglercraft 26.2.
+- Supports custom entity model rendering through the client's custom rendering implementation.
+- Designed to bring OptiFine CEM-style model support to the browser client without requiring OptiFine itself.
+- Allows compatible resource packs to customise the appearance and models of supported entities.
+- Integrated into the client rather than relying on a separate OptiFine installation.
+Note: This is a custom Eaglercraft implementation, not the original OptiFine mod. Compatibility depends on the entity model formats and features supported by the implementation.
+
 ### Main Features
 
 - Native Java-based VBV client modifications.
