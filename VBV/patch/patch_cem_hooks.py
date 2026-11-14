@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Wire VBV's OptiFine-style custom entity models (.jem/.jpm) into the generated Eagler 26.2 sources.
 
-Three small hooks in three files. Every anchor must match exactly once, in every file, or the
+Four small hooks in four files. Every anchor must match exactly once, in every file, or the
 script aborts before writing anything, so the tree is never left half patched:
 
   1. EntityModelSet.bakeLayer                      - bakes the layer through VBVCem (JEM parts replace vanilla ones).
   2. EntityRenderDispatcher.onResourceManagerReload - tells VBVCem the new resource manager (reloads the JEMs).
   3. TextureManager.getTexture                      - lets a JEM's "texture" replace a vanilla entity texture.
+  4. ModelFeatureRenderer.prepareModel              - runs the JEM's animation expressions after the vanilla model posed itself.
 
 With Custom Entity Models switched off (or on any error) VBVCem returns the vanilla result.
 """
@@ -43,6 +44,14 @@ EDITS = [
         "   public AbstractTexture getTexture(final Identifier requestedLocation) {\n"
         "      // VBV_CEM: a .jem model can point a vanilla entity texture at the pack's own texture\n"
         "      final Identifier location = com.melonman106.vbvclient.VBVCem.redirect(requestedLocation);\n",
+    ),
+    (
+        "net/minecraft/client/renderer/feature/ModelFeatureRenderer.java",
+        "prepareModel",
+        "      model.setupAnim(submit.state());\n",
+        "      model.setupAnim(submit.state());\n"
+        "      // VBV_CEM: run the .jem animation expressions on top of the vanilla pose\n"
+        "      com.melonman106.vbvclient.VBVCem.animate(model, submit.state());\n",
     ),
 ]
 

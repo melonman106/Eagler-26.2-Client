@@ -20,6 +20,7 @@ public final class VBVModdedSettingsScreen extends Screen {
     private Button cullingButton;
     private Button meterButton;
     private Button cemButton;
+    private Button cemAnimButton;
     private int lodDescY;
 
     public VBVModdedSettingsScreen(Screen parent) {
@@ -85,6 +86,13 @@ public final class VBVModdedSettingsScreen extends Screen {
             button.setMessage(Component.literal("Models " + (VBVCem.isEnabled() ? "ON" : "OFF") + " - press F3+T"));
         }).bounds(left, y, half, 20).build();
         addRenderableWidget(cemButton);
+        // The animation formulas of a custom model apply immediately, no resource reload needed.
+        cemAnimButton = Button.builder(cemAnimLabel(), button -> {
+            VBVCem.toggleAnimations();
+            VBVConfigStore.saveAll();
+            button.setMessage(cemAnimLabel());
+        }).bounds(right, y, half, 20).build();
+        addRenderableWidget(cemAnimButton);
 
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
             .bounds(cx - 100, height - 27, 200, 20).build());
@@ -96,6 +104,10 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private static Component cemLabel() {
         return Component.literal("Custom Models: " + (VBVCem.isEnabled() ? "ON" : "OFF"));
+    }
+
+    private static Component cemAnimLabel() {
+        return Component.literal("Model Animations: " + (VBVCem.isAnimationsEnabled() ? "ON" : "OFF"));
     }
 
     private static Component meterLabel() {
