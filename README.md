@@ -58,7 +58,7 @@ The client uses Java source injection to integrate the modifications directly in
 | Armor HUD | Displays equipped armor information |
 | Simple HUD Enhanced | Additional HUD functionality |
 | Mouse Tweaks | Improved inventory interaction |
-| Minimap | Minimap and explored-chunk mapping |
+| Worldmap | Worldmap and explored-chunk mapping |
 
 Additional resource-pack-based client modifications are imported from the `ModsPack/` directory.
 
