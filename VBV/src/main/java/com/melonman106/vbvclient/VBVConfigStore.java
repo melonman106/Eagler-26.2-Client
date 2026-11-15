@@ -125,6 +125,9 @@ public final class VBVConfigStore {
         VBVPerf.setMeter(bool("perf.meter", false));
         VBVCem.setEnabled(bool("cem.enabled", true));
         VBVCem.setAnimationsEnabled(bool("cem.animations", true));
+        VBVShaders.setPreset(integer("shaders.preset", 0, 0, 2));
+        VBVShaders.setQuality(integer("shaders.quality", 2, 1, 3));
+        VBVShaders.setStrength(integer("shaders.strength", 100, 50, 150));
 
         VBVExtraFeatures.loadSettings(
             bool("gamma.enabled", true), decimal("gamma.strength", 4.0D, 1.0D, 8.0D),
@@ -190,6 +193,9 @@ public final class VBVConfigStore {
         write("perf.meter", VBVPerf.isMeter());
         write("cem.enabled", VBVCem.isEnabled());
         write("cem.animations", VBVCem.isAnimationsEnabled());
+        write("shaders.preset", VBVShaders.getPreset());
+        write("shaders.quality", VBVShaders.getQuality());
+        write("shaders.strength", VBVShaders.getStrength());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());

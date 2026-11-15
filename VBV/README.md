@@ -78,6 +78,18 @@ Limits: no `.properties` rules (variants by name, NBT, biome or height), no rand
 
 The format handling follows the OptiFine format as implemented by [Entity Model Features](https://github.com/Traben-0/Entity_Model_Features) (LGPL-3.0), which was used as a behavioural reference; VBV's code is its own.
 
+## Shaders (Vibrant / Shadows)
+
+Options > Modded Settings > **Shaders** cycles **Off / Vibrant / Shadows** (default **Off**). **Shader Options...** (or Mods > VBV Shaders) sets quality (Low / Medium / High) and strength (50-150%). Settings apply immediately and are saved.
+
+- **Vibrant** is colour only: vibrance (muted colours get most of the boost), a gentle S-curve for contrast, a little warmth, a soft glow on bright areas and a vignette. It reads no depth data, so it is the low-risk preset.
+- **Shadows** is Vibrant plus **ambient occlusion** (darkening in corners and where blocks meet the ground) and **sun contact shadows** (blocks, trees and walls darken the ground and walls on the side away from the sun, and surfaces facing away from the sun get a little darker and cooler). These are *screen-space* effects computed from the world depth buffer, **not real shadow maps**: they only see what is on screen, long shadows from things behind the camera or off-screen do not appear, and they fade out beyond about 100 blocks. The sun shadows switch off in caves, under water, at night, in the Nether/End and are mostly off in rain; ambient occlusion stays on.
+- The effects run on the finished world image, before the hand and HUD are drawn. The sun direction, field of view and all strengths are passed to the shaders each frame in a tiny 8x1 data texture, so changing a setting never reloads anything.
+- Safety: if a preset fails to compile or throws, it switches itself off for the session (Shadows falls back to Vibrant) and the settings screen shows a red note. If the data texture is ever missing, the shader passes the frame through unchanged.
+- Files: `VBVShaders.java` and `VBVShaderMath.java` (settings, per-frame data, hook entry), `patch_shaders_hook.py` (one hook in `GameRenderer.renderLevel`, next to the Shine bloom block), and `patch/resources/assets/vbvclient/{post_effect,shaders/post}/vbv_*`.
+- Checked by compiling and rendering the four shaders in WebGL2 against a synthetic scene with the game's reversed-Z projection and a known sun: shadows land on the correct side (89-95% of the true ground shadow pixels were found in the five test views that had visible shadows), neutral settings leave the image unchanged, and a missing data texture passes the frame through. It has **not** been run inside the game or in CI. Please test Vibrant first, then Shadows, and report the browser/GPU and any artefacts.
+- Shine's own bloom (Mods > VBV Shaders > Bloom) is independent and can be combined; leave it off if you already use Vibrant.
+
 ## Actually 3D Stuff Eagler 26.2 U2 port
 
 The pinned U2 source already contains the native 26.x item-definition pipeline, including `select`, `condition`, `display_context`, and cuboid item-model baking. The Actually 3D Stuff pack can therefore keep its custom item definitions and cuboid geometry; it does not need a separate replacement renderer.

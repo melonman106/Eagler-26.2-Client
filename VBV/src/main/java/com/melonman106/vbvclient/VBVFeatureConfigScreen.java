@@ -61,6 +61,9 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Food level text: " + onOff(VBVAppleSkin.isShowFoodText()), VBVAppleSkin::toggleFoodText);
             option(() -> "Saturation text: " + onOff(VBVAppleSkin.isShowSaturationText()), VBVAppleSkin::toggleSaturationText);
         } else if ("shine".equals(modId)) {
+            option(() -> "Shader preset: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"), VBVShaders::cyclePreset);
+            option(() -> "Shader quality: " + VBVShaders.qualityName(), VBVShaders::cycleQuality);
+            option(() -> "Shader strength: " + VBVShaders.getStrength() + "%", VBVShaders::cycleStrength);
             option(() -> "VBV shader effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
             option(() -> "Bloom (optional): " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
             option(() -> "Colored lighting (optional): " + onOff(ShineConfig.coloredLighting()), ShineConfig::toggleColoredLighting);
@@ -114,6 +117,8 @@ public final class VBVFeatureConfigScreen extends Screen {
         graphics.fill(width / 2 - 20, 24, width / 2 + 20, 25, VBVTheme.accent());
         String note = "Changes apply immediately; keybinds shown are fixed in this build.";
         if (height >= 200) graphics.text(font, note, width / 2 - font.width(note) / 2, height - 44, 0xFFAAAAAA, true);
+        String shaderNote = "shine".equals(modId) ? VBVShaders.statusNote() : "";
+        if (!shaderNote.isEmpty() && height >= 200) graphics.text(font, shaderNote, width / 2 - font.width(shaderNote) / 2, height - 54, 0xFFFF6B6B, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }
