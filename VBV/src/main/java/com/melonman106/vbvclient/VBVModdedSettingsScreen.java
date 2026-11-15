@@ -94,7 +94,7 @@ public final class VBVModdedSettingsScreen extends Screen {
         addRenderableWidget(cemButton);
         // The animation formulas of a custom model apply immediately, no resource reload needed.
         cemAnimButton = Button.builder(cemAnimLabel(), button -> {
-            VBVCem.toggleAnimations();
+            VBVCem.cycleAnimations();
             VBVConfigStore.saveAll();
             button.setMessage(cemAnimLabel());
         }).bounds(right, y, half, btnH).build();
@@ -124,7 +124,7 @@ public final class VBVModdedSettingsScreen extends Screen {
     }
 
     private static Component cemAnimLabel() {
-        return Component.literal("Model Animations: " + (VBVCem.isAnimationsEnabled() ? "ON" : "OFF"));
+        return Component.literal("Model Anim: " + VBVCem.animationsLabel());
     }
 
     private static Component shaderLabel() {

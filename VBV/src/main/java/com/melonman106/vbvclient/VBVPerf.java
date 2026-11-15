@@ -43,6 +43,11 @@ public final class VBVPerf {
     private static int spikes50;
     private static int spikes100;
 
+    // Custom-model (Fresh Animations) cost, smoothed over a few frames.
+    private static float cemMs;
+    private static int cemRuns;
+    private static int cemFar;
+
     private VBVPerf() {}
 
     public static boolean isMeter() {
@@ -70,6 +75,16 @@ public final class VBVPerf {
             }
         }
         if (meter) {
+            long[] cem = VBVCem.drainStats();
+            if (cem[0] + cem[1] > 0L) {
+                cemRuns = (int) cem[0];
+                cemFar = (int) cem[1];
+                cemMs = cemMs * 0.9F + (cem[2] / 1_000_000.0F) * 0.1F;
+            } else {
+                cemRuns = 0;
+                cemFar = 0;
+                cemMs *= 0.9F;
+            }
             draw(graphics);
         }
     }
@@ -133,9 +148,15 @@ public final class VBVPerf {
             line3 = "Culled " + VBVEntityCulling.lastEntitiesCulled() + "/" + VBVEntityCulling.lastEntitiesSeen()
                 + " entities, " + VBVEntityCulling.lastBlockEntitiesCulled() + "/" + VBVEntityCulling.lastBlockEntitiesSeen() + " blocks";
         }
-        int width = Math.max(Math.max(font.width(line1), font.width(line2)), Math.max(line3 == null ? 0 : font.width(line3), GRAPH_FRAMES)) + 8;
+        String line4 = cemRuns + cemFar > 0
+            ? "Models: " + cemRuns + " animated, " + cemFar + " far, " + one(cemMs) + " ms" : null;
+        int width = Math.max(Math.max(font.width(line1), font.width(line2)), Math.max(line3 == null ? 0 : font.width(line3), GRAPH_FRAMES));
+        if (line4 != null) {
+            width = Math.max(width, font.width(line4));
+        }
+        width += 8;
         int lineH = font.lineHeight + 1;
-        int height = 4 + lineH * (line3 == null ? 2 : 3) + GRAPH_HEIGHT + 6;
+        int height = 4 + lineH * (2 + (line3 == null ? 0 : 1) + (line4 == null ? 0 : 1)) + GRAPH_HEIGHT + 6;
         int x = graphics.guiWidth() / 2 - width / 2;
         int y = 2;
         graphics.fill(x, y, x + width, y + height, 0xA0000000);
@@ -148,6 +169,10 @@ public final class VBVPerf {
         ty += lineH;
         if (line3 != null) {
             graphics.text(font, line3, x + 4, ty, accent, true);
+            ty += lineH;
+        }
+        if (line4 != null) {
+            graphics.text(font, line4, x + 4, ty, accent, true);
             ty += lineH;
         }
         // Frame-time bars: each bar is one frame, full height = 50 ms or worse.
@@ -167,6 +192,7 @@ public final class VBVPerf {
     public static String report() {
         Minecraft mc = Minecraft.getInstance();
         StringBuilder out = new StringBuilder("VBV performance report\n");
+        out.append(VBVBoot.report());
         if (count == 0) {
             out.append("No in-game frames recorded yet. Play for a few seconds with the HUD visible, then copy again.\n");
         } else {
@@ -199,6 +225,9 @@ public final class VBVPerf {
             .append(" (last frame ").append(VBVEntityCulling.lastEntitiesCulled()).append('/').append(VBVEntityCulling.lastEntitiesSeen())
             .append(" entities, ").append(VBVEntityCulling.lastBlockEntitiesCulled()).append('/').append(VBVEntityCulling.lastBlockEntitiesSeen())
             .append(" block entities culled)\n");
+        out.append("Custom models: ").append(VBVCem.isEnabled() ? "ON" : "OFF").append(" | animations ")
+            .append(VBVCem.animationsLabel()).append(" (last frames ").append(cemRuns).append(" animated, ")
+            .append(cemFar).append(" beyond range, ").append(one(cemMs)).append(" ms)\n");
         out.append("LOD: ").append(VBVLod.name());
         if (VBVLod.getLevel() != VBVLod.OFF) {
             out.append(" (").append(VBVLod.rangeChunks()).append(" chunks, ").append(VBVLodCache.size()).append(" remembered)");

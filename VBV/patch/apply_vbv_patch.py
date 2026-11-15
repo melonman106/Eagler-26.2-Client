@@ -36,6 +36,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_entity_culling_hooks.py",
     "patch_cem_hooks.py",
     "patch_shaders_hook.py",
+    "patch_boot_hooks.py",
     "pack_json_merge.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
@@ -71,6 +72,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
     "subprocess.run([sys.executable, str(cem_hooks)",
     "subprocess.run([sys.executable, str(shaders_hook)",
+    "subprocess.run([sys.executable, str(boot_hooks)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -369,6 +371,12 @@ if cem_hooks.is_file():
 shaders_hook = PATCH_DIR / "patch_shaders_hook.py"
 if shaders_hook.is_file():
     subprocess.run([sys.executable, str(shaders_hook), *sys.argv[1:]], check=True)
+
+# Start-up timer: records how long the resource reload and each of its listeners take.
+# Records timestamps only; it never changes what the game loads.
+boot_hooks = PATCH_DIR / "patch_boot_hooks.py"
+if boot_hooks.is_file():
+    subprocess.run([sys.executable, str(boot_hooks), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.
