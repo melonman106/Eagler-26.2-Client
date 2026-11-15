@@ -37,7 +37,7 @@ if text.count(anchor) != 1:
 button = (
     f"      // {MARKER}: browse and install resource packs from Modrinth.\n"
     "      footer.addChild(Button.builder(Component.literal(\"Modrinth...\"),\n"
-    "         button -> this.minecraft.setScreen(new com.melonman106.vbvclient.VBVModrinthScreen(this)))\n"
+    "         button -> com.melonman106.vbvclient.VBVNav.open(new com.melonman106.vbvclient.VBVModrinthScreen(this)))\n"
     "         .width(100)\n"
     "         .tooltip(Tooltip.create(Component.literal(\"Search Modrinth and install resource packs\"))).build());\n"
 )
