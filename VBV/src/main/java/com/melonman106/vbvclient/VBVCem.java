@@ -21,6 +21,7 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.resources.Resource;
@@ -76,6 +77,19 @@ public final class VBVCem {
 
     private static boolean enabled = true;
     private static boolean animations = true;
+    /**
+     * Entities farther than this many blocks keep the model's rest pose instead of running the pack's
+     * animation formulas (0 = animate every entity). At 48+ blocks an entity is a few pixels tall, and
+     * the formulas are the expensive part of a Fresh Animations frame.
+     */
+    private static int animationRange = 48;
+    private static final int[] RANGE_STEPS = {96, 64, 48, 32, 24, 16};
+    /** Per-frame cost of the animation formulas, only measured while the FPS meter is on. */
+    private static long statNanos;
+    private static int statRuns;
+    private static int statFar;
+    private static VBVCemRig lastRig;
+    private static ModelPart lastRoot;
     private static ResourceManager manager;
     /** Entity name -> parsed model, or null when the pack has none (so the lookup happens once). */
     private static final Map<String, VBVCemJem> models = new HashMap<>();
@@ -115,6 +129,50 @@ public final class VBVCem {
         animations = !animations;
     }
 
+    /** Blocks beyond which entities are not animated; 0 means no limit. */
+    public static int animationRange() {
+        return animationRange;
+    }
+
+    public static void setAnimationRange(int blocks) {
+        animationRange = blocks <= 0 ? 0 : Math.max(8, Math.min(512, blocks));
+    }
+
+    /** OFF, then ALWAYS, then 96 / 64 / 48 / 32 / 24 / 16 blocks, then OFF again. */
+    public static void cycleAnimations() {
+        int state = 0; // 0 = off, 1 = always, 2.. = RANGE_STEPS[state - 2]
+        if (animations) {
+            state = 1;
+            if (animationRange > 0) {
+                state = 2;
+                for (int i = 0; i < RANGE_STEPS.length; i++) {
+                    if (RANGE_STEPS[i] >= animationRange) {
+                        state = 2 + i;
+                    }
+                }
+            }
+        }
+        state = (state + 1) % (RANGE_STEPS.length + 2);
+        animations = state != 0;
+        animationRange = state >= 2 ? RANGE_STEPS[state - 2] : 0;
+    }
+
+    public static String animationsLabel() {
+        if (!animations) {
+            return "OFF";
+        }
+        return animationRange == 0 ? "ALWAYS" : animationRange + " blocks";
+    }
+
+    /** Resets and returns {runs, far-skipped, nanoseconds} since the last call; used by the FPS meter. */
+    public static long[] drainStats() {
+        long[] out = {statRuns, statFar, statNanos};
+        statRuns = 0;
+        statFar = 0;
+        statNanos = 0L;
+        return out;
+    }
+
     /** Called at the start of every entity renderer rebuild (resource reload). */
     public static void reload(ResourceManager resourceManager) {
         manager = resourceManager;
@@ -122,6 +180,8 @@ public final class VBVCem {
         redirects.clear();
         reported.clear();
         rigs.clear();
+        lastRoot = null;
+        lastRig = null;
     }
 
     /** Called by {@code TextureManager.getTexture}; maps a vanilla entity texture to the pack's JEM texture. */
@@ -169,8 +229,25 @@ public final class VBVCem {
         if (rigs.isEmpty() || !enabled || !animations) {
             return;
         }
-        VBVCemRig rig = rigs.get(model.root());
+        // Consecutive entities are usually the same type, so remember the last model -> rig answer.
+        ModelPart root = model.root();
+        VBVCemRig rig;
+        if (root == lastRoot && lastRig != null) {
+            rig = lastRig;
+        } else {
+            rig = rigs.get(root);
+            lastRoot = root;
+            lastRig = rig;
+        }
         if (rig == null || rig.broken) {
+            return;
+        }
+        boolean measure = VBVPerf.isMeter();
+        if (animationRange > 0 && state instanceof EntityRenderState
+            && ((EntityRenderState) state).distanceToCameraSq > (double) animationRange * animationRange) {
+            if (measure) {
+                statFar++;
+            }
             return;
         }
         try {
@@ -184,6 +261,10 @@ public final class VBVCem {
             lastCall = now;
             rig.fill(state, frameTime, frameCounter);
             rig.run();
+            if (measure) {
+                statRuns++;
+                statNanos += System.nanoTime() - now;
+            }
         } catch (Throwable error) {
             rig.broken = true;
             System.err.println(LOG + "stopped the animations of one model after an error: " + error);

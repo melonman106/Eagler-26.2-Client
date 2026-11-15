@@ -18,6 +18,28 @@ final class VBVCemExpr {
         float get();
     }
 
+    /** A value known at compile time; lets the builders below fold whole sub-trees into one number. */
+    private static final class Const implements Num {
+        final float value;
+
+        Const(float value) {
+            this.value = value;
+        }
+
+        @Override
+        public float get() {
+            return value;
+        }
+    }
+
+    private static boolean isConst(Num n) {
+        return n instanceof Const;
+    }
+
+    private static float val(Num n) {
+        return ((Const) n).value;
+    }
+
     /** Looks a variable up by its full name (for example {@code limb_swing}, {@code var.x}, {@code body.rx}). */
     interface Resolver {
         /** @return the reader, or null when the name is unknown */
@@ -165,6 +187,9 @@ final class VBVCemExpr {
             if (ch == '-') {
                 pos++;
                 Num inner = parseUnary();
+                if (isConst(inner)) {
+                    return new Const(-val(inner));
+                }
                 return () -> -inner.get();
             }
             if (ch == '+') {
@@ -174,6 +199,9 @@ final class VBVCemExpr {
             if (ch == '!' && !(pos + 1 < text.length() && text.charAt(pos + 1) == '=')) {
                 pos++;
                 Num inner = parseUnary();
+                if (isConst(inner)) {
+                    return new Const(val(inner) == 0.0F ? 1.0F : 0.0F);
+                }
                 return () -> inner.get() == 0.0F ? 1.0F : 0.0F;
             }
         }
@@ -284,7 +312,7 @@ final class VBVCemExpr {
     // ---------------------------------------------------------------------------------------
 
     private static Num constant(float value) {
-        return () -> value;
+        return new Const(value);
     }
 
     private static Num or(Num a, Num b) {
@@ -313,6 +341,39 @@ final class VBVCemExpr {
     }
 
     private static Num arith(Num a, Num b, char op) {
+        boolean ca = isConst(a);
+        boolean cb = isConst(b);
+        if (ca && cb) {
+            float x = val(a);
+            float y = val(b);
+            switch (op) {
+                case '+': return new Const(x + y);
+                case '-': return new Const(x - y);
+                case '*': return new Const(x * y);
+                case '/': return new Const(x / y);
+                default: return new Const(x % y);
+            }
+        }
+        if (cb) {
+            final float k = val(b);
+            switch (op) {
+                case '+': return () -> a.get() + k;
+                case '-': return () -> a.get() - k;
+                case '*': return () -> a.get() * k;
+                case '/': return () -> a.get() / k;
+                default: return () -> a.get() % k;
+            }
+        }
+        if (ca) {
+            final float k = val(a);
+            switch (op) {
+                case '+': return () -> k + b.get();
+                case '-': return () -> k - b.get();
+                case '*': return () -> k * b.get();
+                case '/': return () -> k / b.get();
+                default: return () -> k % b.get();
+            }
+        }
         switch (op) {
             case '+':
                 return () -> a.get() + b.get();
@@ -327,6 +388,46 @@ final class VBVCemExpr {
         }
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Fast sine / cosine
+    // ---------------------------------------------------------------------------------------
+    // Math.sin and Math.cos are calls out to JavaScript in the browser build, and the Fresh Animations
+    // pack calls them hundreds of times per entity per frame. A 4096-entry table with linear
+    // interpolation is accurate to about 3e-7 (far below what a model part can show) and stays in WASM.
+
+    private static final int SIN_SIZE = 4096;
+    private static final int SIN_MASK = SIN_SIZE - 1;
+    private static final float SIN_SCALE = (float) (SIN_SIZE / (2.0 * Math.PI));
+    private static final float[] SIN_TABLE = new float[SIN_SIZE + 1];
+
+    static {
+        for (int i = 0; i <= SIN_SIZE; i++) {
+            SIN_TABLE[i] = (float) Math.sin(i * (2.0 * Math.PI / SIN_SIZE));
+        }
+    }
+
+    static float fastSin(float x) {
+        float t = x * SIN_SCALE;
+        if (!(t > -1.0e7F && t < 1.0e7F)) {
+            return (float) Math.sin(x); // NaN, infinities and arguments too large for the table's precision
+        }
+        float f = (float) Math.floor(t);
+        int i = (int) f;
+        float frac = t - f;
+        int index = i & SIN_MASK;
+        float lo = SIN_TABLE[index];
+        return lo + (SIN_TABLE[index + 1] - lo) * frac;
+    }
+
+    static float fastCos(float x) {
+        return fastSin(x + (float) (Math.PI / 2.0));
+    }
+
+    /** Folds a one-argument function of a constant into a constant. */
+    private static Num fold1(Num a, java.util.function.DoubleUnaryOperator op, Num live) {
+        return isConst(a) ? new Const((float) op.applyAsDouble(val(a))) : live;
+    }
+
     private Num function(String name, List<Num> args) {
         int n = args.size();
         Num a = n > 0 ? args.get(0) : null;
@@ -335,13 +436,13 @@ final class VBVCemExpr {
         switch (name) {
             case "sin":
                 need(name, n, 1);
-                return () -> (float) Math.sin(a.get());
+                return fold1(a, Math::sin, () -> fastSin(a.get()));
             case "cos":
                 need(name, n, 1);
-                return () -> (float) Math.cos(a.get());
+                return fold1(a, Math::cos, () -> fastCos(a.get()));
             case "tan":
                 need(name, n, 1);
-                return () -> (float) Math.tan(a.get());
+                return fold1(a, Math::tan, () -> (float) Math.tan(a.get()));
             case "asin":
                 need(name, n, 1);
                 return () -> (float) Math.asin(a.get());
@@ -356,16 +457,16 @@ final class VBVCemExpr {
                 return () -> (float) Math.atan2(a.get(), b.get());
             case "torad":
                 need(name, n, 1);
-                return () -> (float) Math.toRadians(a.get());
+                return fold1(a, Math::toRadians, () -> (float) Math.toRadians(a.get()));
             case "todeg":
                 need(name, n, 1);
-                return () -> (float) Math.toDegrees(a.get());
+                return fold1(a, Math::toDegrees, () -> (float) Math.toDegrees(a.get()));
             case "abs":
                 need(name, n, 1);
-                return () -> Math.abs(a.get());
+                return fold1(a, Math::abs, () -> Math.abs(a.get()));
             case "sqrt":
                 need(name, n, 1);
-                return () -> (float) Math.sqrt(a.get());
+                return fold1(a, Math::sqrt, () -> (float) Math.sqrt(a.get()));
             case "exp":
                 need(name, n, 1);
                 return () -> (float) Math.exp(a.get());
@@ -456,6 +557,12 @@ final class VBVCemExpr {
             case "if":
             case "ifb":
                 atLeast(name, n, 3);
+                if (n == 3) {
+                    if (isConst(a)) {
+                        return val(a) != 0.0F ? b : c;
+                    }
+                    return () -> a.get() != 0.0F ? b.get() : c.get();
+                }
                 return () -> {
                     int i = 0;
                     while (i + 1 < args.size()) {
