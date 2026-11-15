@@ -1,40 +1,27 @@
 package com.melonman106.vbvclient;
 
-import net.lax1dude.eaglercraft.v1_8.profile.EaglerProfile;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
 
 /**
- * VBV home screen styled after the Minecraft Dungeons main menu: a dark,
- * ember-lit night scene with drifting fireflies, the logo up top, and a short
- * left-hand menu (PLAY, SINGLEPLAYER, MODS, OPTIONS) with a glowing accent-colour
- * PLAY button. Hero, Party, Storage and resource packs live in the launcher
- * ({@link VBVLauncherScreen}), reached from the profile card or the LAUNCHER button.
- * The accent colour comes from {@link VBVTheme}.
+ * VBV main menu, laid out like a sci-fi launcher: the animated panorama behind a left-aligned
+ * wordmark and a plain list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS, OPTIONS, EXTRAS).
+ * The selected row gets a light highlight bar with a slanted right edge. Hover or the up/down keys
+ * move the selection; Enter or a click opens it.
  *
- * The animated panorama is drawn by TitleScreen itself; everything here is
- * layered on top of it. Layout is computed in one place ({@link #computeLayout()})
- * so the buttons and the artwork can never drift apart, and it shrinks to fit
- * short GUI heights instead of running off the bottom of the screen.
+ * The first time the menu is reached after launch, {@link VBVSplashScreen} ("press any button to
+ * begin") is shown on top of the same panorama and opens this screen once a key is pressed.
+ * Hero, Party, Storage, Panoramas and Appearance live in {@link VBVLauncherScreen}, the Extras screen.
+ *
+ * The panorama itself is drawn by TitleScreen; everything here is layered on top of it. Layout is
+ * computed in one place ({@link #computeLayout()}) and shrinks to fit short GUI heights.
  */
 public final class VBVDungeonsTitleScreen extends TitleScreen {
-    private static final Identifier LOGO = Identifier.parse("minecraft:textures/gui/title/minecraft.png");
-    // The logo texture is 256x64 but only the top 44 rows hold artwork.
-    private static final int LOGO_TEX_W = 256;
-    private static final int LOGO_TEX_H = 64;
-    private static final int LOGO_ART_H = 44;
-
-    private static final int TEXT = VBVUi.TEXT;
-    private static final int TEXT_DIM = VBVUi.TEXT_DIM;
-
-    private static final int FIREFLIES = 26;
-    private static final int SECONDARY_BUTTONS = 3;
+    private static final int ITEM_COUNT = 5;
 
     private int layoutWidth = -1;
     private int layoutHeight = -1;
@@ -42,98 +29,131 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     // Computed by computeLayout().
     private int left;
     private int menuW;
-    private int logoW;
-    private int logoH;
-    private int logoY;
+    private int rowH;
+    private int gap;
+    private float textScale;
+    private float markScale;
+    private int markY;
+    private int markH;
+    private boolean showSubtitle;
     private int subtitleY;
     private int menuY;
     private int menuBottom;
-    private int primaryH;
-    private int buttonH;
-    private int gap;
-    private boolean showSubtitle;
+
+    private final ZenithItem[] items = new ZenithItem[ITEM_COUNT];
+    private final Runnable[] actions = new Runnable[ITEM_COUNT];
+    private int selected;
+    private int lastMouseX = -1;
+    private int lastMouseY = -1;
 
     public VBVDungeonsTitleScreen() { super(); }
 
     @Override protected void init() {
-        super.init();
         VBVClient.init();
+        VBVBoot.menuReached();
+        if (!VBVSplashScreen.isDone()) {
+            // First visit this launch: show "press any button to begin" first. Pressing a button
+            // opens a fresh copy of this screen.
+            VBVSplashScreen.show(this);
+            return;
+        }
+        super.init();
         VBVParty.initialize();
-        EaglerProfile.readIfNeeded();
         clearWidgets();
         computeLayout();
 
-        // First renderable: the vignette and fireflies sit above the panorama
-        // but underneath every button.
+        // First renderable: the vignette sits above the panorama but underneath every row.
         addRenderableOnly((graphics, mouseX, mouseY, a) -> renderAtmosphere(graphics));
 
-        int y = menuY;
-        addMenuButton("PLAY", y, primaryH, VBVUi.Style.PRIMARY, b -> VBVNav.openMultiplayer(this));
-        y += primaryH + gap;
-        addMenuButton("SINGLEPLAYER", y, buttonH, VBVUi.Style.MENU, b -> VBVNav.openSingleplayer(this));
-        y += buttonH + gap;
-        addMenuButton("MODS", y, buttonH, VBVUi.Style.MENU, b -> VBVNav.open(new VBVModsScreen(this)));
-        y += buttonH + gap;
-        addMenuButton("OPTIONS", y, buttonH, VBVUi.Style.MENU, b -> VBVNav.openOptions(this));
+        String[] labels = { "PLAY", "SINGLEPLAYER", "MODS", "OPTIONS", "EXTRAS" };
+        actions[0] = () -> VBVNav.openMultiplayer(this);
+        actions[1] = () -> VBVNav.openSingleplayer(this);
+        actions[2] = () -> VBVNav.open(new VBVModsScreen(this));
+        actions[3] = () -> VBVNav.openOptions(this);
+        actions[4] = () -> VBVNav.open(new VBVLauncherScreen(this));
 
-        addRenderableWidget(new ProfileCard(this));
-        int launcherW = 112;
-        int launcherH = 22;
-        addRenderableWidget(new LauncherButton(width - launcherW - 10, height - launcherH - 10, launcherW, launcherH,
-            b -> VBVNav.open(new VBVLauncherScreen(this))));
+        int y = menuY;
+        for (int i = 0; i < ITEM_COUNT; i++) {
+            final int index = i;
+            items[i] = new ZenithItem(left, y, menuW, rowH, labels[i], index, b -> {
+                selected = index;
+                actions[index].run();
+            });
+            addRenderableWidget(items[i]);
+            y += rowH + gap;
+        }
+        selected = Math.max(0, Math.min(ITEM_COUNT - 1, selected));
 
         layoutWidth = width;
         layoutHeight = height;
     }
 
-    private void addMenuButton(String label, int y, int h, VBVUi.Style style, Button.OnPress action) {
-        addRenderableWidget(new VBVUi.ThemedButton(left, y, menuW, h, label, style, action));
-    }
-
-    /** Sizes the logo and menu so the whole block fits the current GUI size. */
+    /** Sizes the wordmark and list so the whole block fits the current GUI size. */
     private void computeLayout() {
-        left = Math.max(14, width / 16);
-        menuW = Math.max(140, Math.min(240, Math.min(width / 4 + 40, width - left * 2)));
+        left = Math.max(18, width / 12);
+        menuW = Math.max(150, Math.min(240, Math.min(width / 3, width - left - 10)));
 
-        int margin = 10;
-        int footer = 16;
-        int avail = height - margin - footer;
+        int footer = 18;
+        int top = 10;
+        int avail = height - top - footer;
 
-        int lh = Math.min(menuW + 20, LOGO_TEX_W) * LOGO_ART_H / LOGO_TEX_W;
-        int bh = 26;
-        int g = 5;
-        int sub = 18;
-        int headGap = 12;
-        // Shrink in order of least visual damage until the block fits.
-        for (int guard = 0; guard < 64 && blockHeight(lh, sub, headGap, bh, g) > avail; guard++) {
-            if (bh > 16) {
-                bh--;
-            } else if (lh > 24) {
-                lh = Math.max(24, lh - 4);
-            } else if (sub > 0) {
-                sub = 0;
-            } else if (g > 2) {
+        float ms = height >= 300 ? 4.0F : (height >= 220 ? 3.0F : 2.0F);
+        float ts = height >= 300 ? 1.5F : 1.0F;
+        int rh = (int) (font.lineHeight * ts) + (ts > 1.0F ? 12 : 9);
+        int g = 3;
+        boolean sub = true;
+        for (int guard = 0; guard < 64 && blockHeight(ms, sub, rh, g) > avail; guard++) {
+            if (rh > 16) {
+                rh--;
+            } else if (ms > 2.0F) {
+                ms -= 1.0F;
+            } else if (sub) {
+                sub = false;
+            } else if (g > 1) {
                 g--;
             } else {
                 break;
             }
         }
 
-        buttonH = bh;
-        primaryH = bh + 12;
+        // The longest label must fit inside its row with room for the highlight bar's padding.
+        int needed = (int) (VBVUi.trackedWidth(font, "SINGLEPLAYER", 2) * ts) + 32;
+        menuW = Math.max(menuW, Math.min(needed, width - left - 4));
+
+        textScale = ts;
+        markScale = ms;
+        rowH = rh;
         gap = g;
-        logoH = lh;
-        logoW = lh * LOGO_TEX_W / LOGO_ART_H;
-        showSubtitle = sub > 0;
-        int total = blockHeight(lh, sub, headGap, bh, g);
-        logoY = margin + Math.max(0, (avail - total) / 2);
-        subtitleY = logoY + logoH + 5;
-        menuY = logoY + logoH + sub + headGap;
-        menuBottom = menuY + primaryH + SECONDARY_BUTTONS * (buttonH + gap);
+        showSubtitle = sub;
+        markH = (int) (font.lineHeight * ms);
+        int total = blockHeight(ms, sub, rh, g);
+        markY = top + Math.max(0, (avail - total) / 2);
+        subtitleY = markY + markH + 8;
+        menuY = markY + markH + (sub ? 8 + font.lineHeight : 0) + 16;
+        menuBottom = menuY + ITEM_COUNT * (rh + g);
     }
 
-    private static int blockHeight(int logoH, int subtitleH, int headGap, int buttonH, int gap) {
-        return logoH + subtitleH + headGap + (buttonH + 12) + SECONDARY_BUTTONS * (buttonH + gap);
+    private int blockHeight(float markScale, boolean subtitle, int rowH, int gap) {
+        return (int) (font.lineHeight * markScale) + (subtitle ? 8 + font.lineHeight : 0) + 16
+            + ITEM_COUNT * (rowH + gap);
+    }
+
+    @Override
+    public boolean keyPressed(KeyEvent event) {
+        int key = event.key();
+        if (key == 265) { // up
+            selected = (selected + ITEM_COUNT - 1) % ITEM_COUNT;
+            return true;
+        }
+        if (key == 264) { // down
+            selected = (selected + 1) % ITEM_COUNT;
+            return true;
+        }
+        if ((key == 257 || key == 335 || key == 32) && actions[selected] != null) { // enter, keypad enter, space
+            actions[selected].run();
+            return true;
+        }
+        return super.keyPressed(event);
     }
 
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -141,30 +161,52 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int currentHeight = graphics.guiHeight();
         if (currentWidth != layoutWidth || currentHeight != layoutHeight) {
             // Browser fullscreen can resize the canvas without a normal window event.
-            // Rebuild all button bounds against the new GUI dimensions before drawing.
+            // Rebuild all bounds against the new GUI dimensions before drawing.
             this.init(currentWidth, currentHeight);
+            if (layoutWidth != currentWidth) {
+                return; // the splash screen took over; nothing to draw for this screen
+            }
         }
-        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        EaglerProfile.readIfNeeded();
 
-        // Logo, drawn at its true aspect ratio (only the top 44 texture rows are artwork).
-        graphics.blit(RenderPipelines.GUI_TEXTURED, LOGO, left, logoY,
-            0.0F, 0.0F, logoW, logoH, LOGO_TEX_W, LOGO_ART_H, LOGO_TEX_W, LOGO_TEX_H);
+        // The mouse moves the selection only when it actually moves, so the arrow keys still work
+        // while the pointer rests over a row.
+        if (mouseX != lastMouseX || mouseY != lastMouseY) {
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
+            for (int i = 0; i < ITEM_COUNT; i++) {
+                if (items[i] != null && items[i].isMouseOver(mouseX, mouseY)) {
+                    selected = i;
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < ITEM_COUNT; i++) {
+            if (items[i] != null) items[i].selectedRow = i == selected;
+        }
+
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+
+        // Wordmark: big wide-spaced letters, an accent rule and the edition line.
+        int tracking = 4;
+        graphics.pose().pushMatrix();
+        graphics.pose().translate(left, markY);
+        graphics.pose().scale(markScale, markScale);
+        VBVUi.trackedText(graphics, font, "VBV", 0, 0, 0xFFFFFFFF, tracking, true);
+        graphics.pose().popMatrix();
         if (showSubtitle) {
-            graphics.fill(left, subtitleY + 4, left + 10, subtitleY + 5, VBVTheme.accent());
-            graphics.text(font, "YOUR ADVENTURE STARTS HERE", left + 15, subtitleY, TEXT_DIM, true);
+            graphics.fill(left, subtitleY + 4, left + 12, subtitleY + 5, VBVTheme.accent());
+            VBVUi.trackedText(graphics, font, "EAGLER 26.2 EDITION", left + 18, subtitleY, VBVUi.TEXT_DIM, 2, true);
         }
 
         renderPartyPanel(graphics);
 
-        // A small edition label anchors the lower edge without obscuring the panorama
-        // (skipped on tiny GUI sizes where the menu already reaches the bottom).
+        // Small print on the lower edge (skipped when the list already reaches it).
         if (menuBottom <= height - 14) {
-            graphics.text(font, "VBV EDITION  \u2022  26.2", left, height - 14, TEXT_DIM, false);
+            graphics.text(font, "v" + VBVClient.VERSION + "  •  26.2", left, height - 14, VBVUi.TEXT_DISABLED, false);
         }
     }
 
-    /** Left-hand vignette, top/bottom shading and a handful of drifting fireflies. */
+    /** Left-hand vignette and top/bottom shading so the menu reads on any panorama. */
     private void renderAtmosphere(GuiGraphicsExtractor graphics) {
         int w = graphics.guiWidth();
         int h = graphics.guiHeight();
@@ -182,99 +224,63 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         }
         graphics.fillGradient(0, 0, w, Math.min(h, 40), 0x99000000, 0x00000000);
         graphics.fillGradient(0, Math.max(0, h - 52), w, h, 0x00000000, 0xB0000000);
-
-        // Fireflies, like the Creeper Woods camp: slow drifting pinpoints that pulse.
-        int glow = VBVTheme.accentLight() & 0xFFFFFF;
-        int halo0 = VBVTheme.accent() & 0xFFFFFF;
-        long now = System.currentTimeMillis();
-        double time = now / 1000.0;
-        for (int i = 0; i < FIREFLIES; i++) {
-            double seed = i * 12.9898;
-            double baseX = fract(Math.sin(seed) * 43758.5453) * w;
-            double baseY = h * (0.25 + 0.7 * fract(Math.sin(seed * 1.37) * 24634.6345));
-            int x = (int) (baseX + Math.sin(time * 0.6 + seed) * 16.0);
-            int y = (int) (baseY + Math.cos(time * 0.43 + seed * 1.7) * 11.0);
-            double pulse = 0.5 + 0.5 * Math.sin(time * 1.7 + seed * 3.0);
-            int core = (int) (50 + pulse * 170);
-            int halo = (int) (8 + pulse * 28);
-            graphics.fill(x - 1, y - 1, x + 3, y + 3, (halo << 24) | halo0);
-            graphics.fill(x, y, x + 2, y + 2, (core << 24) | glow);
-        }
-    }
-
-    private static double fract(double value) {
-        return value - Math.floor(value);
     }
 
     private void renderPartyPanel(GuiGraphicsExtractor graphics) {
         String[] party = VBVParty.players();
         if (party.length == 0) return;
         int shown = Math.min(4, party.length);
-        int py = 12 + 32;
+        int py = 12;
         graphics.fill(width - 188, py - 4, width - 10, py + shown * 18 + 16, VBVTheme.panel(0xB0));
         graphics.fill(width - 188, py - 4, width - 186, py + shown * 18 + 16, VBVTheme.accent());
         graphics.text(font, "PARTY", width - 176, py, VBVTheme.accentLight(), true);
         py += 14;
         for (int i = 0; i < shown; i++) {
-            graphics.text(font, party[i], width - 166, py, TEXT, false);
+            graphics.text(font, party[i], width - 166, py, VBVUi.TEXT, false);
             py += 18;
         }
     }
 
-    /** Skin head and name in the top-right corner; opens the launcher on the Hero tab. */
-    private static final class ProfileCard extends Button {
-        ProfileCard(VBVDungeonsTitleScreen screen) {
-            super(screen.width - 10 - cardWidth(), 8, cardWidth(), 28, Component.literal("Hero"),
-                b -> VBVNav.open(new VBVLauncherScreen(screen, VBVLauncherScreen.Tab.HERO)), DEFAULT_NARRATION);
-        }
+    /**
+     * One menu row: plain wide-spaced text; the selected row slides in a light bar with a slanted
+     * right edge, and its text turns dark.
+     */
+    private final class ZenithItem extends Button {
+        boolean selectedRow;
+        private float glow;
 
-        private static int cardWidth() {
-            Font font = Minecraft.getInstance().font;
-            return 8 + 20 + 8 + font.width(profileName()) + 12;
-        }
-
-        private static String profileName() {
-            String name = EaglerProfile.getName();
-            return name == null || name.isEmpty() ? "Player" : name;
+        ZenithItem(int x, int y, int w, int h, String label, int index, Button.OnPress onPress) {
+            super(x, y, w, h, Component.literal(label), onPress, DEFAULT_NARRATION);
         }
 
         @Override
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            Font font = Minecraft.getInstance().font;
-            boolean lit = this.isHoveredOrFocused();
+            Font f = VBVDungeonsTitleScreen.this.font;
             int x = this.getX();
             int y = this.getY();
             int w = this.getWidth();
             int h = this.getHeight();
-            graphics.fill(x, y, x + w, y + h, lit ? VBVTheme.panel(0xE8) : VBVTheme.panel(0xB0));
-            graphics.fill(x, y + h - 1, x + w, y + h, lit ? VBVTheme.accentLight() : VBVTheme.accent());
-            Identifier skin = EaglerProfile.getActiveSkinResourceLocation();
-            graphics.blit(RenderPipelines.GUI_TEXTURED, skin, x + 6, y + 4, 8, 8, 20, 20, 8, 8, 64, 64);
-            graphics.blit(RenderPipelines.GUI_TEXTURED, skin, x + 6, y + 4, 40, 8, 20, 20, 8, 8, 64, 64);
-            graphics.text(font, profileName(), x + 34, y + (h - font.lineHeight) / 2 + 1,
-                lit ? VBVTheme.accentLight() : 0xFFFFFFFF, true);
-        }
-    }
 
-    /** Small launcher shortcut in the bottom-right corner. */
-    private static final class LauncherButton extends Button {
-        LauncherButton(int x, int y, int w, int h, Button.OnPress onPress) {
-            super(x, y, w, h, Component.literal("LAUNCHER"), onPress, DEFAULT_NARRATION);
-        }
+            // Ease toward the target so the bar slides in instead of snapping.
+            glow += ((selectedRow ? 1.0F : 0.0F) - glow) * 0.4F;
+            if (glow < 0.01F) glow = 0.0F;
 
-        @Override
-        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            Font font = Minecraft.getInstance().font;
-            boolean lit = this.isHoveredOrFocused();
-            int x = this.getX();
-            int y = this.getY();
-            int w = this.getWidth();
-            int h = this.getHeight();
-            graphics.fill(x, y, x + w, y + h, lit ? VBVTheme.panel(0xF0) : VBVTheme.panel(0xC0));
-            graphics.outline(x, y, w, h, lit ? VBVTheme.accentLight() : VBVTheme.accentAlpha(0xA0));
-            VBVUi.gridIcon(graphics, x + 9, y + (h - 11) / 2, lit ? VBVTheme.accentLight() : VBVTheme.accent());
-            graphics.text(font, "LAUNCHER", x + 26, y + (h - font.lineHeight) / 2 + 1,
-                lit ? VBVTheme.accentLight() : TEXT, true);
+            if (glow > 0.0F) {
+                int bar = VBVTheme.mix(0xFFFFFFFF, VBVTheme.accentLight(), 0.22F);
+                int alpha = (int) (0xB4 * glow);
+                int barW = (int) (w * (0.7F + 0.3F * glow));
+                VBVUi.slantedBar(graphics, x, y, barW, h, h / 2, (alpha << 24) | (bar & 0xFFFFFF));
+                graphics.fill(x, y, x + 3, y + h, VBVTheme.accent());
+            }
+
+            boolean lit = glow > 0.5F;
+            int color = lit ? 0xFF14110A : 0xFFFFFFFF;
+            int textY = y + (int) ((h - f.lineHeight * textScale) / 2.0F);
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(x + 14, textY);
+            graphics.pose().scale(textScale, textScale);
+            VBVUi.trackedText(graphics, f, getMessage().getString(), 0, 0, color, 2, !lit);
+            graphics.pose().popMatrix();
         }
     }
 }

@@ -130,6 +130,34 @@ public final class VBVUi {
         }
     }
 
+    /** Width of {@code text} drawn by {@link #trackedText} with {@code tracking} extra pixels between letters. */
+    public static int trackedWidth(Font font, String text, int tracking) {
+        return Math.max(0, font.width(text) + Math.max(0, text.length() - 1) * tracking);
+    }
+
+    /** Draws wide-spaced letters (the look of a sci-fi menu) and returns the width used. */
+    public static int trackedText(GuiGraphicsExtractor graphics, Font font, String text, int x, int y, int color,
+                                  int tracking, boolean shadow) {
+        int cx = x;
+        for (int i = 0; i < text.length(); i++) {
+            String ch = text.substring(i, i + 1);
+            graphics.text(font, ch, cx, y, color, shadow);
+            cx += font.width(ch) + tracking;
+        }
+        return cx - x - tracking;
+    }
+
+    /**
+     * A translucent bar whose right end is cut on a slant (the highlight behind the selected menu
+     * item). The top edge is {@code w} wide, the bottom edge {@code slant} pixels shorter.
+     */
+    public static void slantedBar(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int slant, int color) {
+        for (int row = 0; row < h; row++) {
+            int inset = h <= 1 ? 0 : row * slant / (h - 1);
+            graphics.fill(x, y + row, x + w - inset, y + row + 1, color);
+        }
+    }
+
     /** A small right-pointing chevron, 5 wide and 9 tall. */
     public static void chevron(GuiGraphicsExtractor graphics, int x, int y, int color) {
         for (int k = 0; k < 5; k++) {

@@ -29,7 +29,6 @@ public final class VBVModsScreen extends Screen {
     private VBVModInfo selected;
     private String searchText = "";
     private boolean ascending = true;
-    private int typeFilter = 0;
     private boolean filtersShown = true;
     private int listScroll = 0;
     private int descScroll = 0;
@@ -37,7 +36,6 @@ public final class VBVModsScreen extends Screen {
     private final List<Integer> descColors = new ArrayList<>();
     private EditBox searchBox;
     private Button sortButton;
-    private Button typeButton;
     private Button configButton;
     private int paneWidth;
     private int rightPaneX;
@@ -70,18 +68,13 @@ public final class VBVModsScreen extends Screen {
         searchBox.setResponder(text -> { searchText = text; listScroll = 0; refilter(); });
         addRenderableWidget(searchBox);
         int sortWidth = font.width("Sort: Z-A") + 28;
-        int typeWidth = font.width("Show: Packs") + 20;
-        int filtersWidth = sortWidth + typeWidth + 2;
+        int filtersWidth = sortWidth;
         int searchRowWidth = searchBoxX + searchWidth + 22;
         filtersX = searchRowWidth - filtersWidth + 1;
         sortButton = Button.builder(Component.literal(sortLabel()), button -> {
             ascending = !ascending; button.setMessage(Component.literal(sortLabel())); refilter();
         }).bounds(filtersX, 45, sortWidth, 20).build();
-        typeButton = Button.builder(Component.literal(typeLabel()), button -> {
-            typeFilter = (typeFilter + 1) % 3; button.setMessage(Component.literal(typeLabel())); listScroll = 0; refilter();
-        }).bounds(filtersX + sortWidth + 2, 45, typeWidth, 20).build();
         addRenderableWidget(sortButton);
-        addRenderableWidget(typeButton);
         configButton = Button.builder(Component.literal("Config"), button -> {
             if (selected == null) return;
             if ("simple-hud-enhanced".equals(selected.id())) VBVNav.open(new VBVSimpleHudConfigScreen(this));
@@ -102,16 +95,15 @@ public final class VBVModsScreen extends Screen {
         refilter();
     }
 
-    private void applyFilterVisibility() { sortButton.visible = filtersShown; typeButton.visible = filtersShown; }
+    private void applyFilterVisibility() { sortButton.visible = filtersShown; }
     private String sortLabel() { return ascending ? "Sort: A-Z" : "Sort: Z-A"; }
-    private String typeLabel() { return typeFilter == 0 ? "Show: All" : typeFilter == 1 ? "Show: Native" : "Show: Packs"; }
 
     private void refilter() {
         String query = searchText.trim().toLowerCase(Locale.ROOT);
         shown.clear();
         for (VBVModInfo info : all) {
-            if (typeFilter == 1 && info.resourcePackMod()) continue;
-            if (typeFilter == 2 && !info.resourcePackMod()) continue;
+            // Resource packs stay installed and active; they are managed from Options > Resource Packs.
+            if (info.resourcePackMod()) continue;
             if (!query.isEmpty() && !matches(info, query)) continue;
             shown.add(info);
         }

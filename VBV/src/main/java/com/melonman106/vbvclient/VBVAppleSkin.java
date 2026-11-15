@@ -111,7 +111,7 @@ public final class VBVAppleSkin {
             int frame = Math.min(3, Math.max(0, (int) Math.ceil(amount * 4.0F) - 1));
             int iconX = guiWidth / 2 + 82 - i * 8;
             // Draw the full 9x9 atlas cell (one pixel larger than the previous 8x8 icon).
-            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top + 1, frame * 9, 0, 9, 9, 256, 256, color);
+            graphics.blit(RenderPipelines.GUI_TEXTURED, ICONS, iconX, top, frame * 9, 0, 9, 9, 256, 256, color);
         }
     }
 }

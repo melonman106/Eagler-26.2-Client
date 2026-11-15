@@ -3,35 +3,33 @@ package com.melonman106.vbvclient;
 import java.util.ArrayList;
 import java.util.List;
 import net.lax1dude.eaglercraft.v1_8.profile.EaglerProfile;
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.packs.PackSelectionScreen;
-import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 /**
- * VBV Launcher: a Modrinth-app style hub with a tab sidebar.
+ * VBV Extras: the hub behind the EXTRAS button on the main menu, a tab sidebar with
  *
  * <ul>
- *   <li><b>Discover</b> - search Modrinth for resource packs and install them in one click.</li>
- *   <li><b>Library</b> - resource-pack manager, mods and imports.</li>
+ *   <li><b>Panoramas</b> - pick the animated backdrop for the menus (or the vanilla one).</li>
  *   <li><b>Hero</b> - your skin, cape and name.</li>
  *   <li><b>Party</b> - party status and manager.</li>
  *   <li><b>Storage</b> - the browser-folder storage settings.</li>
  *   <li><b>Appearance</b> - accent colour and hand position.</li>
  * </ul>
  *
+ * Resource packs and the Modrinth browser moved to Options &gt; Resource Packs.
+ *
  * Every position is derived from the current GUI size in {@link #computeLayout()} and the
  * screen rebuilds itself whenever that size changes, so it follows fullscreen toggles.
  */
 public final class VBVLauncherScreen extends Screen {
     public enum Tab {
-        DISCOVER("DISCOVER"), LIBRARY("LIBRARY"), HERO("HERO"),
-        PARTY("PARTY"), STORAGE("STORAGE"), APPEARANCE("APPEARANCE");
+        PANORAMAS("PANORAMAS"), HERO("HERO"), PARTY("PARTY"), STORAGE("STORAGE"), APPEARANCE("APPEARANCE");
 
         final String label;
 
@@ -44,12 +42,8 @@ public final class VBVLauncherScreen extends Screen {
 
     private record Hint(int x, int y, String text) {}
 
-    // Remembered between visits so the launcher reopens where you left it.
-    private static Tab lastTab = Tab.DISCOVER;
-    private static String lastQuery = "";
-    private static int lastSort = 1;
-    private static boolean firstSearchDone;
-    private static int lastRows = -1;
+    // Remembered between visits so Extras reopens where you left it.
+    private static Tab lastTab = Tab.PANORAMAS;
 
     private final Screen parent;
     private Tab tab;
@@ -61,18 +55,16 @@ public final class VBVLauncherScreen extends Screen {
     private int contentW;
     private int contentBottom;
 
-    // Discover state
-    private EditBox searchBox;
-    private VBVUi.ThemedButton sortButton;
-    private VBVUi.ThemedButton prevButton;
-    private VBVUi.ThemedButton nextButton;
-    private final List<VBVUi.ThemedButton> installButtons = new ArrayList<>();
-    private VBVModrinth.Hit[] hits = new VBVModrinth.Hit[0];
-    private int rows = 4;
-    private int cardH = 30;
+    // Panoramas state
+    private final List<PanoramaCard> cards = new ArrayList<>();
+    private int cardW;
+    private int thumbH;
+    private int cardH;
+    private int cardGap = 8;
+    private int perRow = 1;
     private int cardsTop;
-    private int offset;
-    private String notice = "";
+    private int visibleRows = 1;
+    private int scrollRow;
 
     private final List<Hint> hints = new ArrayList<>();
 
@@ -81,9 +73,9 @@ public final class VBVLauncherScreen extends Screen {
     }
 
     public VBVLauncherScreen(Screen parent, Tab initialTab) {
-        super(Component.literal("VBV Launcher"));
+        super(Component.literal("VBV Extras"));
         this.parent = parent;
-        this.tab = initialTab == null ? Tab.DISCOVER : initialTab;
+        this.tab = initialTab == null ? Tab.PANORAMAS : initialTab;
         lastTab = this.tab;
     }
 
@@ -102,21 +94,15 @@ public final class VBVLauncherScreen extends Screen {
     protected void init() {
         super.init();
         VBVClient.init();
-        VBVModrinth.initialize();
         VBVParty.initialize();
         EaglerProfile.readIfNeeded();
         computeLayout();
         hints.clear();
-        installButtons.clear();
-        searchBox = null;
-        sortButton = null;
-        prevButton = null;
-        nextButton = null;
+        cards.clear();
 
         buildSidebar();
         switch (tab) {
-            case DISCOVER -> buildDiscover();
-            case LIBRARY -> buildLibrary();
+            case PANORAMAS -> buildPanoramas();
             case HERO -> buildHero();
             case PARTY -> buildParty();
             case STORAGE -> buildStorage();
@@ -126,9 +112,10 @@ public final class VBVLauncherScreen extends Screen {
 
     private void switchTab(Tab next) {
         if (next == tab) return;
+        if (tab == Tab.PANORAMAS) VBVPanoramaOverlay.releasePreviews();
         tab = next;
         lastTab = next;
-        notice = "";
+        scrollRow = 0;
         rebuildWidgets();
     }
 
@@ -146,162 +133,116 @@ public final class VBVLauncherScreen extends Screen {
             VBVUi.Style.SMALL, b -> VBVNav.open(parent)));
     }
 
-    // ------------------------------------------------------------- discover
+    // ------------------------------------------------------------ panoramas
 
-    private void buildDiscover() {
-        int y0 = contentY;
-        int searchW = 58;
-        int sortW = 74;
-        int boxW = Math.max(60, contentW - searchW - sortW - 8);
+    /** Card index 0 is "vanilla" (no overlay); cards 1..n are the panoramas from the panorama folder. */
+    private void buildPanoramas() {
+        int total = VBVPanoramaOverlay.count() + 1;
+        cardGap = 8;
+        int columns = contentW >= 360 ? 3 : (contentW >= 240 ? 2 : 1);
+        cardW = Math.max(80, Math.min(170, (contentW - cardGap * (columns - 1)) / columns));
+        perRow = Math.max(1, (contentW + cardGap) / (cardW + cardGap));
+        thumbH = cardW * 9 / 16;
+        cardH = thumbH + 16;
+        cardsTop = contentY + 18;
+        visibleRows = Math.max(1, (contentBottom - cardsTop + cardGap) / (cardH + cardGap));
+        int totalRows = (total + perRow - 1) / perRow;
+        scrollRow = Math.max(0, Math.min(scrollRow, Math.max(0, totalRows - visibleRows)));
 
-        searchBox = new EditBox(font, contentX, y0, boxW, 20, Component.literal("Search resource packs"));
-        searchBox.setHint(Component.literal("Search Modrinth resource packs..."));
-        searchBox.setMaxLength(64);
-        searchBox.setValue(lastQuery);
-        searchBox.setResponder(value -> lastQuery = value);
-        addRenderableWidget(searchBox);
-
-        sortButton = new VBVUi.ThemedButton(contentX + boxW + 4, y0, sortW, 20,
-            VBVModrinth.SORT_NAMES[lastSort], VBVUi.Style.SMALL, b -> {
-                lastSort = (lastSort + 1) % VBVModrinth.SORT_IDS.length;
-                sortButton.setLabel(VBVModrinth.SORT_NAMES[lastSort]);
-                runSearch(0);
-            });
-        addRenderableWidget(sortButton);
-        addRenderableWidget(new VBVUi.ThemedButton(contentX + boxW + sortW + 8, y0, searchW, 20, "SEARCH",
-            VBVUi.Style.SMALL, b -> runSearch(0)));
-
-        cardH = height >= 260 ? 34 : 26;
-        cardsTop = y0 + 26;
-        int footerH = 40;
-        rows = Math.max(1, Math.min(VBVModrinth.PAGE_SIZE, (contentBottom - footerH - cardsTop + 3) / (cardH + 3)));
-
-        // Card artwork first, then the install buttons on top of it.
-        addRenderableOnly((graphics, mouseX, mouseY, a) -> renderCards(graphics));
-        for (int i = 0; i < rows; i++) {
-            final int slot = i;
-            VBVUi.ThemedButton install = new VBVUi.ThemedButton(contentX + contentW - 62,
-                cardsTop + i * (cardH + 3) + (cardH - 18) / 2, 56, 18, "INSTALL", VBVUi.Style.SMALL, b -> {
-                    if (slot < hits.length && !VBVModrinth.installBusy()) {
-                        notice = "";
-                        VBVModrinth.install(hits[slot].id, hits[slot].title);
-                    }
-                });
-            install.visible = false;
-            installButtons.add(install);
-            addRenderableWidget(install);
+        for (int i = 0; i < total; i++) {
+            final int panorama = i - 1; // -1 = vanilla
+            PanoramaCard card = new PanoramaCard(panorama);
+            cards.add(card);
+            addRenderableWidget(card);
         }
-
-        int pagerY = contentBottom - 20;
-        prevButton = new VBVUi.ThemedButton(contentX, pagerY, 64, 20, "< PREV", VBVUi.Style.SMALL,
-            b -> runSearch(Math.max(0, offset - rows)));
-        nextButton = new VBVUi.ThemedButton(contentX + 68, pagerY, 64, 20, "NEXT >", VBVUi.Style.SMALL,
-            b -> runSearch(offset + rows));
-        addRenderableWidget(prevButton);
-        addRenderableWidget(nextButton);
-
-        if (!firstSearchDone || rows != lastRows) {
-            firstSearchDone = true;
-            lastRows = rows;
-            runSearch(0);
-        }
-        hits = VBVModrinth.results();
-        refreshDiscoverButtons();
+        layoutCards();
     }
 
-    private void runSearch(int newOffset) {
-        offset = Math.max(0, newOffset);
-        notice = "";
-        VBVModrinth.search(lastQuery, offset, VBVModrinth.SORT_IDS[lastSort], rows);
-    }
-
-    private void refreshDiscoverButtons() {
-        boolean busy = VBVModrinth.installBusy();
-        for (int i = 0; i < installButtons.size(); i++) {
-            VBVUi.ThemedButton button = installButtons.get(i);
-            button.visible = i < hits.length;
-            button.active = !busy;
-        }
-        if (prevButton != null) prevButton.active = offset > 0 && !VBVModrinth.searchBusy();
-        if (nextButton != null) {
-            nextButton.active = offset + rows < VBVModrinth.totalHits() && !VBVModrinth.searchBusy();
+    private void layoutCards() {
+        for (int i = 0; i < cards.size(); i++) {
+            PanoramaCard card = cards.get(i);
+            int row = i / perRow - scrollRow;
+            int col = i % perRow;
+            card.setX(contentX + col * (cardW + cardGap));
+            card.setY(cardsTop + row * (cardH + cardGap));
+            card.setWidth(cardW);
+            card.setHeight(cardH);
+            card.visible = row >= 0 && row < visibleRows;
         }
     }
 
-    private void renderCards(GuiGraphicsExtractor graphics) {
-        int tile = cardH - 8;
-        for (int i = 0; i < hits.length && i < rows; i++) {
-            VBVModrinth.Hit hit = hits[i];
-            int y = cardsTop + i * (cardH + 3);
-            graphics.fill(contentX, y, contentX + contentW, y + cardH, VBVTheme.panel(0xC8));
-            graphics.fill(contentX, y, contentX + 2, y + cardH, VBVTheme.accentAlpha(0xA0));
-
-            int tx = contentX + 8;
-            int ty = y + 4;
-            graphics.fill(tx, ty, tx + tile, ty + tile, VBVTheme.accentAlpha(0x50));
-            graphics.outline(tx, ty, tile, tile, VBVTheme.accentAlpha(0xA0));
-            String letter = hit.title.isEmpty() ? "?" : hit.title.substring(0, 1).toUpperCase();
-            graphics.text(font, letter, tx + (tile - font.width(letter)) / 2,
-                ty + (tile - font.lineHeight) / 2 + 1, VBVTheme.accentLight(), true);
-
-            int textX = tx + tile + 7;
-            int textW = contentX + contentW - 70 - textX;
-            graphics.text(font, VBVUi.fit(font, hit.title, textW), textX, y + 4, 0xFFFFFFFF, true);
-            String meta = "by " + hit.author + "  -  " + VBVModrinth.formatCount(hit.downloads) + " downloads";
-            graphics.text(font, VBVUi.fit(font, meta, textW), textX, y + 14, VBVUi.TEXT_DIM, false);
-            if (cardH >= 34) {
-                graphics.text(font, VBVUi.fit(font, hit.description, textW), textX, y + 24, 0xFF8C8578, false);
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (tab == Tab.PANORAMAS && !cards.isEmpty()) {
+            int totalRows = (cards.size() + perRow - 1) / perRow;
+            int maxScroll = Math.max(0, totalRows - visibleRows);
+            if (maxScroll > 0 && scrollY != 0.0) {
+                scrollRow = Math.max(0, Math.min(maxScroll, scrollRow + (scrollY < 0.0 ? 1 : -1)));
+                layoutCards();
+                return true;
             }
         }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    private void renderDiscoverFooter(GuiGraphicsExtractor graphics) {
-        int footerY = contentBottom - 34;
-        if (VBVModrinth.installBusy() || VBVModrinth.installProgress() >= 0) {
-            String status = VBVModrinth.installStatus();
-            int barW = Math.min(150, Math.max(60, contentW / 3));
-            graphics.text(font, VBVUi.fit(font, status, contentW - barW - 10), contentX, footerY, VBVUi.TEXT, true);
-            VBVUi.progressBar(graphics, contentX + contentW - barW, footerY, barW, 8, VBVModrinth.installProgress());
-        } else {
-            String status = !notice.isEmpty() ? notice
-                : (!VBVModrinth.installStatus().isEmpty() ? VBVModrinth.installStatus() : VBVModrinth.searchStatus());
-            if (!status.isEmpty()) {
-                graphics.text(font, VBVUi.fit(font, status, contentW), contentX, footerY, VBVUi.TEXT, true);
+    private void renderPanoramasHeader(GuiGraphicsExtractor graphics) {
+        int index = VBVPanoramaOverlay.selectedIndex();
+        String active = index < 0 ? "Vanilla panorama" : VBVPanoramaOverlay.name(index);
+        graphics.text(font, VBVUi.fit(font, "MENU BACKDROP  -  " + active.toUpperCase(), contentW), contentX, contentY + 2,
+            VBVTheme.accentLight(), true);
+        int totalRows = (cards.size() + perRow - 1) / perRow;
+        if (totalRows > visibleRows) {
+            graphics.text(font, "Scroll for more", contentX, contentBottom - 8, VBVUi.TEXT_DISABLED, false);
+        } else if (VBVPanoramaOverlay.count() == 0) {
+            graphics.text(font, "No panoramas yet. Add videos to the panorama folder.", contentX, cardsTop + cardH + 6,
+                VBVUi.TEXT_DIM, false);
+        }
+    }
+
+    /** A thumbnail with the panorama's name under it; the active one is outlined in the accent colour. */
+    private final class PanoramaCard extends Button {
+        private final int panorama;
+
+        PanoramaCard(int panorama) {
+            super(0, 0, 80, 60, Component.literal(panorama < 0 ? "Vanilla" : VBVPanoramaOverlay.name(panorama)),
+                b -> {
+                    VBVPanoramaOverlay.select(panorama);
+                    VBVConfigStore.saveAll();
+                }, DEFAULT_NARRATION);
+            this.panorama = panorama;
+        }
+
+        @Override
+        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            Font f = VBVLauncherScreen.this.font;
+            int x = this.getX();
+            int y = this.getY();
+            int w = this.getWidth();
+            int th = w * 9 / 16;
+            boolean active = VBVPanoramaOverlay.selectedIndex() == panorama;
+            boolean lit = this.isHoveredOrFocused();
+
+            if (panorama < 0) {
+                graphics.fillGradient(x, y, x + w, y + th, 0xFF2B3A52, 0xFF121822);
+                String label = "MINECRAFT";
+                graphics.text(f, label, x + (w - f.width(label)) / 2, y + (th - f.lineHeight) / 2, VBVUi.TEXT_DIM, true);
+            } else {
+                Identifier preview = VBVPanoramaOverlay.preview(panorama);
+                graphics.blit(RenderPipelines.GUI_TEXTURED, preview, x, y, 0, 0, w, th, w, th, w, th);
+            }
+            int edge = active ? VBVTheme.accent() : (lit ? VBVTheme.accentLight() : VBVTheme.accentAlpha(0x60));
+            graphics.outline(x, y, w, th, edge);
+            if (active) {
+                graphics.outline(x + 1, y + 1, w - 2, th - 2, edge);
+            }
+
+            String label = VBVUi.fit(f, getMessage().getString(), w - (active ? 44 : 0));
+            graphics.text(f, label, x, y + th + 4, active || lit ? 0xFFFFFFFF : VBVUi.TEXT_DIM, true);
+            if (active) {
+                String tag = "ACTIVE";
+                graphics.text(f, tag, x + w - f.width(tag), y + th + 4, VBVTheme.accentLight(), true);
             }
         }
-        int total = VBVModrinth.totalHits();
-        int pages = Math.max(1, (total + rows - 1) / rows);
-        String pageText = "Page " + (offset / rows + 1) + " of " + pages + "  -  " + total + " packs";
-        graphics.text(font, VBVUi.fit(font, pageText, contentW - 140), contentX + 140, contentBottom - 20 + 6,
-            VBVUi.TEXT_DIM, false);
-        if (hits.length == 0 && !VBVModrinth.searchBusy() && VBVModrinth.searchStatus().isEmpty()) {
-            graphics.text(font, "Nothing to show yet.", contentX, cardsTop + 6, VBVUi.TEXT_DIM, false);
-        }
-    }
-
-    // -------------------------------------------------------------- library
-
-    private void buildLibrary() {
-        List<Action> actions = new ArrayList<>();
-        actions.add(new Action("RESOURCE PACKS", "Turn packs on or off and import ZIP files.", b -> openPackManager()));
-        actions.add(new Action("IMPORT PACK FROM COMPUTER", "Copy a resource pack ZIP into your storage folder.",
-            b -> VBVStorage.importResourcePack()));
-        actions.add(new Action("MODS", "Browse and configure the VBV mods.", b -> VBVNav.open(new VBVModsScreen(this))));
-        actions.add(new Action("HAND POSITION", "Move held items up, down, closer or further away.",
-            b -> VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this))));
-        addActions(contentY + 4, actions);
-    }
-
-    /** Opens Eagler's own pack manager; queued Modrinth downloads import as soon as it opens. */
-    private void openPackManager() {
-        Minecraft mc = Minecraft.getInstance();
-        final Screen back = this;
-        VBVNav.open(new PackSelectionScreen(mc.getResourcePackRepository(),
-            repository -> {
-                mc.options.updateResourcePacks(repository);
-                VBVNav.open(back);
-            },
-            mc.getResourcePackDirectory(), Component.translatable("resourcePack.title")));
     }
 
     // ----------------------------------------------------------------- hero
@@ -489,33 +430,6 @@ public final class VBVLauncherScreen extends Screen {
     // ---------------------------------------------------------------- frame
 
     @Override
-    public void tick() {
-        super.tick();
-        if (tab == Tab.DISCOVER) {
-            hits = VBVModrinth.results();
-            refreshDiscoverButtons();
-        }
-        if (VBVModrinth.packReady()) {
-            String name = VBVModrinth.packName();
-            byte[] data = VBVModrinth.takePack();
-            if (data != null) {
-                VBVPackInstaller.queue(name, data);
-                openPackManager();
-            }
-        }
-    }
-
-    @Override
-    public boolean keyPressed(KeyEvent event) {
-        boolean enter = event.key() == 257 || event.key() == 335;
-        if (enter && tab == Tab.DISCOVER && searchBox != null && searchBox.isFocused()) {
-            runSearch(0);
-            return true;
-        }
-        return super.keyPressed(event);
-    }
-
-    @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         if (graphics.guiWidth() != width || graphics.guiHeight() != height) {
             // Browser fullscreen can change the canvas without a window event; re-layout now.
@@ -525,7 +439,7 @@ public final class VBVLauncherScreen extends Screen {
         VBVUi.panel(graphics, contentX - 8, 6, width - contentX - 4, height - 12);
 
         graphics.text(font, "VBV", sideX + 9, 12, VBVTheme.accentLight(), true);
-        graphics.text(font, "LAUNCHER", sideX + 9 + font.width("VBV "), 12, VBVUi.TEXT, true);
+        graphics.text(font, "EXTRAS", sideX + 9 + font.width("VBV "), 12, VBVUi.TEXT, true);
 
         graphics.pose().pushMatrix();
         graphics.pose().translate(contentX, 12);
@@ -535,20 +449,23 @@ public final class VBVLauncherScreen extends Screen {
         graphics.fill(contentX, 28, contentX + 30, 29, VBVTheme.accent());
 
         switch (tab) {
+            case PANORAMAS -> renderPanoramasHeader(graphics);
             case HERO -> renderHero(graphics);
             case PARTY -> renderParty(graphics);
             case STORAGE -> renderStorage(graphics);
             case APPEARANCE -> renderAppearance(graphics);
-            default -> { }
         }
         for (Hint hint : hints) {
             graphics.text(font, hint.text(), hint.x(), hint.y(), VBVUi.TEXT_DIM, false);
         }
 
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        if (tab == Tab.DISCOVER) {
-            renderDiscoverFooter(graphics);
-        }
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+        VBVPanoramaOverlay.releasePreviews();
     }
 
     @Override

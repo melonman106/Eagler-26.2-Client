@@ -12,7 +12,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 /** Native Eagler client mod registry and shared Fabric-shaped event wiring. */
 public final class VBVClient {
     public static final String MOD_ID = "viabackportvisuals-client";
-    public static final String VERSION = "1.5.3";
+    public static final String VERSION = "2.0.0";
     private static final Map<String, VBVModInfo> MODS = new LinkedHashMap<>();
     private static boolean callbacksRegistered;
 
