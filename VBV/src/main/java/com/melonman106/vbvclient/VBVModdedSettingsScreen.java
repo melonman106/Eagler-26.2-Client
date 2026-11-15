@@ -21,7 +21,10 @@ public final class VBVModdedSettingsScreen extends Screen {
     private Button meterButton;
     private Button cemButton;
     private Button cemAnimButton;
+    private Button shaderButton;
     private int lodDescY;
+    private int descMax = 5;
+    private int headingY = 14;
 
     public VBVModdedSettingsScreen(Screen parent) {
         super(Component.literal("Modded Settings"));
@@ -34,68 +37,82 @@ public final class VBVModdedSettingsScreen extends Screen {
         int cx = width / 2;
         int rowW = Math.min(280, width - 24);
         int left = cx - rowW / 2;
-        boolean tight = height < 230;
-        int gap = tight ? 2 : 4;
-        int y = tight ? 24 : 34;
+        // Three layouts so six rows still fit: tiny (GUI scale 4), compact and roomy.
+        int mode = height < 230 ? 0 : (height < 260 ? 1 : 2);
+        int btnH = mode == 0 ? 18 : 20;
+        int gap = mode == 0 ? 1 : (mode == 1 ? 2 : 4);
+        int y = mode == 0 ? 20 : (mode == 1 ? 24 : 34);
+        descMax = mode == 0 ? 2 : (mode == 1 ? 3 : 5);
+        headingY = mode == 0 ? 6 : (mode == 1 ? 8 : 14);
 
         lodButton = Button.builder(lodLabel(), button -> {
             VBVLod.cycle(1);
             VBVConfigStore.saveAll();
             button.setMessage(lodLabel());
-        }).bounds(left, y, rowW, 20).build();
+        }).bounds(left, y, rowW, btnH).build();
         addRenderableWidget(lodButton);
-        y += 20 + gap;
+        y += btnH + gap;
         lodDescY = y;
 
         // The description block is drawn between the LOD button and the link buttons.
-        int descLines = tight ? 3 : 5;
-        y += descLines * (font.lineHeight + 1) + 6;
+        y += descMax * (font.lineHeight + 1) + (mode == 0 ? 4 : 6);
 
         // Two-column grid: links on the first rows, then the performance tools.
         int half = (rowW - 4) / 2;
         int right = left + half + 4;
         addRenderableWidget(Button.builder(Component.literal("Mod Settings..."),
-            button -> VBVNav.open(new VBVModsScreen(this))).bounds(left, y, half, 20).build());
+            button -> VBVNav.open(new VBVModsScreen(this))).bounds(left, y, half, btnH).build());
         addRenderableWidget(Button.builder(Component.literal("Hand Position..."),
-            button -> VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this))).bounds(right, y, half, 20).build());
-        y += 20 + gap;
+            button -> VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this))).bounds(right, y, half, btnH).build());
+        y += btnH + gap;
         addRenderableWidget(Button.builder(Component.literal("Menu Colour..."),
-            button -> VBVNav.open(new VBVLauncherScreen(this, VBVLauncherScreen.Tab.APPEARANCE))).bounds(left, y, half, 20).build());
+            button -> VBVNav.open(new VBVLauncherScreen(this, VBVLauncherScreen.Tab.APPEARANCE))).bounds(left, y, half, btnH).build());
         cullingButton = Button.builder(cullingLabel(), button -> {
             VBVEntityCulling.toggle();
             VBVConfigStore.saveAll();
             button.setMessage(cullingLabel());
-        }).bounds(right, y, half, 20).build();
+        }).bounds(right, y, half, btnH).build();
         addRenderableWidget(cullingButton);
-        y += 20 + gap;
+        y += btnH + gap;
         meterButton = Button.builder(meterLabel(), button -> {
             VBVPerf.toggleMeter();
             VBVConfigStore.saveAll();
             button.setMessage(meterLabel());
-        }).bounds(left, y, half, 20).build();
+        }).bounds(left, y, half, btnH).build();
         addRenderableWidget(meterButton);
         addRenderableWidget(Button.builder(Component.literal("Copy Perf Report"), button -> {
             VBVPerf.copyReport();
             button.setMessage(Component.literal("Copied!"));
-        }).bounds(right, y, half, 20).build());
-        y += 20 + gap;
+        }).bounds(right, y, half, btnH).build());
+        y += btnH + gap;
         cemButton = Button.builder(cemLabel(), button -> {
             VBVCem.toggle();
             VBVConfigStore.saveAll();
             // Entity models are baked during a resource reload, so the change shows after F3+T.
             button.setMessage(Component.literal("Models " + (VBVCem.isEnabled() ? "ON" : "OFF") + " - press F3+T"));
-        }).bounds(left, y, half, 20).build();
+        }).bounds(left, y, half, btnH).build();
         addRenderableWidget(cemButton);
         // The animation formulas of a custom model apply immediately, no resource reload needed.
         cemAnimButton = Button.builder(cemAnimLabel(), button -> {
             VBVCem.toggleAnimations();
             VBVConfigStore.saveAll();
             button.setMessage(cemAnimLabel());
-        }).bounds(right, y, half, 20).build();
+        }).bounds(right, y, half, btnH).build();
         addRenderableWidget(cemAnimButton);
+        y += btnH + gap;
+        // Shaders: left cycles Off / Vibrant / Shadows right away; right opens strength and quality.
+        shaderButton = Button.builder(shaderLabel(), button -> {
+            VBVShaders.cyclePreset();
+            VBVConfigStore.saveAll();
+            button.setMessage(shaderLabel());
+        }).bounds(left, y, half, btnH).build();
+        addRenderableWidget(shaderButton);
+        addRenderableWidget(Button.builder(Component.literal("Shader Options..."),
+            button -> VBVNav.open(new VBVFeatureConfigScreen(this, "shine", "VBV Shaders"))).bounds(right, y, half, btnH).build());
 
+        int doneH = mode == 0 ? 18 : 20;
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
-            .bounds(cx - 100, height - 27, 200, 20).build());
+            .bounds(cx - 100, height - (mode == 0 ? 21 : 27), 200, doneH).build());
     }
 
     private static Component cullingLabel() {
@@ -108,6 +125,10 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private static Component cemAnimLabel() {
         return Component.literal("Model Animations: " + (VBVCem.isAnimationsEnabled() ? "ON" : "OFF"));
+    }
+
+    private static Component shaderLabel() {
+        return Component.literal("Shaders: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"));
     }
 
     private static Component meterLabel() {
@@ -128,7 +149,7 @@ public final class VBVModdedSettingsScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         String heading = title.getString();
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, height < 230 ? 8 : 14, VBVTheme.accentLight(), true);
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, headingY, VBVTheme.accentLight(), true);
 
         int rowW = Math.min(280, width - 24);
         int left = width / 2 - rowW / 2;
@@ -146,7 +167,7 @@ public final class VBVModdedSettingsScreen extends Screen {
                 + minecraft.options.getEffectiveRenderDistance() + ").", rowW));
             lines.addAll(wrap("Remembered terrain: " + VBVLodCache.size() + " chunks (fills in as you explore).", rowW));
         }
-        int maxLines = height < 230 ? 3 : 5;
+        int maxLines = descMax;
         int color = failure.isEmpty() ? TEXT_DIM : ERROR;
         for (int i = 0; i < lines.size() && i < maxLines; i++) {
             graphics.text(font, lines.get(i), left, lodDescY + i * (font.lineHeight + 1), color, true);

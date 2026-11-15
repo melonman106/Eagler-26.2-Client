@@ -35,6 +35,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
     "patch_cem_hooks.py",
+    "patch_shaders_hook.py",
     "pack_json_merge.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
@@ -69,6 +70,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(lod_hooks)",
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
     "subprocess.run([sys.executable, str(cem_hooks)",
+    "subprocess.run([sys.executable, str(shaders_hook)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -361,6 +363,12 @@ if entity_culling_hooks.is_file():
 cem_hooks = PATCH_DIR / "patch_cem_hooks.py"
 if cem_hooks.is_file():
     subprocess.run([sys.executable, str(cem_hooks), *sys.argv[1:]], check=True)
+
+# Shaders: Vibrant / Shadows post effects. One hook in GameRenderer.renderLevel, next to the Shine
+# bloom block the upstream patch adds, so it has to run after that stage. Inert while set to Off.
+shaders_hook = PATCH_DIR / "patch_shaders_hook.py"
+if shaders_hook.is_file():
+    subprocess.run([sys.executable, str(shaders_hook), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.
