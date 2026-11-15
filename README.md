@@ -177,14 +177,35 @@ The build preserves the core Minecraft font atlas while supporting additional fo
 - AppleSkin texture atlas.
 - Embedded resource-pack client modifications.
 - Custom font resources.
-- Optional custom panorama overlay.
+- Animated menu panoramas (one entry per file in `VBV/panorama/`).
 - Six panorama faces when available.
 
-The optional panorama overlay is located at:
+### Menu panoramas
+
+Drop any `.mp4`, `.webm`, `.mov`, `.gif` or `.png` into:
 
 ```text
-VBV/panorama/panorama_overlay.png
+VBV/panorama/
 ```
+
+On the next build every file is converted to numbered frames (10 fps, up to 854 px wide) and shows up
+in **Extras > Panoramas** under a name made from the file name (`LoadingScreenNight.mp4` becomes
+"Loading Screen Night"). The choice is saved with your settings. `panorama_overlay` is the default;
+the **Minecraft** card in Extras switches back to the vanilla panorama. Only a short ring of frames
+is kept in memory at a time, so long clips cost build size (PNG frames) rather than game memory.
+
+## Main menu (2.0.0)
+
+The title screen is a left-aligned list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS, OPTIONS,
+EXTRAS) over the panorama. The selected row gets a light highlight bar with a slanted edge; hover with
+the mouse or use the up/down keys and Enter.
+
+- After the game finishes loading you land on a "press any button to begin" screen over the panorama
+  (once per launch). The bottom-left corner shows how long the resource reload took.
+- **Extras** has a sidebar: Panoramas, Hero (skin and name), Party, Storage and Appearance
+  (accent colour, hand position).
+- **Options > Resource Packs** now has a **Modrinth...** button that opens the Modrinth pack browser.
+  Resource packs are no longer listed in the Mods menu; they still work exactly as before.
 
 Resource-pack client modifications are imported from `ModsPack/` during the build.
 

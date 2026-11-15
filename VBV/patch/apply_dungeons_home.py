@@ -51,36 +51,66 @@ def patch_title_screen():
     if not generated or not template.is_file(): raise RuntimeError("VBV home-screen template missing")
     generated[0].write_text(template.read_text(encoding="utf-8"),encoding="utf-8")
 
+PANORAMA_VIDEO_EXTS=(".mp4",".webm",".mov",".gif")
+
+def _panorama_slug(stem,taken):
+    slug=re.sub(r"[^a-z0-9]+","_",stem.lower()).strip("_") or "panorama"
+    base=slug; n=2
+    while slug in taken: slug=f"{base}_{n}"; n+=1
+    taken.add(slug); return slug
+
+def _panorama_title(stem):
+    spaced=re.sub(r"(?<=[a-z0-9])(?=[A-Z])"," ",stem); spaced=re.sub(r"[_\-]+"," ",spaced).strip()
+    return " ".join(w[:1].upper()+w[1:] for w in spaced.split()) or "Panorama"
+
+def _panorama_sources(root):
+    """Every video / GIF / still image in VBV/panorama, the long-standing default first, then by name."""
+    files=[p for p in sorted(root.iterdir(),key=lambda q:q.name.lower()) if p.is_file() and p.suffix.lower() in PANORAMA_VIDEO_EXTS+(".png",)]
+    files.sort(key=lambda p:(0 if p.stem.lower()=="panorama_overlay" else 1))
+    return files
+
 def configure_panorama_overlay():
-    root=CLIENT/"panorama"; png=root/"panorama_overlay.png"; gif=root/"panorama_overlay.gif"; mp4=root/"panorama_overlay.mp4"
-    animated=mp4 if mp4.is_file() else gif if gif.is_file() else None
-    frame_dir=RES/"assets/vbvclient/textures/panorama_overlay"; frame_dir.mkdir(parents=True,exist_ok=True)
-    for old in frame_dir.glob("frame_*.png"): old.unlink()
+    root=CLIENT/"panorama"
+    sources=_panorama_sources(root) if root.is_dir() else []
+    frame_root=RES/"assets/vbvclient/textures/panorama_overlay"
+    if frame_root.exists(): shutil.rmtree(frame_root)
+    frame_root.mkdir(parents=True,exist_ok=True)
     title_files=list(GAME.rglob("TitleScreen.java"))
     title=next((p for p in title_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")),title_files[0]) if title_files else None
-    if animated:
-        ffmpeg=shutil.which("ffmpeg")
-        if not ffmpeg: raise RuntimeError("panorama_overlay.gif/mp4 is present but FFmpeg is unavailable")
-        # Menu backdrop frames: 8-bit palette PNGs at a modest size. Full-size RGBA frames
-        # made a 13 MB video grow to ~230 MB of PNGs (and ~700 MB of GPU textures).
-        # The browser decodes palette PNGs natively, so they load like any other texture.
-        # Override with VBV_PANORAMA_FPS / VBV_PANORAMA_WIDTH if you want to trade size for quality.
-        fps=max(1,min(30,int(os.environ.get("VBV_PANORAMA_FPS","10")))); max_w=max(160,int(os.environ.get("VBV_PANORAMA_WIDTH","854")))
-        vf=(f"fps={fps},scale=w='min({max_w},iw)':h=-2:flags=lanczos,split[a][b];"
-            "[a]palettegen=stats_mode=single[p];[b][p]paletteuse=new=1:dither=bayer:bayer_scale=4")
-        subprocess.run([ffmpeg,"-y","-hide_banner","-loglevel","error","-i",str(animated),"-an","-vf",vf,"-vsync","0","-compression_level","9",str(frame_dir/"frame_%04d.png")],check=True)
-        frames=sorted(frame_dir.glob("frame_*.png")); java_files=list(GAME.rglob("VBVPanoramaOverlay.java"))
-        if not frames or not java_files: raise RuntimeError("Panorama animation produced no frames")
-        java=java_files[0]; source=java.read_text(encoding="utf-8"); entries=",\n        ".join(f'Identifier.parse("vbvclient:textures/panorama_overlay/{p.name}")' for p in frames)
-        source=re.sub(r"private static final Identifier\[\] FRAMES = new Identifier\[\] \{.*?\};","private static final Identifier[] FRAMES = new Identifier[] {\n        "+entries+"\n    };",source,count=1,flags=re.S); source=re.sub(r"FRAME_MS = \d+L",f"FRAME_MS = {round(1000/fps)}L",source,count=1); java.write_text(source,encoding="utf-8")
-    elif png.is_file():
-        shutil.copy2(png,frame_dir/"frame_0001.png")
-        java_files=list(GAME.rglob("VBVPanoramaOverlay.java"))
-        if java_files:
-            java=java_files[0]; source=java.read_text(encoding="utf-8")
-            source=re.sub(r"private static final Identifier\[\] FRAMES = new Identifier\[\] \{.*?\};","private static final Identifier[] FRAMES = new Identifier[] {\n        Identifier.parse(\"vbvclient:textures/panorama_overlay/frame_0001.png\")\n    };",source,count=1,flags=re.S); java.write_text(source,encoding="utf-8")
-    else:
+    if not sources:
         return
+    # Menu backdrop frames: 8-bit palette PNGs at a modest size. Full-size RGBA frames made a 13 MB
+    # video grow to ~230 MB of PNGs (and ~700 MB of GPU textures). The browser decodes palette PNGs
+    # natively, so they load like any other texture, and VBVPanoramaOverlay only keeps the frames
+    # around the playhead loaded. Override with VBV_PANORAMA_FPS / VBV_PANORAMA_WIDTH to trade size for quality.
+    fps=max(1,min(30,int(os.environ.get("VBV_PANORAMA_FPS","10")))); max_w=max(160,int(os.environ.get("VBV_PANORAMA_WIDTH","854")))
+    ffmpeg=shutil.which("ffmpeg")
+    taken=set(); entries=[]
+    for src in sources:
+        slug=_panorama_slug(src.stem,taken); out=frame_root/slug; out.mkdir(parents=True,exist_ok=True)
+        if src.suffix.lower()==".png":
+            shutil.copy2(src,out/"frame_0001.png")
+        else:
+            if not ffmpeg: raise RuntimeError(f"{src.name} is in VBV/panorama but FFmpeg is unavailable")
+            vf=(f"fps={fps},scale=w='min({max_w},iw)':h=-2:flags=lanczos,split[a][b];"
+                "[a]palettegen=stats_mode=single[p];[b][p]paletteuse=new=1:dither=bayer:bayer_scale=4")
+            subprocess.run([ffmpeg,"-y","-hide_banner","-loglevel","error","-i",str(src),"-an","-vf",vf,"-vsync","0","-compression_level","9",str(out/"frame_%04d.png")],check=True)
+        count=len(list(out.glob("frame_*.png")))
+        if count==0: raise RuntimeError(f"Panorama {src.name} produced no frames")
+        entries.append((slug,_panorama_title(src.stem),count,round(1000/fps) if count>1 else 1000))
+        print(f"[VBV panorama] {src.name} -> {slug}: {count} frame(s)")
+    java_files=list(GAME.rglob("VBVPanoramaOverlay.java"))
+    if not java_files: raise RuntimeError("VBVPanoramaOverlay.java not found")
+    java=java_files[0]; source=java.read_text(encoding="utf-8")
+    def table(name,java_type,values):
+        nonlocal source
+        body=", ".join(values)
+        source,n=re.subn(r"private static final "+re.escape(java_type)+r"\[\] "+name+r" = new "+re.escape(java_type)+r"\[\] \{.*?\};",
+                         lambda m:f"private static final {java_type}[] {name} = new {java_type}[] {{ {body} }};",source,count=1,flags=re.S)
+        if n!=1: raise RuntimeError(f"Could not update the {name} table in VBVPanoramaOverlay.java")
+    table("IDS","String",[f'"{e[0]}"' for e in entries]); table("NAMES","String",[f'"{e[1]}"' for e in entries])
+    table("COUNTS","int",[str(e[2]) for e in entries]); table("FRAME_MS","long",[f"{e[3]}L" for e in entries])
+    java.write_text(source,encoding="utf-8")
 
     # Hook Screen.extractPanorama(): the one method every menu-with-a-panorama goes through
     # (TitleScreen, options, world/server lists, generic message screens, loading screens).

@@ -31,6 +31,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "check_js_long_boundary.py",
     "patch_first_person_arms.py",
     "patch_pack_installer_hook.py",
+    "patch_pack_modrinth_button.py",
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
@@ -344,6 +345,10 @@ if first_person_arms.is_file():
 pack_installer_hook = PATCH_DIR / "patch_pack_installer_hook.py"
 if pack_installer_hook.is_file():
     subprocess.run([sys.executable, str(pack_installer_hook), *sys.argv[1:]], check=True)
+# Options > Resource Packs gets a Modrinth button (the Launcher screen no longer carries one).
+pack_modrinth_button = PATCH_DIR / "patch_pack_modrinth_button.py"
+if pack_modrinth_button.is_file():
+    subprocess.run([sys.executable, str(pack_modrinth_button), *sys.argv[1:]], check=True)
 screen_resize_guard = PATCH_DIR / "patch_screen_resize_guard.py"
 if screen_resize_guard.is_file():
     subprocess.run([sys.executable, str(screen_resize_guard), *sys.argv[1:]], check=True)
