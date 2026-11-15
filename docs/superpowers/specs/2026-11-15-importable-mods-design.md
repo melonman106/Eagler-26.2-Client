@@ -22,7 +22,7 @@ Why: the client is built on a school Chromebook through GitHub Actions. Each new
 - Running arbitrary code from a zip. Mods are data only (JSON + images/sounds/models). No Java, no JavaScript.
 - Loading Fabric/Forge jars (the repo already states it does not).
 - Making mod content work on servers that do not have the same mod. A vanilla server cannot know a custom item.
-- Real physics-free "shadow" style systems or anything that needs the game's source to change per mod.
+- Anything that would need the game's own source to change for each mod.
 
 ## Anti-goals (would be a failure even if it "works")
 
