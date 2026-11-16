@@ -77,7 +77,6 @@ for path, text in staged.items():
 for path in changed:
     path.write_text(staged[path], encoding="utf-8")
 
-installed = sum(1 for _, _, marker, _, _ in EDITS if marker in staged[JAVA / _])
 print(
     f"[VBV boot] verified {len(EDITS)} distinct hooks "
     f"({len(changed)} file(s) updated)"
