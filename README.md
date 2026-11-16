@@ -188,18 +188,27 @@ Drop any `.mp4`, `.webm`, `.mov`, `.gif` or `.png` into:
 VBV/panorama/
 ```
 
-On the next build every file is converted to numbered frames (10 fps, up to 854 px wide) and shows up
+On the next build every file is converted to numbered frames (10 fps, up to 1280 px wide) and shows up
 in **Extras > Panoramas** under a name made from the file name (`LoadingScreenNight.mp4` becomes
 "Loading Screen Night"). The choice is saved with your settings. `panorama_overlay` is the default;
 the **Minecraft** card in Extras switches back to the vanilla panorama. Only a short ring of frames
 is kept in memory at a time, so long clips cost build size (PNG frames) rather than game memory.
+
+Frame quality is a size trade-off. The default (1280 px, error-diffusion dithering) comes to roughly
+0.25-0.35 MB per frame, about 70 MB for the three bundled clips. The three settings live in the `env:`
+block at the top of `.github/workflows/02-compile-eagler-vbv.yml`: raise `VBV_PANORAMA_WIDTH` to `1920` for
+a sharper picture on a 1080p screen (about 1.7x the size), or lower it to `854` (or lower
+`VBV_PANORAMA_FPS`) for a smaller download. `VBV_PANORAMA_DITHER` accepts `sierra2` (default), `sierra2_4a`,
+`floyd_steinberg`, `bayer` or `none`.
 
 ## Main menu (2.0.0)
 
 The title screen is a compact, left-aligned list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS,
 OPTIONS) over the panorama, with **EXTRAS** in the bottom-right corner. The selected row gets a light
 highlight bar with a slanted edge; hover with the mouse or use the up/down keys and Enter. No version
-or credit text is drawn at the bottom of the screen.
+or credit text is drawn at the bottom of the screen. The wordmark, rows and text are sized from the GUI
+height (row pitch about 5.6% of the screen height, label capitals about 1.9%) so the menu looks the same
+proportion at any window size or GUI scale (a lower GUI scale just makes the text sharper).
 
 - After the game finishes loading you land on a "press any button to begin" screen over the panorama
   (once per launch). The bottom-left corner shows how long the resource reload took.

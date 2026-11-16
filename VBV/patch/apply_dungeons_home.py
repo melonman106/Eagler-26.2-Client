@@ -83,11 +83,17 @@ def configure_panorama_overlay():
     title=next((p for p in title_files if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")),title_files[0]) if title_files else None
     if not sources:
         return
-    # Menu backdrop frames: 8-bit palette PNGs at a modest size. Full-size RGBA frames made a 13 MB
-    # video grow to ~230 MB of PNGs (and ~700 MB of GPU textures). The browser decodes palette PNGs
-    # natively, so they load like any other texture, and VBVPanoramaOverlay only keeps the frames
-    # around the playhead loaded. Override with VBV_PANORAMA_FPS / VBV_PANORAMA_WIDTH to trade size for quality.
-    fps=max(1,min(30,int(os.environ.get("VBV_PANORAMA_FPS","10")))); max_w=max(160,int(os.environ.get("VBV_PANORAMA_WIDTH","854")))
+    # Menu backdrop frames: 8-bit palette PNGs, 1280 px wide by default. 854 px frames looked soft once the
+    # browser stretched them over a 1366/1920 px canvas, and bayer dithering added a visible cross-hatch.
+    # 1280 px with error-diffusion dithering is much sharper; 1920 px is sharper still but roughly doubles
+    # the size. Full-size RGBA frames made a 13 MB video grow to ~230 MB of PNGs (and ~700 MB of GPU
+    # textures), so palette PNGs stay: the browser decodes them natively, and VBVPanoramaOverlay only
+    # keeps the frames around the playhead loaded. Override with VBV_PANORAMA_FPS, VBV_PANORAMA_WIDTH and
+    # VBV_PANORAMA_DITHER (sierra2, sierra2_4a, floyd_steinberg, bayer, none) to trade size for quality.
+    fps=max(1,min(30,int(os.environ.get("VBV_PANORAMA_FPS","10")))); max_w=max(160,int(os.environ.get("VBV_PANORAMA_WIDTH","1280")))
+    dither=os.environ.get("VBV_PANORAMA_DITHER","sierra2").strip()
+    if dither not in ("sierra2","sierra2_4a","floyd_steinberg","bayer","none"): dither="sierra2"
+    dither_arg="dither=bayer:bayer_scale=4" if dither=="bayer" else f"dither={dither}"
     ffmpeg=shutil.which("ffmpeg")
     taken=set(); entries=[]
     for src in sources:
@@ -97,12 +103,13 @@ def configure_panorama_overlay():
         else:
             if not ffmpeg: raise RuntimeError(f"{src.name} is in VBV/panorama but FFmpeg is unavailable")
             vf=(f"fps={fps},scale=w='min({max_w},iw)':h=-2:flags=lanczos,split[a][b];"
-                "[a]palettegen=stats_mode=single[p];[b][p]paletteuse=new=1:dither=bayer:bayer_scale=4")
+                f"[a]palettegen=stats_mode=single[p];[b][p]paletteuse=new=1:{dither_arg}")
             subprocess.run([ffmpeg,"-y","-hide_banner","-loglevel","error","-i",str(src),"-an","-vf",vf,"-vsync","0","-compression_level","9",str(out/"frame_%04d.png")],check=True)
         count=len(list(out.glob("frame_*.png")))
         if count==0: raise RuntimeError(f"Panorama {src.name} produced no frames")
         entries.append((slug,_panorama_title(src.stem),count,round(1000/fps) if count>1 else 1000))
-        print(f"[VBV panorama] {src.name} -> {slug}: {count} frame(s)")
+        mb=sum(f.stat().st_size for f in out.glob("frame_*.png"))/1048576
+        print(f"[VBV panorama] {src.name} -> {slug}: {count} frame(s), {mb:.1f} MB ({max_w}px, {dither})")
     java_files=list(GAME.rglob("VBVPanoramaOverlay.java"))
     if not java_files: raise RuntimeError("VBVPanoramaOverlay.java not found")
     java=java_files[0]; source=java.read_text(encoding="utf-8")

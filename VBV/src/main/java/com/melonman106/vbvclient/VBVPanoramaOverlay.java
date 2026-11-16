@@ -11,8 +11,8 @@ import net.minecraft.resources.Identifier;
  * file to that folder adds an entry to Extras > Panoramas.
  *
  * <p>Only the frames around the playhead are kept as textures. A 15 second clip is 150 frames of
- * 854x480 pixels, about 250 MB of GPU memory if every frame stayed loaded; a short ring of
- * {@link #RESIDENT} frames needs about 20 MB and each frame is simply loaded again on the next loop.</p>
+ * 1280x720 pixels, about 550 MB of GPU memory if every frame stayed loaded; a short ring of
+ * {@link #RESIDENT} frames needs about 45 MB and each frame is simply loaded again on the next loop.</p>
  */
 public final class VBVPanoramaOverlay {
     /** The panorama used until the player picks another one. */
