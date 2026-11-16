@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 """Wire VBV's start-up timer (VBVBoot) into the generated Eagler 26.2 sources.
 
-Three small hooks; every anchor must match exactly once or the script aborts before writing anything:
-
-  1. LoadingOverlay constructor          - marks when the resource reload starts.
-  2. LoadingOverlay.tick                  - marks when it ends.
-  3. SimpleReloadInstance.prepareTasks    - times every reload listener (textures, models, fonts, sounds ...).
-
-The hooks only record timestamps; they never change what the game loads.
+Each hook has its own exact marker. This is important because other patches also
+use names beginning with VBV_BOOT (for example VBV_BOOT_SCREEN); a broad
+substring check would mistake those unrelated hooks for installed timer hooks.
 """
 from pathlib import Path
 import sys
-
-MARKER = "VBV_BOOT"
 
 if len(sys.argv) < 2:
     raise SystemExit("::error::Generated U2 workspace path was not supplied")
@@ -22,56 +16,69 @@ JAVA = Path(sys.argv[1]).resolve() / "game" / "src" / "main" / "java"
 EDITS = [
     (
         "net/minecraft/client/gui/screens/LoadingOverlay.java",
-        "constructor",
+        "reload-started",
+        "// VBV_BOOT_HOOK: reload-started",
         "      this.onFinish = onFinish;\n",
         "      this.onFinish = onFinish;\n"
-        "      // VBV_BOOT: start-up timer\n"
+        "      // VBV_BOOT_HOOK: reload-started\n"
         "      com.melonman106.vbvclient.VBVBoot.reloadStarted();\n",
     ),
     (
         "net/minecraft/client/gui/screens/LoadingOverlay.java",
-        "tick",
+        "reload-finished",
+        "// VBV_BOOT_HOOK: reload-finished",
         "            this.reload.checkExceptions();\n",
+        "            // VBV_BOOT_HOOK: reload-finished\n"
         "            com.melonman106.vbvclient.VBVBoot.reloadFinished();\n"
         "            this.reload.checkExceptions();\n",
     ),
     (
         "net/minecraft/server/packs/resources/SimpleReloadInstance.java",
-        "prepareTasks",
+        "listener-track",
+        "// VBV_BOOT_HOOK: listener-track",
         "         allSteps.add(state);\n",
         "         allSteps.add(state);\n"
-        "         // VBV_BOOT: how long did this listener take?\n"
+        "         // VBV_BOOT_HOOK: listener-track\n"
         "         com.melonman106.vbvclient.VBVBoot.track(listener, state);\n",
     ),
 ]
 
-# Read and check everything first; files with several edits are patched in one pass.
-by_file = {}
-for rel, label, anchor, replacement in EDITS:
-    by_file.setdefault(rel, []).append((label, anchor, replacement))
-
-pending = []
-for rel, edits in by_file.items():
+# Validate and stage every edit before writing any file. An unrelated
+# VBV_BOOT_SCREEN marker must never count as one of these exact hook markers.
+staged = {}
+for rel, label, marker, anchor, replacement in EDITS:
     path = JAVA / rel
     if not path.is_file():
         raise SystemExit(f"::error::{rel} is missing")
-    text = path.read_text(encoding="utf-8")
-    if MARKER in text:
-        pending.append(None)
+
+    text = staged.get(path)
+    if text is None:
+        text = path.read_text(encoding="utf-8")
+
+    if marker in text:
+        staged[path] = text
         continue
-    for label, anchor, replacement in edits:
-        count = text.count(anchor)
-        if count != 1:
-            raise SystemExit(f"::error::VBV boot hook '{label}' anchor matched {count} time(s) in {rel}; expected exactly 1")
-        text = text.replace(anchor, replacement, 1)
-    pending.append((path, text))
 
-if all(item is None for item in pending):
-    print("[VBV boot] hooks already present")
-    raise SystemExit(0)
-if any(item is None for item in pending):
-    raise SystemExit("::error::VBV boot hooks are only partly installed; refusing to patch")
+    count = text.count(anchor)
+    if count != 1:
+        raise SystemExit(
+            f"::error::VBV boot hook '{label}' anchor matched {count} time(s) "
+            f"in {rel}; expected exactly 1"
+        )
 
-for path, text in pending:
-    path.write_text(text, encoding="utf-8")
-print(f"[VBV boot] installed {len(EDITS)} hooks")
+    staged[path] = text.replace(anchor, replacement, 1)
+
+changed = []
+for path, text in staged.items():
+    original = path.read_text(encoding="utf-8")
+    if text != original:
+        changed.append(path)
+
+for path in changed:
+    path.write_text(staged[path], encoding="utf-8")
+
+installed = sum(1 for _, _, marker, _, _ in EDITS if marker in staged[JAVA / _])
+print(
+    f"[VBV boot] verified {len(EDITS)} distinct hooks "
+    f"({len(changed)} file(s) updated)"
+)
