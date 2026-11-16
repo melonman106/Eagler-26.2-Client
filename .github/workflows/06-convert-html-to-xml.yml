@@ -40,39 +40,39 @@ jobs:
           set -euo pipefail
 
           python3 - <<'PY'
-import os
-import re
-from urllib.request import Request, urlopen
+          import os
+          import re
+          from urllib.request import Request, urlopen
 
-artifact_url = os.environ["ARTIFACT_URL"]
-repo = os.environ["REPOSITORY"]
-token = os.environ["GITHUB_TOKEN"]
+          artifact_url = os.environ["ARTIFACT_URL"]
+          repo = os.environ["REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
 
-match = re.search(r"/artifacts/(\d+)", artifact_url)
-if not match:
-    raise SystemExit("Please provide a GitHub Actions artifact page URL that contains /artifacts/<id>.")
+          match = re.search(r"/artifacts/(\d+)", artifact_url)
+          if not match:
+              raise SystemExit("Please provide a GitHub Actions artifact page URL that contains /artifacts/<id>.")
 
-artifact_id = match.group(1)
-api_url = f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip"
+          artifact_id = match.group(1)
+          api_url = f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip"
 
-req = Request(
-    api_url,
-    headers={
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "github-actions"
-    }
-)
+          req = Request(
+              api_url,
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  "User-Agent": "github-actions"
+              }
+          )
 
-with urlopen(req) as response:
-    data = response.read()
+          with urlopen(req) as response:
+              data = response.read()
 
-with open("artifact.zip", "wb") as f:
-    f.write(data)
+          with open("artifact.zip", "wb") as f:
+              f.write(data)
 
-print(f"Downloaded artifact.zip ({len(data)} bytes)")
-PY
+          print(f"Downloaded artifact.zip ({len(data)} bytes)")
+          PY
 
       - name: Extract artifact ZIP
         shell: bash
@@ -101,30 +101,31 @@ PY
           OUTPUT_NAME: ${{ inputs.output_name }}
         run: |
           set -euo pipefail
+
           python3 - <<'PY'
-from pathlib import Path
-from lxml import html, etree
-import os
+          from pathlib import Path
+          from lxml import html, etree
+          import os
 
-input_path = Path(os.environ["HTML_FILE"])
-output_name = os.environ["OUTPUT_NAME"]
-output_path = Path(f"{output_name}.xml")
+          input_path = Path(os.environ["HTML_FILE"])
+          output_name = os.environ["OUTPUT_NAME"]
+          output_path = Path(f"{output_name}.xml")
 
-raw = input_path.read_bytes()
+          raw = input_path.read_bytes()
 
-# Parse HTML and serialize as well-formed XML/XHTML
-doc = html.fromstring(raw)
-xml_bytes = etree.tostring(
-    doc.getroottree(),
-    pretty_print=True,
-    encoding="UTF-8",
-    xml_declaration=True,
-    method="xml"
-)
+          # Parse HTML and serialize as well-formed XML/XHTML
+          doc = html.fromstring(raw)
+          xml_bytes = etree.tostring(
+              doc.getroottree(),
+              pretty_print=True,
+              encoding="UTF-8",
+              xml_declaration=True,
+              method="xml"
+          )
 
-output_path.write_bytes(xml_bytes)
-print(f"Created XML file: {output_path} ({output_path.stat().st_size} bytes)")
-PY
+          output_path.write_bytes(xml_bytes)
+          print(f"Created XML file: {output_path} ({output_path.stat().st_size} bytes)")
+          PY
 
       - name: Upload XML artifact
         uses: actions/upload-artifact@v4
