@@ -1,5 +1,6 @@
 package com.melonman106.vbvclient;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -18,7 +19,10 @@ import net.minecraft.network.chat.Component;
  * Hero, Party, Storage, Panoramas and Appearance live in {@link VBVLauncherScreen}, the Extras screen.
  *
  * The panorama itself is drawn by TitleScreen; everything here is layered on top of it. Layout is
- * computed in one place ({@link #computeLayout()}) and shrinks to fit short GUI heights.
+ * computed in one place ({@link #computeLayout()}). Sizes follow the GUI height, so the menu keeps
+ * the proportions of the design it copies (row pitch about 5.6% of the screen height, label capitals
+ * about 1.9%, wordmark capitals about 5%) whatever the window size or GUI scale, and the scale is
+ * snapped to whole screen pixels per font pixel so the text stays crisp.
  */
 public final class VBVDungeonsTitleScreen extends TitleScreen {
     /** PLAY, SINGLEPLAYER, MODS and OPTIONS form the list; the fifth item is EXTRAS in the bottom-right corner. */
@@ -34,6 +38,12 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     private int menuW;
     private int rowH;
     private int gap;
+    private float textScale;
+    private int textPad;
+    private int endPad;
+    private int accentW;
+    private int subGap;
+    private int listGap;
     private float markScale;
     private int markY;
     private int markH;
@@ -98,52 +108,82 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         layoutHeight = height;
     }
 
-    /** Sizes the wordmark and list so the whole block fits the current GUI size. */
+    /** Real screen pixels per GUI pixel (1 when it cannot be read). */
+    private static float guiScale() {
+        float scale = 1.0F;
+        try {
+            scale = (float) Minecraft.getInstance().getWindow().getGuiScale();
+        } catch (RuntimeException ignored) {
+            // keep 1
+        }
+        return scale > 0.0F ? scale : 1.0F;
+    }
+
+    /** Rounds a font scale so each font pixel covers a whole number (at least {@code minReal}) of screen pixels. */
+    private static float snapScale(float target, float gui, int minReal) {
+        return Math.max(minReal, Math.round(target * gui)) / gui;
+    }
+
+    /** Sizes the wordmark and list from the GUI height, shrinking further if the block still does not fit. */
     private void computeLayout() {
-        // Compact column hugging the left edge; the text stays at normal size.
-        left = Math.max(10, width / 40);
-        int needed = VBVUi.trackedWidth(font, "SINGLEPLAYER", 2) + 28;
-        menuW = Math.min(needed, Math.max(80, width - left - 10));
+        // u is 1.0 when the GUI is 425 px tall, the height of the picture this menu is modelled on. In that
+        // picture a row is about 20 px tall with a 24 px pitch, label capitals are about 8 px high, the
+        // wordmark capitals about 22 px, the bar starts 12 px before its label and ends 15 px after it.
+        float u = height / 425.0F;
+        float gui = guiScale();
+        textScale = snapScale(8.0F / 7.0F * u, gui, 1);
+        markScale = snapScale(22.0F / 7.0F * u, gui, 2);
+        textPad = Math.max(4, Math.round(12.0F * u));
+        endPad = Math.max(4, Math.round(15.0F * u));
+        accentW = Math.max(1, Math.round(2.5F * u));
+        subGap = Math.max(3, Math.round(6.0F * u));
+        listGap = Math.max(5, Math.round(14.0F * u));
 
-        int bottomMargin = 10;
-        int top = 10;
-        int avail = height - top - bottomMargin;
+        // Compact column hugging the left edge.
+        left = Math.max(6, width / 40);
+        int widest = Math.round(VBVUi.trackedWidth(font, "SINGLEPLAYER", 2) * textScale);
+        menuW = Math.min(textPad + widest + endPad, Math.max(60, width - left - 10));
 
-        float ms = height >= 300 ? 3.0F : 2.0F;
-        int rh = font.lineHeight + 9;
-        int g = 2;
+        int edge = Math.max(6, Math.round(10.0F * u));
+        int avail = height - 2 * edge;
+
+        int textH = (int) Math.ceil(font.lineHeight * textScale);
+        int minRow = textH + 2;
+        int rh = Math.max(Math.round(20.0F * u), textH + 4);
+        int g = Math.max(1, Math.round(4.0F * u));
         boolean sub = true;
-        for (int guard = 0; guard < 64 && blockHeight(ms, sub, rh, g) > avail; guard++) {
-            if (rh > 14) {
-                rh--;
-            } else if (sub) {
+        for (int guard = 0; guard < 64 && blockHeight(sub, rh, g) > avail; guard++) {
+            if (sub) {
                 sub = false;
             } else if (g > 1) {
                 g--;
+            } else if (rh > minRow) {
+                rh--;
             } else {
                 break;
             }
         }
 
-        markScale = ms;
         rowH = rh;
         gap = g;
         showSubtitle = sub;
-        markH = (int) (font.lineHeight * ms);
-        int total = blockHeight(ms, sub, rh, g);
-        markY = top + Math.max(0, (avail - total) / 2);
-        subtitleY = markY + markH + 7;
-        menuY = markY + markH + (sub ? 7 + font.lineHeight : 0) + 12;
+        markH = (int) (font.lineHeight * markScale);
+        int total = blockHeight(sub, rh, g);
+        markY = edge + Math.max(0, (avail - total) / 2);
+        subtitleY = markY + markH + subGap;
+        menuY = markY + markH + (sub ? subGap + textH : 0) + listGap;
 
-        // EXTRAS sits alone in the bottom-right corner.
-        extrasW = VBVUi.trackedWidth(font, "EXTRAS", 2) + 28;
-        extrasX = width - extrasW - 10;
-        extrasY = height - rh - 10;
+        // EXTRAS sits alone in the bottom-right corner, the same size as the other rows.
+        int extrasText = Math.round(VBVUi.trackedWidth(font, "EXTRAS", 2) * textScale);
+        extrasW = textPad + extrasText + endPad;
+        extrasX = width - extrasW - edge;
+        extrasY = height - rh - edge;
     }
 
-    private int blockHeight(float markScale, boolean subtitle, int rowH, int gap) {
-        return (int) (font.lineHeight * markScale) + (subtitle ? 7 + font.lineHeight : 0) + 12
-            + LIST_COUNT * (rowH + gap);
+    private int blockHeight(boolean subtitle, int rowH, int gap) {
+        return (int) (font.lineHeight * markScale)
+            + (subtitle ? subGap + (int) Math.ceil(font.lineHeight * textScale) : 0)
+            + listGap + LIST_COUNT * (rowH + gap);
     }
 
     @Override
@@ -202,8 +242,12 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         VBVUi.trackedText(graphics, font, "VBV", 0, 0, 0xFFFFFFFF, tracking, true);
         graphics.pose().popMatrix();
         if (showSubtitle) {
-            graphics.fill(left, subtitleY + 4, left + 10, subtitleY + 5, VBVTheme.accent());
-            VBVUi.trackedText(graphics, font, "EAGLER 26.2 EDITION", left + 15, subtitleY, VBVUi.TEXT_DIM, 1, true);
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(left, subtitleY);
+            graphics.pose().scale(textScale, textScale);
+            graphics.fill(0, 4, 10, 5, VBVTheme.accent());
+            VBVUi.trackedText(graphics, font, "EAGLER 26.2 EDITION", 15, 0, VBVUi.TEXT_DIM, 1, true);
+            graphics.pose().popMatrix();
         }
 
         renderPartyPanel(graphics);
@@ -278,20 +322,26 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
                 int color = (alpha << 24) | (bar & 0xFFFFFF);
                 if (corner) {
                     VBVUi.slantedBarFromRight(graphics, x + w - barW, y, barW, h, h / 2, color);
-                    graphics.fill(x + w - 3, y, x + w, y + h, VBVTheme.accent());
+                    graphics.fill(x + w - accentW, y, x + w, y + h, VBVTheme.accent());
                 } else {
                     VBVUi.slantedBar(graphics, x, y, barW, h, h / 2, color);
-                    graphics.fill(x, y, x + 3, y + h, VBVTheme.accent());
+                    graphics.fill(x, y, x + accentW, y + h, VBVTheme.accent());
                 }
             }
 
             boolean lit = glow > 0.5F;
             int color = lit ? 0xFF14110A : 0xFFFFFFFF;
             String text = getMessage().getString();
-            int textW = VBVUi.trackedWidth(f, text, 2);
-            int textX = corner ? x + w - 14 - textW : x + 14;
-            int textY = y + (h - f.lineHeight) / 2 + 1;
-            VBVUi.trackedText(graphics, f, text, textX, textY, color, 2, !lit);
+            float scale = textScale;
+            float textW = VBVUi.trackedWidth(f, text, 2) * scale;
+            float textX = corner ? x + w - textPad - textW : x + textPad;
+            // The capitals sit in the top 7 rows of the 9-row line, so centre those 7 rows on the bar.
+            float textY = y + h / 2.0F - 3.5F * scale;
+            graphics.pose().pushMatrix();
+            graphics.pose().translate(textX, textY);
+            graphics.pose().scale(scale, scale);
+            VBVUi.trackedText(graphics, f, text, 0, 0, color, 2, !lit);
+            graphics.pose().popMatrix();
         }
     }
 }

@@ -11,6 +11,10 @@ permissions:
 env:
   U2_REPO: "https://github.com/kingjoeishere/Eaglercraft-26.2-u2-workspace.git"
   U2_COMMIT: "f0dafd1e3c1fb39006735ffc0bc6fd879fa98de3"
+  # Menu panorama frame quality (see README, "Menu panoramas"): wider = sharper but a bigger build.
+  VBV_PANORAMA_WIDTH: "1280"
+  VBV_PANORAMA_FPS: "10"
+  VBV_PANORAMA_DITHER: "sierra2"
 
 jobs:
   compile:
