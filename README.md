@@ -196,12 +196,19 @@ is kept in memory at a time, so long clips cost build size (PNG frames) rather t
 
 ## Main menu (2.0.0)
 
-The title screen is a left-aligned list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS, OPTIONS,
-EXTRAS) over the panorama. The selected row gets a light highlight bar with a slanted edge; hover with
-the mouse or use the up/down keys and Enter.
+The title screen is a compact, left-aligned list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS,
+OPTIONS) over the panorama, with **EXTRAS** in the bottom-right corner. The selected row gets a light
+highlight bar with a slanted edge; hover with the mouse or use the up/down keys and Enter. No version
+or credit text is drawn at the bottom of the screen.
 
 - After the game finishes loading you land on a "press any button to begin" screen over the panorama
   (once per launch). The bottom-left corner shows how long the resource reload took.
+- **Loading screen**: while resources reload, the red Mojang screen is replaced by a dark VBV screen
+  with the wordmark, a segmented progress bar with a sweeping light (so you can tell the game is
+  still working when the percentage sits still), the name of the loading step that is running, the
+  step count, elapsed time and a rotating tip. It is drawn with a few flat rectangles per frame so
+  it stays cheap on low-power machines. The page that appears before the game starts (the browser
+  page and WebAssembly download) is not part of it.
 - **Extras** has a sidebar: Panoramas, Hero (skin and name), Party, Storage and Appearance
   (accent colour, hand position).
 - **Options > Resource Packs** now has a **Modrinth...** button that opens the Modrinth pack browser.

@@ -18,6 +18,7 @@ public final class VBVBoot {
     private static final String LOG = "[VBV boot] ";
     private static final List<String> NAMES = new ArrayList<>();
     private static final List<Long> STEPS = new ArrayList<>();
+    private static final List<String> ALL = new ArrayList<>();
     private static long reloadStart = -1L;
     private static long reloadEnd = -1L;
     private static long lastListenerEnd = -1L;
@@ -61,6 +62,7 @@ public final class VBVBoot {
             label = "listener";
         }
         final String name = index + ". " + label;
+        ALL.add(label);
         done.thenRun(() -> finished(name));
     }
 
@@ -93,6 +95,47 @@ public final class VBVBoot {
 
     public static synchronized boolean hasData() {
         return reloadEnd >= 0L;
+    }
+
+    /** Steps registered so far (the total once the reload is set up). */
+    public static synchronized int stepsTotal() {
+        return listeners;
+    }
+
+    /** Steps that have finished. */
+    public static synchronized int stepsDone() {
+        return NAMES.size();
+    }
+
+    /** Milliseconds since the resource reload began, or 0 before it starts. */
+    public static synchronized long elapsedMs() {
+        return reloadStart < 0L ? 0L : Math.max(0L, now() - reloadStart);
+    }
+
+    /**
+     * Readable name of the step that is running now, such as "TEXTURE MANAGER". Steps run one after
+     * another, so the running one is the first that has not finished. Empty before the first is known.
+     */
+    public static synchronized String currentStage() {
+        int index = NAMES.size();
+        if (index >= ALL.size()) {
+            return "";
+        }
+        String label = ALL.get(index);
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < label.length(); i++) {
+            char c = label.charAt(i);
+            if (c == '$' || c == '_') {
+                out.append(' ');
+            } else {
+                if (i > 0 && Character.isUpperCase(c) && Character.isLowerCase(label.charAt(i - 1))) {
+                    out.append(' ');
+                }
+                out.append(Character.toUpperCase(c));
+            }
+        }
+        String text = out.toString().trim();
+        return text.length() > 30 ? text.substring(0, 30) : text;
     }
 
     /** One short line: how long the reload took and what the slowest step was. */
