@@ -1,3 +1,18 @@
+name: Convert HTML Artifact to XML
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: "Source repository in owner/repo format"
+        required: true
+        type: string
+      artifact_url:
+        description: "GitHub Actions artifact page URL"
+        required: true
+        type: string
+      output_name:
+        description: "Base name for the output file"
         required: false
         default: converted-output
         type: string
