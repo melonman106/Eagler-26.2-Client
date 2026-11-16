@@ -1,0 +1,73 @@
+name: Convert HTML to XML
+
+on:
+  workflow_dispatch:
+    inputs:
+      html_url:
+        description: "Direct link to the HTML file"
+        required: true
+        type: string
+      output_name:
+        description: "Base name for the output file, without extension"
+        required: false
+        default: converted-output
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download HTML file
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L "${{ inputs.html_url }}" -o input.html
+          test -s input.html
+          echo "Downloaded HTML: $(stat -c%s input.html) bytes"
+
+      - name: Install Python XML tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check lxml
+
+      - name: Convert HTML to real XML
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from lxml import html, etree
+
+          input_path = Path("input.html")
+          output_name = "${{ inputs.output_name }}"
+          output_path = Path(f"{output_name}.xml")
+
+          raw = input_path.read_bytes()
+          doc = html.fromstring(raw)
+
+          # Serialize as XML/XHTML
+          xml_bytes = etree.tostring(
+              doc.getroottree(),
+              pretty_print=True,
+              encoding="UTF-8",
+              xml_declaration=True,
+              method="xml"
+          )
+
+          output_path.write_bytes(xml_bytes)
+          print(f"Created XML file: {output_path} ({output_path.stat().st_size} bytes)")
+          PY
+
+      - name: Upload XML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xml-output-${{ github.run_id }}
+          path: ${{ inputs.output_name }}.xml
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
