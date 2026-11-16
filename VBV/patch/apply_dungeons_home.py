@@ -42,6 +42,10 @@ def suppress_vanilla_title_branding():
     path=next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/TitleScreen.java")),candidates[0]); source=path.read_text(encoding="utf-8")
     marker="VBV_DUNGEONS_SUPPRESS_VANILLA_BRANDING"
     if marker in source:return
+    # The Eagler-hosted branch draws two text lines in the bottom-left corner ("Eaglercraft <version>" and
+    # "Rewritten by <vendor>"). With the vendor removed it left a dangling "Rewritten by", so both go.
+    branding=re.compile(r'graphics\.text\(this\.font, Component\.translatableWithFallback\("eagler\.menu\.(?:brand|rewrittenBy)".*?ARGB\.white\(widgetFade\)\);',re.S)
+    source=branding.sub(lambda m:"if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) { "+m.group(0)+" }",source)
     for old in ("this.logoRenderer.extractRenderState(graphics, this.width, this.logoRenderer.keepLogoThroughFade() ? 1.0F : widgetFade);","this.splash.extractRenderState(graphics, this.width, this.font, widgetFade);","graphics.text(this.font, versionString, 2, this.height - 10, ARGB.white(widgetFade));"):
         if old in source: source=source.replace(old,"if (!(this instanceof com.melonman106.vbvclient.VBVDungeonsTitleScreen)) { "+old+" }",1)
     source=source.replace("public class TitleScreen","public class TitleScreen /* "+marker+" */",1); path.write_text(source,encoding="utf-8")
@@ -198,31 +202,45 @@ if loading_assets.exists():
 suppress_vanilla_title_branding(); patch_title_screen(); configure_panorama_overlay(); patch_platform_input_raf(); remove_oxer_credit()
 
 def patch_startup_console():
+    """Replace the Mojang logo / red background / plain bar on the loading overlay with VBVBootScreen."""
     candidates = list(GAME.rglob("LoadingOverlay.java"))
     if not candidates:
-        raise RuntimeError("LoadingOverlay.java not found for startup progress console")
+        raise RuntimeError("LoadingOverlay.java not found for the VBV boot screen")
     path = next((p for p in candidates if p.as_posix().endswith("/net/minecraft/client/gui/screens/LoadingOverlay.java")), candidates[0])
     source = path.read_text(encoding="utf-8")
-    marker = "VBV_STARTUP_CONSOLE"
+    marker = "VBV_BOOT_SCREEN"
     if marker in source:
         return
-    anchor = "int progressPercent = Mth.clamp(Math.round(this.currentProgress * 100.0F), 0, 100);"
-    if source.count(anchor) != 1:
-        raise RuntimeError("Could not uniquely locate Mojang loading progress percentage")
-    console = anchor + """
-          // VBV_STARTUP_CONSOLE: compact diagnostics panel on the red Mojang screen.
-          String vbvStage = this.reload.isDone() ? "Finalizing resources" : "Loading textures, fonts and models";
-          int vbvConsoleX = 12;
-          int vbvConsoleY = barY - 92;
-          graphics.fill(vbvConsoleX, vbvConsoleY, vbvConsoleX + 224, vbvConsoleY + 58, 0xB9000000);
-          graphics.text(this.minecraft.font, "STARTUP CONSOLE", vbvConsoleX + 8, vbvConsoleY + 6, 0xFFB98AFF, true);
-          graphics.text(this.minecraft.font, "> " + vbvStage, vbvConsoleX + 8, vbvConsoleY + 21, 0xFFFFFFFF, true);
-          graphics.text(this.minecraft.font, "Progress: " + progressPercent + "%", vbvConsoleX + 8, vbvConsoleY + 36, 0xFFB8FFB8, true);
-          int vbvFilled = progressPercent / 5;
-          String vbvBar = "[" + "#".repeat(vbvFilled) + "-".repeat(20 - vbvFilled) + "]";
-          graphics.text(this.minecraft.font, vbvBar, vbvConsoleX + 116, vbvConsoleY + 36, 0xFFFFFFFF, true);
-"""
-    path.write_text(source.replace(anchor, console, 1), encoding="utf-8")
-    print("[VBV] Added startup console with current resource stage and progress percentage.")
+
+    # 1) Backdrop colours: the red Mojang colour and the optional black one both become the VBV backdrop.
+    for old in ("   private static final int LOGO_BACKGROUND_COLOR = ARGB.color(255, 239, 50, 61);\n",
+                "   private static final int LOGO_BACKGROUND_COLOR_DARK = ARGB.color(255, 0, 0, 0);\n"):
+        if source.count(old) != 1:
+            raise RuntimeError("Loading overlay background constant not found exactly once: " + old.strip())
+    source = source.replace("   private static final int LOGO_BACKGROUND_COLOR = ARGB.color(255, 239, 50, 61);\n",
+        "   private static final int LOGO_BACKGROUND_COLOR = com.melonman106.vbvclient.VBVBootScreen.BACKGROUND; // " + marker + "\n", 1)
+    source = source.replace("   private static final int LOGO_BACKGROUND_COLOR_DARK = ARGB.color(255, 0, 0, 0);\n",
+        "   private static final int LOGO_BACKGROUND_COLOR_DARK = com.melonman106.vbvclient.VBVBootScreen.BACKGROUND;\n", 1)
+
+    # 2) Everything from the logo to the end of the progress block is replaced by one call.
+    start_anchor = "      int contentX = (int)(graphics.guiWidth() * 0.5);\n"
+    end_anchor = "      if (fadeOutAnim >= 2.0F) {\n"
+    if source.count(start_anchor) != 1 or source.count(end_anchor) != 1:
+        raise RuntimeError("Loading overlay render anchors not found exactly once (start %d, end %d)"
+                           % (source.count(start_anchor), source.count(end_anchor)))
+    start = source.index(start_anchor)
+    end = source.index(end_anchor)
+    if end < start:
+        raise RuntimeError("Loading overlay render anchors are out of order")
+    replacement = (
+        "      // " + marker + ": VBV loading screen instead of the Mojang logo and plain progress bar.\n"
+        "      float actualProgress = this.reload.getActualProgress();\n"
+        "      this.currentProgress = Mth.clamp(this.currentProgress * 0.95F + actualProgress * 0.050000012F, 0.0F, 1.0F);\n"
+        "      com.melonman106.vbvclient.VBVBootScreen.render(graphics, width, height, this.currentProgress, logoAlpha,\n"
+        "         Mth.clamp(fadeOutAnim, 0.0F, 1.0F), this.reload.isDone());\n\n"
+    )
+    source = source[:start] + replacement + source[end:]
+    path.write_text(source, encoding="utf-8")
+    print("[VBV] Loading overlay now draws the VBV boot screen.")
 
 patch_startup_console()

@@ -158,6 +158,17 @@ public final class VBVUi {
         }
     }
 
+    /**
+     * Like {@link #slantedBar} but mirrored: the bar's left end is cut on a slant (the top edge starts
+     * {@code slant} pixels further left than the bottom one), for items hugging the right screen edge.
+     */
+    public static void slantedBarFromRight(GuiGraphicsExtractor graphics, int x, int y, int w, int h, int slant, int color) {
+        for (int row = 0; row < h; row++) {
+            int inset = h <= 1 ? 0 : (h - 1 - row) * slant / (h - 1);
+            graphics.fill(x + inset, y + row, x + w, y + row + 1, color);
+        }
+    }
+
     /** A small right-pointing chevron, 5 wide and 9 tall. */
     public static void chevron(GuiGraphicsExtractor graphics, int x, int y, int color) {
         for (int k = 0; k < 5; k++) {

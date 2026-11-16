@@ -9,9 +9,9 @@ import net.minecraft.network.chat.Component;
 
 /**
  * VBV main menu, laid out like a sci-fi launcher: the animated panorama behind a left-aligned
- * wordmark and a plain list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS, OPTIONS, EXTRAS).
- * The selected row gets a light highlight bar with a slanted right edge. Hover or the up/down keys
- * move the selection; Enter or a click opens it.
+ * wordmark and a compact list of wide-spaced capitals (PLAY, SINGLEPLAYER, MODS, OPTIONS), with
+ * EXTRAS tucked into the bottom-right corner. The selected row gets a light highlight bar with a
+ * slanted edge. Hover or the up/down keys move the selection; Enter or a click opens it.
  *
  * The first time the menu is reached after launch, {@link VBVSplashScreen} ("press any button to
  * begin") is shown on top of the same panorama and opens this screen once a key is pressed.
@@ -21,7 +21,10 @@ import net.minecraft.network.chat.Component;
  * computed in one place ({@link #computeLayout()}) and shrinks to fit short GUI heights.
  */
 public final class VBVDungeonsTitleScreen extends TitleScreen {
+    /** PLAY, SINGLEPLAYER, MODS and OPTIONS form the list; the fifth item is EXTRAS in the bottom-right corner. */
+    private static final int LIST_COUNT = 4;
     private static final int ITEM_COUNT = 5;
+    private static final int EXTRAS = 4;
 
     private int layoutWidth = -1;
     private int layoutHeight = -1;
@@ -31,14 +34,15 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
     private int menuW;
     private int rowH;
     private int gap;
-    private float textScale;
     private float markScale;
     private int markY;
     private int markH;
     private boolean showSubtitle;
     private int subtitleY;
     private int menuY;
-    private int menuBottom;
+    private int extrasX;
+    private int extrasY;
+    private int extrasW;
 
     private final ZenithItem[] items = new ZenithItem[ITEM_COUNT];
     private final Runnable[] actions = new Runnable[ITEM_COUNT];
@@ -75,12 +79,18 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int y = menuY;
         for (int i = 0; i < ITEM_COUNT; i++) {
             final int index = i;
-            items[i] = new ZenithItem(left, y, menuW, rowH, labels[i], index, b -> {
-                selected = index;
-                actions[index].run();
-            });
+            boolean corner = i == EXTRAS;
+            items[i] = corner
+                ? new ZenithItem(extrasX, extrasY, extrasW, rowH, labels[i], true, b -> {
+                    selected = index;
+                    actions[index].run();
+                })
+                : new ZenithItem(left, y, menuW, rowH, labels[i], false, b -> {
+                    selected = index;
+                    actions[index].run();
+                });
             addRenderableWidget(items[i]);
-            y += rowH + gap;
+            if (!corner) y += rowH + gap;
         }
         selected = Math.max(0, Math.min(ITEM_COUNT - 1, selected));
 
@@ -90,23 +100,22 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
 
     /** Sizes the wordmark and list so the whole block fits the current GUI size. */
     private void computeLayout() {
-        left = Math.max(18, width / 12);
-        menuW = Math.max(150, Math.min(240, Math.min(width / 3, width - left - 10)));
+        // Compact column hugging the left edge; the text stays at normal size.
+        left = Math.max(10, width / 40);
+        int needed = VBVUi.trackedWidth(font, "SINGLEPLAYER", 2) + 28;
+        menuW = Math.min(needed, Math.max(80, width - left - 10));
 
-        int footer = 18;
+        int bottomMargin = 10;
         int top = 10;
-        int avail = height - top - footer;
+        int avail = height - top - bottomMargin;
 
-        float ms = height >= 300 ? 4.0F : (height >= 220 ? 3.0F : 2.0F);
-        float ts = height >= 300 ? 1.5F : 1.0F;
-        int rh = (int) (font.lineHeight * ts) + (ts > 1.0F ? 12 : 9);
-        int g = 3;
+        float ms = height >= 300 ? 3.0F : 2.0F;
+        int rh = font.lineHeight + 9;
+        int g = 2;
         boolean sub = true;
         for (int guard = 0; guard < 64 && blockHeight(ms, sub, rh, g) > avail; guard++) {
-            if (rh > 16) {
+            if (rh > 14) {
                 rh--;
-            } else if (ms > 2.0F) {
-                ms -= 1.0F;
             } else if (sub) {
                 sub = false;
             } else if (g > 1) {
@@ -116,11 +125,6 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
             }
         }
 
-        // The longest label must fit inside its row with room for the highlight bar's padding.
-        int needed = (int) (VBVUi.trackedWidth(font, "SINGLEPLAYER", 2) * ts) + 32;
-        menuW = Math.max(menuW, Math.min(needed, width - left - 4));
-
-        textScale = ts;
         markScale = ms;
         rowH = rh;
         gap = g;
@@ -128,14 +132,18 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         markH = (int) (font.lineHeight * ms);
         int total = blockHeight(ms, sub, rh, g);
         markY = top + Math.max(0, (avail - total) / 2);
-        subtitleY = markY + markH + 8;
-        menuY = markY + markH + (sub ? 8 + font.lineHeight : 0) + 16;
-        menuBottom = menuY + ITEM_COUNT * (rh + g);
+        subtitleY = markY + markH + 7;
+        menuY = markY + markH + (sub ? 7 + font.lineHeight : 0) + 12;
+
+        // EXTRAS sits alone in the bottom-right corner.
+        extrasW = VBVUi.trackedWidth(font, "EXTRAS", 2) + 28;
+        extrasX = width - extrasW - 10;
+        extrasY = height - rh - 10;
     }
 
     private int blockHeight(float markScale, boolean subtitle, int rowH, int gap) {
-        return (int) (font.lineHeight * markScale) + (subtitle ? 8 + font.lineHeight : 0) + 16
-            + ITEM_COUNT * (rowH + gap);
+        return (int) (font.lineHeight * markScale) + (subtitle ? 7 + font.lineHeight : 0) + 12
+            + LIST_COUNT * (rowH + gap);
     }
 
     @Override
@@ -187,23 +195,18 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         // Wordmark: big wide-spaced letters, an accent rule and the edition line.
-        int tracking = 4;
+        int tracking = 3;
         graphics.pose().pushMatrix();
         graphics.pose().translate(left, markY);
         graphics.pose().scale(markScale, markScale);
         VBVUi.trackedText(graphics, font, "VBV", 0, 0, 0xFFFFFFFF, tracking, true);
         graphics.pose().popMatrix();
         if (showSubtitle) {
-            graphics.fill(left, subtitleY + 4, left + 12, subtitleY + 5, VBVTheme.accent());
-            VBVUi.trackedText(graphics, font, "EAGLER 26.2 EDITION", left + 18, subtitleY, VBVUi.TEXT_DIM, 2, true);
+            graphics.fill(left, subtitleY + 4, left + 10, subtitleY + 5, VBVTheme.accent());
+            VBVUi.trackedText(graphics, font, "EAGLER 26.2 EDITION", left + 15, subtitleY, VBVUi.TEXT_DIM, 1, true);
         }
 
         renderPartyPanel(graphics);
-
-        // Small print on the lower edge (skipped when the list already reaches it).
-        if (menuBottom <= height - 14) {
-            graphics.text(font, "v" + VBVClient.VERSION + "  •  26.2", left, height - 14, VBVUi.TEXT_DISABLED, false);
-        }
     }
 
     /** Left-hand vignette and top/bottom shading so the menu reads on any panorama. */
@@ -212,7 +215,7 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         int h = graphics.guiHeight();
 
         // Horizontal fade: darkest at the left edge, gone by the end of the menu column.
-        int vigW = Math.min(w, left + menuW + w / 5);
+        int vigW = Math.min(w, left + menuW + w / 6);
         int steps = Math.min(48, Math.max(1, vigW));
         for (int i = 0; i < steps; i++) {
             float t = 1.0F - (float) i / steps;
@@ -243,14 +246,17 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
 
     /**
      * One menu row: plain wide-spaced text; the selected row slides in a light bar with a slanted
-     * right edge, and its text turns dark.
+     * edge, and its text turns dark. The corner item (EXTRAS) is right-aligned and its bar slants the
+     * other way so it points into the screen.
      */
     private final class ZenithItem extends Button {
         boolean selectedRow;
+        private final boolean corner;
         private float glow;
 
-        ZenithItem(int x, int y, int w, int h, String label, int index, Button.OnPress onPress) {
+        ZenithItem(int x, int y, int w, int h, String label, boolean corner, Button.OnPress onPress) {
             super(x, y, w, h, Component.literal(label), onPress, DEFAULT_NARRATION);
+            this.corner = corner;
         }
 
         @Override
@@ -269,18 +275,23 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
                 int bar = VBVTheme.mix(0xFFFFFFFF, VBVTheme.accentLight(), 0.22F);
                 int alpha = (int) (0xB4 * glow);
                 int barW = (int) (w * (0.7F + 0.3F * glow));
-                VBVUi.slantedBar(graphics, x, y, barW, h, h / 2, (alpha << 24) | (bar & 0xFFFFFF));
-                graphics.fill(x, y, x + 3, y + h, VBVTheme.accent());
+                int color = (alpha << 24) | (bar & 0xFFFFFF);
+                if (corner) {
+                    VBVUi.slantedBarFromRight(graphics, x + w - barW, y, barW, h, h / 2, color);
+                    graphics.fill(x + w - 3, y, x + w, y + h, VBVTheme.accent());
+                } else {
+                    VBVUi.slantedBar(graphics, x, y, barW, h, h / 2, color);
+                    graphics.fill(x, y, x + 3, y + h, VBVTheme.accent());
+                }
             }
 
             boolean lit = glow > 0.5F;
             int color = lit ? 0xFF14110A : 0xFFFFFFFF;
-            int textY = y + (int) ((h - f.lineHeight * textScale) / 2.0F);
-            graphics.pose().pushMatrix();
-            graphics.pose().translate(x + 14, textY);
-            graphics.pose().scale(textScale, textScale);
-            VBVUi.trackedText(graphics, f, getMessage().getString(), 0, 0, color, 2, !lit);
-            graphics.pose().popMatrix();
+            String text = getMessage().getString();
+            int textW = VBVUi.trackedWidth(f, text, 2);
+            int textX = corner ? x + w - 14 - textW : x + 14;
+            int textY = y + (h - f.lineHeight) / 2 + 1;
+            VBVUi.trackedText(graphics, f, text, textX, textY, color, 2, !lit);
         }
     }
 }
