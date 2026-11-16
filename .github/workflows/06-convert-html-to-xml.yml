@@ -1,14 +1,3 @@
-name: Convert HTML Artifact to XML
-
-on:
-  workflow_dispatch:
-    inputs:
-      artifact_url:
-        description: "GitHub Actions artifact page URL"
-        required: true
-        type: string
-      output_name:
-        description: "Base name for the output file"
         required: false
         default: converted-output
         type: string
@@ -34,45 +23,34 @@ jobs:
         shell: bash
         env:
           ARTIFACT_URL: ${{ inputs.artifact_url }}
-          GITHUB_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
+          SOURCE_REPO: ${{ inputs.source_repo }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           set -euo pipefail
 
-          python3 - <<'PY'
-          import os
-          import re
-          from urllib.request import Request, urlopen
+          if [ -z "${GITHUB_TOKEN:-}" ]; then
+            echo "::error::Missing PAT_TOKEN secret. Create a secret named PAT_TOKEN with access to the source repo."
+            exit 1
+          fi
 
-          artifact_url = os.environ["ARTIFACT_URL"]
-          repo = os.environ["REPOSITORY"]
-          token = os.environ["GITHUB_TOKEN"]
+          ARTIFACT_ID="$(echo "$ARTIFACT_URL" | sed -n 's#.*/artifacts/\([0-9][0-9]*\).*#\1#p')"
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "::error::Could not find artifact ID in the URL."
+            exit 1
+          fi
 
-          match = re.search(r"/artifacts/(\d+)", artifact_url)
-          if not match:
-              raise SystemExit("Please provide a GitHub Actions artifact page URL that contains /artifacts/<id>.")
+          API_URL="https://api.github.com/repos/${SOURCE_REPO}/actions/artifacts/${ARTIFACT_ID}/zip"
+          echo "Downloading from: $API_URL"
 
-          artifact_id = match.group(1)
-          api_url = f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact_id}/zip"
+          curl -L \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$API_URL" \
+            -o artifact.zip
 
-          req = Request(
-              api_url,
-              headers={
-                  "Authorization": f"Bearer {token}",
-                  "Accept": "application/vnd.github+json",
-                  "X-GitHub-Api-Version": "2022-11-28",
-                  "User-Agent": "github-actions"
-              }
-          )
-
-          with urlopen(req) as response:
-              data = response.read()
-
-          with open("artifact.zip", "wb") as f:
-              f.write(data)
-
-          print(f"Downloaded artifact.zip ({len(data)} bytes)")
-          PY
+          test -s artifact.zip
+          echo "Downloaded artifact.zip: $(stat -c%s artifact.zip) bytes"
 
       - name: Extract artifact ZIP
         shell: bash
