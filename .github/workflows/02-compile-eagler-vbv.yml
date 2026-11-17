@@ -11,9 +11,12 @@ permissions:
 env:
   U2_REPO: "https://github.com/kingjoeishere/Eaglercraft-26.2-u2-workspace.git"
   U2_COMMIT: "f0dafd1e3c1fb39006735ffc0bc6fd879fa98de3"
-  # Menu panorama frame quality (see README, "Menu panoramas"): wider = sharper but a bigger build.
+  # Menu panorama frame quality (see README, "Menu panoramas"): wider / more frames = sharper but a bigger
+  # build, and the whole assets pack is downloaded and unpacked at start-up, so these directly set load time.
+  # 5 fps frames are cross-faded in the game; the default clip uses WIDTH, the other clips EXTRA_WIDTH.
   VBV_PANORAMA_WIDTH: "1280"
-  VBV_PANORAMA_FPS: "10"
+  VBV_PANORAMA_EXTRA_WIDTH: "1024"
+  VBV_PANORAMA_FPS: "5"
   VBV_PANORAMA_DITHER: "sierra2"
 
 jobs:
