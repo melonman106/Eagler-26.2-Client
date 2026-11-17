@@ -313,6 +313,9 @@ The project uses GitHub Actions to compile and package the client.
 
 You do not need to install Java, Gradle, or Node.js locally to run the repository's GitHub Actions workflows.
 
+## Main Menu
+<img width="1365" height="767" alt="MainMenu" src="https://github.com/user-attachments/assets/2ac051aa-24b9-4352-9fa7-1d98ca26037d" />
+
 ### Build Workflow
 
 The main build process uses two workflows:
