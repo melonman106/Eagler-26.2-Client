@@ -191,18 +191,27 @@ Drop any `.mp4`, `.webm`, `.mov`, `.gif` or `.png` into:
 VBV/panorama/
 ```
 
-On the next build every file is converted to numbered frames (10 fps, up to 1280 px wide) and shows up
+On the next build every file is converted to numbered frames (5 fps, up to 1280 px wide) and shows up
 in **Extras > Panoramas** under a name made from the file name (`LoadingScreenNight.mp4` becomes
 "Loading Screen Night"). The choice is saved with your settings. `panorama_overlay` is the default;
 the **Minecraft** card in Extras switches back to the vanilla panorama. Only a short ring of frames
 is kept in memory at a time, so long clips cost build size (PNG frames) rather than game memory.
 
-Frame quality is a size trade-off. The default (1280 px, error-diffusion dithering) comes to roughly
-0.25-0.35 MB per frame, about 70 MB for the three bundled clips. The three settings live in the `env:`
-block at the top of `.github/workflows/02-compile-eagler-vbv.yml`: raise `VBV_PANORAMA_WIDTH` to `1920` for
-a sharper picture on a 1080p screen (about 1.7x the size), or lower it to `854` (or lower
-`VBV_PANORAMA_FPS`) for a smaller download. `VBV_PANORAMA_DITHER` accepts `sierra2` (default), `sierra2_4a`,
-`floyd_steinberg`, `bayer` or `none`.
+Frame quality is a size trade-off, and it is also load time: the game downloads and unpacks every frame of
+every clip when it starts. At 10 fps and 1280 px the four bundled clips came to about 152 MB of a 178 MB
+assets pack. The frames are now stored at 5 fps and the game fades the next frame in over the current one
+(on the bundled clips the blended frame is within 34-42 dB PSNR of the frame that was dropped, so slow camera
+moves still look smooth); `panorama_overlay` keeps 1280 px, the other clips use 1024 px. The settings live in
+the `env:` block at the top of `.github/workflows/02-compile-eagler-vbv.yml`:
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `VBV_PANORAMA_WIDTH` | `1280` | Width of the default panorama (`1920` is sharper on a 1080p screen, ~1.7x the size) |
+| `VBV_PANORAMA_EXTRA_WIDTH` | `1024` | Width of every other clip |
+| `VBV_PANORAMA_FPS` | `5` | Stored frames per second (the game blends between them) |
+| `VBV_PANORAMA_DITHER` | `sierra2` | `sierra2`, `sierra2_4a`, `floyd_steinberg`, `bayer` or `none` |
+
+The fastest start is to keep only the clips you actually use in `VBV/panorama/`.
 
 ## Main menu (2.0.0)
 
