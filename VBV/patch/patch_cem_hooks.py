@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Wire VBV's OptiFine-style custom entity models (.jem/.jpm) into the generated Eagler 26.2 sources.
 
-Four small hooks in four files. Every anchor must match exactly once, in every file, or the
+Six small hooks in five files. Every anchor must match exactly once, in every file, or the
 script aborts before writing anything, so the tree is never left half patched:
 
   1. EntityModelSet.bakeLayer                      - bakes the layer through VBVCem (JEM parts replace vanilla ones).
   2. EntityRenderDispatcher.onResourceManagerReload - tells VBVCem the new resource manager (reloads the JEMs).
   3. TextureManager.getTexture                      - lets a JEM's "texture" replace a vanilla entity texture.
   4. ModelFeatureRenderer.prepareModel              - runs the JEM's animation expressions after the vanilla model posed itself.
+  5. EntityRenderState + 6. EntityRenderer.extractRenderState - keep a reference to the live entity on its render
+     state, so animation expressions can read what it holds or does (is_using_item, nbt(...), move_forward ...).
 
 With Custom Entity Models switched off (or on any error) VBVCem returns the vanilla result.
 """
@@ -52,6 +54,21 @@ EDITS = [
         "      model.setupAnim(submit.state());\n"
         "      // VBV_CEM: run the .jem animation expressions on top of the vanilla pose\n"
         "      com.melonman106.vbvclient.VBVCem.animate(model, submit.state());\n",
+    ),
+    (
+        "net/minecraft/client/renderer/entity/state/EntityRenderState.java",
+        "EntityRenderState field",
+        "   public int lightCoords = 15728880;\n",
+        "   public int lightCoords = 15728880;\n"
+        "   // VBV_CEM: the entity this state was extracted from (read by the .jem animation inputs)\n"
+        "   public net.minecraft.world.entity.Entity vbvEntity;\n",
+    ),
+    (
+        "net/minecraft/client/renderer/entity/EntityRenderer.java",
+        "extractRenderState",
+        "      state.entityType = entity.getType();\n",
+        "      state.entityType = entity.getType();\n"
+        "      state.vbvEntity = entity; // VBV_CEM\n",
     ),
 ]
 

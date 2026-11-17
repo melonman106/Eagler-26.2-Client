@@ -1,8 +1,10 @@
 package com.melonman106.vbvclient;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.entity.state.ArmedEntityRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -16,6 +18,13 @@ import net.minecraft.client.renderer.entity.state.SkeletonRenderState;
 import net.minecraft.client.renderer.entity.state.WolfRenderState;
 import net.minecraft.client.renderer.entity.state.ZombieRenderState;
 import net.minecraft.client.renderer.entity.state.ZombifiedPiglinRenderState;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * The animation half of a custom entity model: the expression lines of the {@code .jem}/{@code .jpm}
@@ -23,8 +32,14 @@ import net.minecraft.client.renderer.entity.state.ZombifiedPiglinRenderState;
  * Entity Model Features use. Lines write straight into the {@link ModelPart} fields (translate,
  * rotate, scale, visibility) or into {@code var.*} / {@code varb.*} variables.
  *
- * <p>Only values the game's entity render state carries are available (limb swing, age, head
- * rotation, baby, in water, a few poses ...). Any other input reads as 0 / false.</p>
+ * <p>Inputs come from the entity's render state and, when the render state carries a reference to it
+ * (see patch_cem_hooks.py), from the live entity: held items, using / blocking / climbing / crawling,
+ * swing arm, handedness, movement input, water depth above, flying and so on. {@code nbt()} tests are
+ * answered by {@link VBVCemNbt}. Any other input reads as 0 / false.</p>
+ *
+ * <p>{@code var.*} variables live in a {@link VarStore} that every model of one entity family shares (the
+ * player, its armor layers, cape and elytra all read the same values) and that keeps a separate set of
+ * values for every entity, so several players or cows on screen do not disturb one another's smoothing.</p>
  */
 final class VBVCemRig {
     private static final String LOG = "[VBV CEM] ";
@@ -38,7 +53,10 @@ final class VBVCemRig {
         "is_in_lava", "is_on_shoulder", "is_ridden", "is_glowing", "is_wet", "is_sleeping", "player_pos_x",
         "player_pos_y", "player_pos_z", "rule_index", "dimension", "is_on_head", "is_in_hand", "is_in_item_frame",
         "is_in_ground", "is_in_gui", "is_in_first_person_hand", "is_paused", "is_flying", "is_gliding",
-        "is_jumping", "is_leashed", "is_baby", "is_angry", "health_percent", "swing_progress_main", "pitch", "yaw"
+        "is_jumping", "is_leashed", "is_baby", "is_angry", "health_percent", "swing_progress_main", "pitch", "yaw",
+        "is_first_person_hand", "is_right_handed", "is_using_item", "is_swinging_right_arm", "is_swinging_left_arm",
+        "is_holding_item_right", "is_holding_item_left", "is_blocking", "is_climbing", "is_crawling",
+        "fluid_depth_up", "move_forward", "move_strafing"
     };
     private static final int LIMB_SWING = idx("limb_swing");
     private static final int LIMB_SPEED = idx("limb_speed");
@@ -82,6 +100,23 @@ final class VBVCemRig {
     private static final int IS_GLIDING = idx("is_gliding");
     private static final int IS_FLYING = idx("is_flying");
     private static final int IS_GLOWING = idx("is_glowing");
+    private static final int IS_JUMPING = idx("is_jumping");
+    private static final int IS_PAUSED = idx("is_paused");
+    private static final int IS_IN_LAVA = idx("is_in_lava");
+    private static final int IS_WET = idx("is_wet");
+    private static final int IS_RIDDEN = idx("is_ridden");
+    private static final int IS_RIGHT_HANDED = idx("is_right_handed");
+    private static final int IS_USING_ITEM = idx("is_using_item");
+    private static final int IS_SWINGING_RIGHT = idx("is_swinging_right_arm");
+    private static final int IS_SWINGING_LEFT = idx("is_swinging_left_arm");
+    private static final int IS_HOLDING_RIGHT = idx("is_holding_item_right");
+    private static final int IS_HOLDING_LEFT = idx("is_holding_item_left");
+    private static final int IS_BLOCKING = idx("is_blocking");
+    private static final int IS_CLIMBING = idx("is_climbing");
+    private static final int IS_CRAWLING = idx("is_crawling");
+    private static final int FLUID_DEPTH_UP = idx("fluid_depth_up");
+    private static final int MOVE_FORWARD = idx("move_forward");
+    private static final int MOVE_STRAFING = idx("move_strafing");
 
     private static int idx(String name) {
         for (int i = 0; i < INPUTS.length; i++) {
@@ -94,10 +129,69 @@ final class VBVCemRig {
 
     private static final Map<String, float[]> GLOBAL_VARS = new HashMap<>();
 
+    /**
+     * The {@code var.*} / {@code varb.*} slots of one entity family. The slot arrays are what the compiled
+     * lines read and write; {@link #enter} swaps the values of the entity being animated in and out, so
+     * each entity keeps its own variables.
+     */
+    static final class VarStore {
+        private final Map<String, float[]> slots = new HashMap<>();
+        private final ArrayList<float[]> slotList = new ArrayList<>();
+        private final Map<Integer, float[]> saved = new HashMap<>();
+        private final Map<Integer, Integer> lastSeen = new HashMap<>();
+        private int owner = Integer.MIN_VALUE;
+
+        float[] slot(String key) {
+            float[] slot = slots.get(key);
+            if (slot == null) {
+                slot = new float[1];
+                slots.put(key, slot);
+                slotList.add(slot);
+            }
+            return slot;
+        }
+
+        /** Makes the slots hold the variables of this entity. */
+        void enter(int entityId, int frame) {
+            lastSeen.put(entityId, frame);
+            if (entityId == owner) {
+                return;
+            }
+            int count = slotList.size();
+            if (owner != Integer.MIN_VALUE) {
+                float[] snapshot = new float[count];
+                for (int i = 0; i < count; i++) {
+                    snapshot[i] = slotList.get(i)[0];
+                }
+                saved.put(owner, snapshot);
+            }
+            float[] next = saved.get(entityId);
+            for (int i = 0; i < count; i++) {
+                slotList.get(i)[0] = next != null && i < next.length ? next[i] : 0.0F;
+            }
+            owner = entityId;
+            if (saved.size() > 64) {
+                // Forget entities that have not been drawn for a while (unloaded, far away or dead).
+                java.util.Iterator<Map.Entry<Integer, Integer>> it = lastSeen.entrySet().iterator();
+                while (it.hasNext()) {
+                    Map.Entry<Integer, Integer> entry = it.next();
+                    if (frame - entry.getValue() > 900 && entry.getKey() != owner) {
+                        saved.remove(entry.getKey());
+                        it.remove();
+                    }
+                }
+            }
+        }
+    }
+
     private final String entity;
+    private final VarStore store;
+    private Entity current;
+    private boolean needsFluidDepth;
+    /** True for an armor layer model: it takes over the pose of the entity's animated main model first. */
+    boolean armor;
     private final float[] in = new float[INPUTS.length];
     private final Map<String, Integer> inputIndex = new HashMap<>();
-    private final Map<String, float[]> vars = new HashMap<>();
     private final Map<String, ModelPart> parts = new HashMap<>();
     private final Function<String, ModelPart> vanillaLookup;
     private final Line[] lines;
@@ -127,8 +221,9 @@ final class VBVCemRig {
      * @param lookup finds any other vanilla part by its vanilla name (may return null)
      * @param source the {key, expression} lines, in the order they must run
      */
-    VBVCemRig(String entity, Map<String, ModelPart> named, Function<String, ModelPart> lookup, java.util.List<String[]> source) {
+    VBVCemRig(String entity, VarStore store, Map<String, ModelPart> named, Function<String, ModelPart> lookup, java.util.List<String[]> source) {
         this.entity = entity;
+        this.store = store;
         this.parts.putAll(named);
         this.vanillaLookup = lookup;
         for (int i = 0; i < INPUTS.length; i++) {
@@ -171,7 +266,8 @@ final class VBVCemRig {
         if (key.startsWith("render.")) {
             return null; // shadow size, leash offsets ...: not supported, harmless to drop
         }
-        VBVCemExpr.Num value = VBVCemExpr.compile(expression, this::resolve);
+        VBVCemExpr.Num value = VBVCemExpr.compile(expression, this::resolve,
+            (path, test) -> VBVCemNbt.create(path, test, () -> current));
         boolean bool = key.startsWith("varb.") || key.startsWith("global_varb.");
         if (bool || key.startsWith("var.") || key.startsWith("global_var.")) {
             float[] slot = slot(key);
@@ -195,20 +291,28 @@ final class VBVCemRig {
     }
 
     private float[] slot(String key) {
-        Map<String, float[]> store = key.startsWith("global_") ? GLOBAL_VARS : vars;
-        float[] slot = store.get(key);
-        if (slot == null) {
-            slot = new float[1];
-            store.put(key, slot);
+        if (key.startsWith("global_")) {
+            float[] slot = GLOBAL_VARS.get(key);
+            if (slot == null) {
+                slot = new float[1];
+                GLOBAL_VARS.put(key, slot);
+            }
+            return slot;
         }
-        return slot;
+        return store.slot(key);
     }
 
     private VBVCemExpr.Num resolve(String name) {
         Integer input = inputIndex.get(name);
         if (input != null) {
             int index = input;
+            if (index == FLUID_DEPTH_UP) {
+                needsFluidDepth = true;
+            }
             return () -> in[index];
+        }
+        if ("abilities.flying".equals(name)) {
+            return () -> in[IS_FLYING];
         }
         if (name.startsWith("var.") || name.startsWith("varb.") || name.startsWith("global_var.") || name.startsWith("global_varb.")) {
             float[] slot = slot(name);
@@ -300,10 +404,14 @@ final class VBVCemRig {
         v[MAX_HEALTH] = 20.0F;
         v[HEALTH_PERCENT] = 1.0F;
         v[IS_ALIVE] = 1.0F;
+        current = null;
         if (!(state instanceof EntityRenderState)) {
+            store.enter(0, frameCounter);
             return;
         }
         EntityRenderState e = (EntityRenderState) state;
+        Entity live = e.vbvEntity;
+        store.enter(live == null ? 0 : live.getId(), frameCounter);
         v[AGE] = e.ageInTicks;
         v[TIME] = e.ageInTicks;
         v[POS_X] = (float) e.x;
@@ -342,6 +450,14 @@ final class VBVCemRig {
             v[IS_SWIMMING] = bool(h.isVisuallySwimming);
             v[IS_GLIDING] = bool(h.isFallFlying);
         }
+        if (live != null) {
+            current = live;
+            try {
+                fillFromEntity(live, v);
+            } catch (RuntimeException error) {
+                // A value the live entity cannot give (unloaded level, odd subclass) stays what the state said.
+            }
+        }
         if (state instanceof WolfRenderState) {
             v[IS_SITTING] = bool(((WolfRenderState) state).isSitting);
             v[IS_ANGRY] = bool(((WolfRenderState) state).isAngry);
@@ -368,6 +484,64 @@ final class VBVCemRig {
 
     private static float bool(boolean value) {
         return value ? 1.0F : 0.0F;
+    }
+
+    /** Values that only the live entity knows. Anything the entity does not have is left as it was. */
+    private void fillFromEntity(Entity entity, float[] v) {
+        v[ID] = entity.getId();
+        v[IS_ON_GROUND] = bool(entity.onGround());
+        v[IS_IN_WATER] = bool(entity.isInWater());
+        v[IS_IN_LAVA] = bool(entity.isInLava());
+        v[IS_WET] = bool(entity.isInWaterOrRain());
+        v[IS_RIDING] = bool(entity.isPassenger());
+        v[IS_RIDDEN] = bool(entity.isVehicle());
+        v[IS_PAUSED] = bool(Minecraft.getInstance().isPaused());
+        if (needsFluidDepth) {
+            v[FLUID_DEPTH_UP] = fluidDepthUp(entity);
+        }
+        if (!(entity instanceof LivingEntity)) {
+            return;
+        }
+        LivingEntity living = (LivingEntity) entity;
+        v[HEALTH] = living.getHealth();
+        v[MAX_HEALTH] = living.getMaxHealth();
+        v[HEALTH_PERCENT] = living.getMaxHealth() > 0.0F ? living.getHealth() / living.getMaxHealth() : 1.0F;
+        v[HURT_TIME] = living.hurtTime;
+        v[IS_SLEEPING] = bool(living.isSleeping());
+        v[IS_CLIMBING] = bool(living.onClimbable());
+        v[IS_USING_ITEM] = bool(living.isUsingItem());
+        v[IS_BLOCKING] = bool(living.isBlocking());
+        v[IS_CRAWLING] = bool(living.isVisuallyCrawling());
+        v[IS_JUMPING] = bool(!living.onGround() && living.getDeltaMovement().y > 0.0D);
+        v[MOVE_FORWARD] = living.zza;
+        v[MOVE_STRAFING] = living.xxa;
+        HumanoidArm main = living.getMainArm();
+        v[IS_RIGHT_HANDED] = bool(main == HumanoidArm.RIGHT);
+        if (living.swinging) {
+            HumanoidArm arm = living.swingingArm == InteractionHand.MAIN_HAND ? main : main.getOpposite();
+            v[IS_SWINGING_RIGHT] = bool(arm == HumanoidArm.RIGHT);
+            v[IS_SWINGING_LEFT] = bool(arm == HumanoidArm.LEFT);
+        }
+        v[IS_HOLDING_RIGHT] = bool(!living.getItemHeldByArm(HumanoidArm.RIGHT).isEmpty());
+        v[IS_HOLDING_LEFT] = bool(!living.getItemHeldByArm(HumanoidArm.LEFT).isEmpty());
+        if (living instanceof Player) {
+            v[IS_FLYING] = bool(((Player) living).getAbilities().flying);
+        }
+    }
+
+    /** How many fluid blocks stack up from the block the entity's feet are in. */
+    private static float fluidDepthUp(Entity entity) {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        pos.set(entity.getX(), entity.getY(), entity.getZ());
+        int depth = 0;
+        for (int i = 0; i < 8; i++) {
+            if (entity.level().getFluidState(pos).isEmpty()) {
+                break;
+            }
+            depth++;
+            pos.move(Direction.UP);
+        }
+        return depth;
     }
 
     /** Runs every line in order. */
