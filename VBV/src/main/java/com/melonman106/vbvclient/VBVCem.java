@@ -41,9 +41,15 @@ import net.minecraft.util.GsonHelper;
  * they give UVs for. After the vanilla model has posed itself, the pack's animation lines run and write into the
  * parts ({@link VBVCemRig}).</p>
  *
+ * <p>Models are read from {@code optifine/cem/} and from {@code emf/cem/} (the folder Entity Model Features
+ * packs such as the Fresh Animations Player Add-on use). Besides each entity's main model, cape layers
+ * ({@code player_cape.jem}) and armor layers ({@code player_inner_armor.jem} for leggings,
+ * {@code player_outer_armor.jem} for helmet, chestplate and boots, and the generic {@code helmet.jem},
+ * {@code chestplate.jem}, {@code leggings.jem}, {@code boots.jem}) are baked from their own jems.</p>
+ *
  * <p>Not supported (ignored, vanilla behaviour kept): {@code .properties} variant rules, random entity
- * textures, per-part textures, armor / layer models (only each entity's main model), sprites, leash and
- * shadow settings, and any animation input the game's entity state does not carry (it reads as 0).</p>
+ * textures, per-part textures, sprites, leash and shadow settings, first-person hand models, and any
+ * animation input the game cannot provide (it reads as 0).</p>
  *
  * <p>The hooks are {@code EntityModelSet.bakeLayer}, {@code EntityRenderDispatcher.onResourceManagerReload},
  * {@code TextureManager.getTexture} and {@code ModelFeatureRenderer.prepareModel} (see patch_cem_hooks.py).
@@ -51,7 +57,8 @@ import net.minecraft.util.GsonHelper;
  */
 public final class VBVCem {
     private static final String LOG = "[VBV CEM] ";
-    private static final String CEM_DIR = "optifine/cem/";
+    /** Where a pack may keep its models: OptiFine's folder first, then the Entity Model Features one. */
+    private static final String[] CEM_DIRS = {"optifine/cem/", "emf/cem/"};
     private static final long FRAME_GAP_NANOS = 4_000_000L;
 
     /** Vanilla default texture of each entity whose renderer uses a single fixed texture. */
@@ -97,6 +104,12 @@ public final class VBVCem {
     private static final Set<String> reported = new HashSet<>();
     /** Baked root part -> its animation rig. */
     private static final Map<ModelPart, VBVCemRig> rigs = new IdentityHashMap<>();
+    /** Animation variables, one store per entity family (the player and its armor, cape and elytra share one). */
+    private static final Map<String, VBVCemRig.VarStore> stores = new HashMap<>();
+
+    /** The main model that was animated last, and the entity it belongs to (armor layers copy its pose). */
+    private static ModelPart mainRoot;
+    private static Object mainEntity;
 
     private static long lastCall;
     private static long frameStart;
@@ -180,6 +193,9 @@ public final class VBVCem {
         redirects.clear();
         reported.clear();
         rigs.clear();
+        stores.clear();
+        mainRoot = null;
+        mainEntity = null;
         lastRoot = null;
         lastRig = null;
     }
@@ -198,11 +214,14 @@ public final class VBVCem {
         if (enabled && manager != null) {
             String name = null;
             try {
-                name = entityName(id);
-                if (name != null) {
-                    VBVCemJem jem = modelFor(name);
-                    if (jem != null && !jem.parts.isEmpty()) {
-                        return bakeWith(name, jem, layer);
+                String[] candidates = entityNames(id);
+                if (candidates != null) {
+                    for (String candidate : candidates) {
+                        name = candidate;
+                        VBVCemJem jem = modelFor(candidate);
+                        if (jem != null && !jem.parts.isEmpty()) {
+                            return bakeWith(candidate, jem, layer);
+                        }
                     }
                 }
             } catch (Throwable error) {
@@ -259,8 +278,16 @@ public final class VBVCem {
                 frameStart = now;
             }
             lastCall = now;
+            Object entity = state instanceof EntityRenderState ? ((EntityRenderState) state).vbvEntity : null;
+            if (rig.armor && entity != null && entity == mainEntity && mainRoot != null) {
+                copyBodyPose(mainRoot, root);
+            }
             rig.fill(state, frameTime, frameCounter);
             rig.run();
+            if (!rig.armor) {
+                mainRoot = root;
+                mainEntity = entity;
+            }
             if (measure) {
                 statRuns++;
                 statNanos += System.nanoTime() - now;
@@ -271,11 +298,80 @@ public final class VBVCem {
         }
     }
 
-    private static String entityName(ModelLayerLocation id) {
-        if (!"main".equals(id.layer()) || !"minecraft".equals(id.model().getNamespace())) {
+    /**
+     * The jem names that can model a layer, best first: the main layer of a model is the entity itself,
+     * its cape layer is {@code <entity>_cape}, and its armor layers are {@code <entity>_inner_armor}
+     * (leggings) or {@code <entity>_outer_armor} (helmet, chestplate, boots), then the generic
+     * {@code <slot>} and {@code inner_armor} / {@code outer_armor} names.
+     */
+    private static final String[] BODY_PARTS = {"head", "hat", "body", "right_arm", "left_arm", "right_leg", "left_leg"};
+
+    /**
+     * Gives an armor model the pose of the animated main model of the same entity, the way armor used to
+     * copy its wearer's pose: the armor's own vanilla pose would ignore the pack's limb animations.
+     */
+    private static void copyBodyPose(ModelPart from, ModelPart to) {
+        for (String name : BODY_PARTS) {
+            if (from.hasChild(name) && to.hasChild(name)) {
+                ModelPart source = from.getChild(name);
+                ModelPart target = to.getChild(name);
+                target.x = source.x;
+                target.y = source.y;
+                target.z = source.z;
+                target.xRot = source.xRot;
+                target.yRot = source.yRot;
+                target.zRot = source.zRot;
+                target.xScale = source.xScale;
+                target.yScale = source.yScale;
+                target.zScale = source.zScale;
+            }
+        }
+    }
+
+    private static String[] entityNames(ModelLayerLocation id) {
+        if (!"minecraft".equals(id.model().getNamespace())) {
             return null;
         }
-        return id.model().getPath();
+        String model = id.model().getPath();
+        String layer = id.layer();
+        switch (layer) {
+            case "main":
+                return new String[] {model};
+            case "cape":
+                return new String[] {model + "_cape"};
+            case "helmet":
+            case "chestplate":
+            case "boots":
+                return new String[] {model + "_outer_armor", layer, "outer_armor"};
+            case "leggings":
+                return new String[] {model + "_inner_armor", layer, "inner_armor"};
+            default:
+                return null;
+        }
+    }
+
+    /** Models that animate the same entity share their variables: the player, its armor, cape and elytra. */
+    private static String familyOf(String name) {
+        String family = name;
+        for (String suffix : new String[] {"_inner_armor", "_outer_armor", "_cape"}) {
+            if (family.endsWith(suffix)) {
+                family = family.substring(0, family.length() - suffix.length());
+            }
+        }
+        if (family.endsWith("_slim")) {
+            family = family.substring(0, family.length() - "_slim".length());
+        }
+        return "elytra".equals(family) ? "player" : family;
+    }
+
+    private static VBVCemRig.VarStore storeFor(String name) {
+        String family = familyOf(name);
+        VBVCemRig.VarStore store = stores.get(family);
+        if (store == null) {
+            store = new VBVCemRig.VarStore();
+            stores.put(family, store);
+        }
+        return store;
     }
 
     private static VBVCemJem modelFor(String name) {
@@ -283,7 +379,7 @@ public final class VBVCem {
             return models.get(name);
         }
         VBVCemJem model = null;
-        JsonObject json = readJson(CEM_DIR + name + ".jem");
+        JsonObject json = readCem(name + ".jem");
         if (json != null) {
             try {
                 model = VBVCemJem.parse(json, VBVCem::loadJpm);
@@ -311,8 +407,21 @@ public final class VBVCem {
         if (!ref.endsWith(".jpm")) {
             ref = ref + ".jpm";
         }
-        String path = ref.startsWith("optifine/") ? ref : CEM_DIR + ref;
-        return readJson(path);
+        if (ref.startsWith("optifine/") || ref.startsWith("emf/")) {
+            return readJson(ref);
+        }
+        return readCem(ref);
+    }
+
+    /** Reads a pack file from the first of the cem folders that has it. */
+    private static JsonObject readCem(String relative) {
+        for (String dir : CEM_DIRS) {
+            JsonObject json = readJson(dir + relative);
+            if (json != null) {
+                return json;
+            }
+        }
+        return null;
     }
 
     private static JsonObject readJson(String path) {
@@ -341,10 +450,19 @@ public final class VBVCem {
         try {
             if (texture.indexOf(':') >= 0) {
                 custom = Identifier.parse(texture);
-            } else if (texture.startsWith("./")) {
-                custom = Identifier.withDefaultNamespace(CEM_DIR + texture.substring(2));
-            } else if (texture.indexOf('/') < 0) {
-                custom = Identifier.withDefaultNamespace(CEM_DIR + texture);
+            } else if (texture.startsWith("./") || texture.indexOf('/') < 0) {
+                String relative = texture.startsWith("./") ? texture.substring(2) : texture;
+                if (!relative.endsWith(".png")) {
+                    relative = relative + ".png";
+                }
+                custom = Identifier.withDefaultNamespace(CEM_DIRS[0] + relative);
+                for (String dir : CEM_DIRS) {
+                    Identifier candidate = Identifier.withDefaultNamespace(dir + relative);
+                    if (manager.getResource(candidate).isPresent()) {
+                        custom = candidate;
+                        break;
+                    }
+                }
             } else {
                 custom = Identifier.withDefaultNamespace(texture);
             }
@@ -429,8 +547,10 @@ public final class VBVCem {
                 List<String> path = entry.getValue();
                 String key = String.join("/", path);
                 PartDefinition target = copyOf(root, path);
-                if (!part.attach && cleaned.add(key)) {
-                    if (!path.isEmpty()) {
+                // A "root" entry only adds parts (and animations) to the model root: the vanilla parts it does
+                // not list stay as they are, so a jem that only carries animation lines (armor, capes) works.
+                if (!part.attach && !path.isEmpty() && cleaned.add(key)) {
+                    {
                         // Drop the vanilla boxes of this part, keep its pose and children.
                         PartDefinition parent = copyOf(root, path.subList(0, path.size() - 1));
                         target = parent.addOrReplaceChild(path.get(path.size() - 1), CubeListBuilder.create(), poseOf(target));
@@ -552,7 +672,10 @@ public final class VBVCem {
             }
             VBVCemRig rig = null;
             if (!lines.isEmpty()) {
-                rig = new VBVCemRig(entity, named, root.createPartLookup(), lines);
+                rig = new VBVCemRig(entity, storeFor(entity), named, root.createPartLookup(), lines);
+                rig.armor = entity.endsWith("_inner_armor") || entity.endsWith("_outer_armor")
+                    || "helmet".equals(entity) || "chestplate".equals(entity) || "leggings".equals(entity)
+                    || "boots".equals(entity) || "inner_armor".equals(entity) || "outer_armor".equals(entity);
                 rigs.put(root, rig);
             }
             System.out.println(LOG + entity + ".jem: " + customPaths.size() + " custom parts, "

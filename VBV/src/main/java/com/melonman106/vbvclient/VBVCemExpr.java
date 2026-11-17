@@ -46,17 +46,32 @@ final class VBVCemExpr {
         Num resolve(String name);
     }
 
+    /**
+     * Builds the reader of an {@code nbt(path, test)} call. The two texts are handed over unparsed
+     * (the test is written in the NBT matching syntax, for example {@code raw:iregex:.*shield.*}, which is
+     * not part of the expression grammar); the result reads 1 or 0.
+     */
+    interface NbtFactory {
+        Num create(String path, String test);
+    }
+
     private final String text;
     private final Resolver resolver;
+    private final NbtFactory nbt;
     private int pos;
 
-    private VBVCemExpr(String text, Resolver resolver) {
+    private VBVCemExpr(String text, Resolver resolver, NbtFactory nbt) {
         this.text = text;
         this.resolver = resolver;
+        this.nbt = nbt;
     }
 
     static Num compile(String expression, Resolver resolver) {
-        VBVCemExpr parser = new VBVCemExpr(expression, resolver);
+        return compile(expression, resolver, null);
+    }
+
+    static Num compile(String expression, Resolver resolver, NbtFactory nbt) {
+        VBVCemExpr parser = new VBVCemExpr(expression, resolver, nbt);
         Num result = parser.parseOr();
         parser.skipSpace();
         if (parser.pos != parser.text.length()) {
@@ -233,6 +248,9 @@ final class VBVCemExpr {
             String name = text.substring(start, pos);
             skipSpace();
             if (pos < text.length() && text.charAt(pos) == '(') {
+                if ("nbt".equals(name)) {
+                    return nbtCall();
+                }
                 pos++;
                 List<Num> args = new ArrayList<>();
                 if (!accept(")")) {
@@ -248,6 +266,37 @@ final class VBVCemExpr {
             return constantOrVariable(name);
         }
         throw error("unexpected '" + ch + "'");
+    }
+
+    /** Reads {@code nbt( path , test )} with the position on the opening parenthesis. */
+    private Num nbtCall() {
+        int open = pos;
+        int depth = 0;
+        int comma = -1;
+        int i = pos;
+        for (; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '(') {
+                depth++;
+            } else if (ch == ')') {
+                depth--;
+                if (depth == 0) {
+                    break;
+                }
+            } else if (ch == ',' && depth == 1 && comma < 0) {
+                comma = i;
+            }
+        }
+        if (i >= text.length()) {
+            throw error("missing ')' after the arguments of nbt");
+        }
+        String path = text.substring(open + 1, comma < 0 ? i : comma).trim();
+        String test = comma < 0 ? "" : text.substring(comma + 1, i).trim();
+        pos = i + 1;
+        if (nbt == null) {
+            throw error("unknown function 'nbt'");
+        }
+        return nbt.create(path, test);
     }
 
     private static boolean isNameChar(char ch) {
@@ -488,6 +537,34 @@ final class VBVCemExpr {
             case "signum":
                 need(name, n, 1);
                 return () -> Math.signum(a.get());
+            case "wraprad":
+                need(name, n, 1);
+                return () -> {
+                    float v = a.get();
+                    if (!Float.isFinite(v)) {
+                        return 0.0F;
+                    }
+                    float turn = (float) (Math.PI * 2.0);
+                    return v - turn * (float) Math.floor((v + (float) Math.PI) / turn);
+                };
+            case "wrapdeg":
+                need(name, n, 1);
+                return () -> {
+                    float v = a.get();
+                    return Float.isFinite(v) ? v - 360.0F * (float) Math.floor((v + 180.0F) / 360.0F) : 0.0F;
+                };
+            case "log10":
+                need(name, n, 1);
+                return () -> (float) Math.log10(a.get());
+            case "sinh":
+                need(name, n, 1);
+                return () -> (float) Math.sinh(a.get());
+            case "cosh":
+                need(name, n, 1);
+                return () -> (float) Math.cosh(a.get());
+            case "tanh":
+                need(name, n, 1);
+                return () -> (float) Math.tanh(a.get());
             case "pow":
                 need(name, n, 2);
                 return () -> (float) Math.pow(a.get(), b.get());

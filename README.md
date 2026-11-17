@@ -25,6 +25,13 @@ The client includes custom compatibility support for OptiFine-style Custom Entit
 - Designed to bring OptiFine CEM-style model support to the browser client without requiring OptiFine itself.
 - Allows compatible resource packs to customise the appearance and models of supported entities.
 - Integrated into the client rather than relying on a separate OptiFine installation.
+- Reads models from both `optifine/cem/` and `emf/cem/`, the folder Fresh Animations' Player Add-on uses (including its `21-2` / `21-5` version overlay folders).
+- Player models, cape and the four armor layers (`player_inner_armor`, `player_outer_armor`) are replaced and animated, not just the main body.
+- Animation expressions support `nbt()` (held item, equipment slots, off hand, sleeping, flying), `wraprad()` / `wrapdeg()`, `log10`, `sinh`/`cosh`/`tanh` and the frame-counter pattern packs use for smoothing.
+- Variables shared between a player's body, armor, cape and elytra models are kept per entity, so the add-on's smoothing and state carry over between parts.
+
+What is still not supported: first-person hand animations, `.properties` variant rules (random entities), emissive `_e` textures, CIT, CTM, colormaps and the other non-model OptiFine features. `nbt()` only answers the paths packs are known to use.
+
 Note: This is a custom Eaglercraft implementation, not the original OptiFine mod. Compatibility depends on the entity model formats and features supported by the implementation.
 
 ### Main Features
