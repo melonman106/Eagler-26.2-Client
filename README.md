@@ -8,6 +8,9 @@ Built using the Eaglercraft 26.2 u2 workspace and compiled into a standalone HTM
 
 ---
 
+## Main Menu
+<img width="1365" height="767" alt="MainMenu" src="https://github.com/user-attachments/assets/2ac051aa-24b9-4352-9fa7-1d98ca26037d" />
+
 ## Overview
 
 This project aims to bring a more complete modded Minecraft experience to Eaglercraft 26.2.
@@ -312,9 +315,6 @@ The upstream Fabric JARs are reference builds only and are not injected into the
 The project uses GitHub Actions to compile and package the client.
 
 You do not need to install Java, Gradle, or Node.js locally to run the repository's GitHub Actions workflows.
-
-## Main Menu
-<img width="1365" height="767" alt="MainMenu" src="https://github.com/user-attachments/assets/2ac051aa-24b9-4352-9fa7-1d98ca26037d" />
 
 ### Build Workflow
 
