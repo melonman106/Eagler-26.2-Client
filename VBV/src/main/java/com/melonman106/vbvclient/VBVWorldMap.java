@@ -42,8 +42,13 @@ public final class VBVWorldMap {
     private static int nearbyPruneTicks;
     private static boolean worldMapDirty;
     private static int worldMapSaveTicks;
-    /** Last server address handed to the storage bridge, so it is only called when it changes. */
-    private static String lastServerAddress = "";
+    /**
+     * Last server address handed to the storage bridge, so it is only called when it changes.
+     * {@code null} means "nothing sent yet": it is the value after leaving a world, so the first
+     * tick in the next world (a server or a singleplayer world, which is the address "") always
+     * tells the bridge, and the profile of the server just left does not stay marked as active.
+     */
+    private static String lastServerAddress = null;
     /** Counts ticks since the last storage-revision check (see {@link #tick()}). */
     private static int revisionCheckTicks;
     /**
@@ -117,7 +122,7 @@ public final class VBVWorldMap {
             lastChunk = Long.MIN_VALUE;
             lastWorld = "";
             nearbyScanWorld = "";
-            lastServerAddress = "";
+            lastServerAddress = null;
             revisionCheckTicks = 0;
             return;
         }
@@ -197,7 +202,8 @@ public final class VBVWorldMap {
     }
 
     private static void captureTerrainIfLoaded(Minecraft minecraft, String world, long key, int chunkX, int chunkZ) {
-        if (!terrainCapture) return;
+        // The minimap draws from this same terrain cache, so it needs the sampling on too.
+        if (!terrainCapture && !VBVMiniMap.enabled) return;
         if (hasTerrain(world, key)) return;
         int minY = minecraft.level.getMinY();
         if (!minecraft.level.hasChunkAt(new BlockPos(chunkX * 16 + 8, minY, chunkZ * 16 + 8))) return;
