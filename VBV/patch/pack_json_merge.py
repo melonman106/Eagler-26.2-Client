@@ -122,6 +122,34 @@ def vbv_merge_font_definition(incoming_bytes, target, source_label, texture_exis
     return message
 
 
+def vbv_clean_model_definition(incoming_bytes, source_label):
+    """Fix a pack model that cannot load in this version, or return None to copy it unchanged.
+
+    1.21.4 replaced the "builtin/entity" item models with ``minecraft:special``. A pack written for
+    1.20 such as Vanilla Tweaks still ships ``models/item/shield.json`` with
+    ``"parent": "builtin/entity"``: that parent is now looked up as a model id, does not exist, and
+    the shield's base model falls back to the missing model (the checkerboard shield). Dropping the
+    dead parent keeps the pack's ``display`` transforms, which is all that base model is used for.
+    """
+    import json
+
+    try:
+        model = json.loads(incoming_bytes.decode("utf-8-sig"))
+    except (UnicodeDecodeError, ValueError):
+        return None
+    if not isinstance(model, dict):
+        return None
+    parent = model.get("parent")
+    if not isinstance(parent, str) or not parent.startswith("builtin/"):
+        return None
+    if parent == "builtin/generated":
+        # Still supported: it is the generated item model this game itself uses.
+        return None
+    del model["parent"]
+    print("[VBV model fix] " + source_label + ": dropped the removed parent " + repr(parent))
+    return (json.dumps(model, ensure_ascii=True, indent=2) + "\n").encode("utf-8")
+
+
 def vbv_valid_atlas_source(source):
     """Return (ok, reason). Mirrors what Minecraft's atlas source codecs require, because one
     malformed source makes the whole atlas fail to load."""

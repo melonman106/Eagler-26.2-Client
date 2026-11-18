@@ -238,6 +238,24 @@ font_branch_fixed = """            elif relative.startswith("assets/"):
                         mod_id + " " + relative,
                     ))
                     continue
+                if (
+                    relative.split("/")[2:3] == ["models"]
+                    and relative.lower().endswith(".json")
+                ):
+                    # A model parented to "builtin/entity" cannot load here (1.21.4 replaced it with
+                    # minecraft:special), and the shield fell back to the missing model.
+                    try:
+                        vbv_model_bytes = zf.read(raw_name)
+                    except KeyError:
+                        continue
+                    vbv_clean_model_bytes = vbv_clean_model_definition(
+                        vbv_model_bytes, mod_id + " " + relative
+                    )
+                    if vbv_clean_model_bytes is not None:
+                        target = RESOURCE_ROOT / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(vbv_clean_model_bytes)
+                        continue
                 target = RESOURCE_ROOT / relative"""
 if upstream.count(font_branch.encode("utf-8")) != 1:
     raise SystemExit("::error::Expected resource-pack asset extraction branch was not found exactly once")

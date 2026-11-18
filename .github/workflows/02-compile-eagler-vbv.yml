@@ -157,6 +157,20 @@ jobs:
               sys.exit("::error::The V/M hotkeys are still hardcoded, so they could not be rebound")
           print("Verified V/M hotkeys only open when no menu is showing and read the configured keys.")
           PYKEYS
+          python3 - <<'PYMODEL'
+          import json, pathlib, sys
+          path = pathlib.Path("eaglercraft-u2/game/src/main/resources/assets/minecraft/models/item/shield.json")
+          if not path.is_file():
+              sys.exit("::error::the shield base model was not generated")
+          try:
+              model = json.loads(path.read_text(encoding="utf-8-sig"))
+          except ValueError as exc:
+              sys.exit(f"::error::the shield base model is unreadable: {exc}")
+          parent = model.get("parent") if isinstance(model, dict) else None
+          if parent == "builtin/entity":
+              sys.exit("::error::the shield base model is still parented to builtin/entity, which this version removed")
+          print("Verified the shield base model does not use the removed builtin/entity parent.")
+          PYMODEL
           for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVKeybinds.java VBVKeybindConfigScreen.java VBVMapPainter.java VBVWorldMapScreen.java VBVEntityCulling.java VBVPerf.java VBVCem.java VBVCemJem.java VBVCemExpr.java VBVCemRig.java VBVCemNames.java VBVCemNbt.java VBVShaders.java VBVShaderMath.java VBVBoot.java VBVPanoramaOverlay.java VBVSplashScreen.java VBVModrinthScreen.java VBVBootScreen.java VBVDungeonsTitleScreen.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done

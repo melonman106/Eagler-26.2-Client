@@ -218,6 +218,8 @@ final class VBVCemRig {
     private boolean needsFluidDepth;
     /** True for an armor layer model: it takes over the pose of the entity's animated main model first. */
     boolean armor;
+    /** True for any non-main layer model (armor, cape, wool ...): it follows its entity's animated body. */
+    boolean layer;
     private final float[] in = new float[INPUTS.length];
     private final Map<String, Integer> inputIndex = new HashMap<>();
     private final Map<String, ModelPart> parts = new HashMap<>();

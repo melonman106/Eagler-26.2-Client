@@ -84,22 +84,6 @@ public final class VBVLodCache {
         }
     }
 
-    /** Walks the chunks the client already holds once, so enabling LOD mid-game shows them. */
-    public static void scanLoaded(ClientLevel level, int centerChunkX, int centerChunkZ, int radius) {
-        if (level == null || !usable(level)) {
-            return;
-        }
-        adopt(level);
-        for (int dz = -radius; dz <= radius; dz++) {
-            for (int dx = -radius; dx <= radius; dx++) {
-                LevelChunk chunk = level.getChunkSource().getChunk(centerChunkX + dx, centerChunkZ + dz, false);
-                if (chunk != null) {
-                    capture(level, chunk);
-                }
-            }
-        }
-    }
-
     /** LOD only makes sense in overworld-like dimensions (sky light, no ceiling). */
     public static boolean usable(ClientLevel level) {
         return level.dimensionType().hasSkyLight() && !level.dimensionType().hasCeiling();

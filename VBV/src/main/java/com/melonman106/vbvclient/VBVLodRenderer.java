@@ -17,6 +17,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -38,7 +39,18 @@ public final class VBVLodRenderer {
     private static final int REBUILD_DISTANCE = 48;
     private static final long MIN_REBUILD_MS = 400L;
     private static final long CACHE_SETTLE_MS = 1500L;
+    /**
+     * Cos(~26 degrees). The mesh only contains the terrain in front of the camera, so the remembered
+     * direction has to follow a turn; without this, turning around showed no far terrain until the
+     * player walked far enough to trigger a rebuild.
+     */
+    private static final double TURN_COS = 0.9;
     private static final int INITIAL_SCAN_RADIUS = 40;
+    /**
+     * Chunks remembered per frame while the already loaded area is scanned. Doing all 81x81 of them in
+     * the first frame that draws the LOD was a visible stall right after a world loaded.
+     */
+    private static final int SCAN_CHUNKS_PER_FRAME = 128;
 
     private static GpuBuffer vertexBuffer;
     private static long vertexBufferSize;
@@ -50,11 +62,19 @@ public final class VBVLodRenderer {
     private static boolean built;
     private static ClientLevel builtLevel;
     private static ClientLevel scannedLevel;
+    private static ClientLevel scanLevel;
+    private static int scanCenterX;
+    private static int scanCenterZ;
+    private static int scanCursorX;
+    private static int scanCursorZ;
     private static int builtMode = -1;
     private static int builtRenderDistance = -1;
     private static int builtCacheVersion = -1;
     private static double builtCamX;
     private static double builtCamZ;
+    private static double builtViewX;
+    private static double builtViewZ;
+    private static boolean builtCull;
     private static long builtAtMs;
 
     // Fog as the real terrain sees it this frame (set by the FogRenderer hook).
@@ -121,7 +141,23 @@ public final class VBVLodRenderer {
         }
         if (scannedLevel != level) {
             scannedLevel = level;
-            VBVLodCache.scanLoaded(level, camBlockX >> 4, camBlockZ >> 4, INITIAL_SCAN_RADIUS);
+            beginScan(camBlockX >> 4, camBlockZ >> 4);
+        }
+        scanStep(level);
+
+        // The far terrain behind the camera can never be on screen, so it is not meshed at all: half of
+        // every ring is behind the player, which halves the quads and the vertices they cost.
+        double viewX = 0.0;
+        double viewZ = 0.0;
+        boolean cull = false;
+        if (mc.player != null) {
+            Vec3 look = mc.player.getViewVector(1.0F);
+            double length = Math.sqrt(look.x * look.x + look.z * look.z);
+            if (length > 0.1) {
+                viewX = look.x / length;
+                viewZ = look.z / length;
+                cull = true;
+            }
         }
 
         long now = System.currentTimeMillis();
@@ -130,8 +166,10 @@ public final class VBVLodRenderer {
         boolean settingsChanged = !built || builtLevel != level || builtMode != VBVLod.getLevel() || builtRenderDistance != renderDistance;
         boolean moved = moveX * moveX + moveZ * moveZ > (double) REBUILD_DISTANCE * REBUILD_DISTANCE;
         boolean cacheChanged = builtCacheVersion != VBVLodCache.version();
-        if (settingsChanged || ((moved || (cacheChanged && now - builtAtMs > CACHE_SETTLE_MS)) && now - builtAtMs > MIN_REBUILD_MS)) {
-            rebuild(level, camera, renderDistance, now);
+        boolean turned = built && builtCull && cull && viewX * builtViewX + viewZ * builtViewZ < TURN_COS;
+        if (settingsChanged || turned
+            || ((moved || (cacheChanged && now - builtAtMs > CACHE_SETTLE_MS)) && now - builtAtMs > MIN_REBUILD_MS)) {
+            rebuild(level, camera, renderDistance, now, viewX, viewZ, cull);
         }
         if (quadCount <= 0 || vertexBuffer == null) {
             return;
@@ -160,9 +198,12 @@ public final class VBVLodRenderer {
         }
     }
 
-    private static void rebuild(ClientLevel level, Vec3 camera, int renderDistance, long now) {
+    private static void rebuild(ClientLevel level, Vec3 camera, int renderDistance, long now, double viewX, double viewZ, boolean cull) {
         built = true;
         builtLevel = level;
+        builtViewX = viewX;
+        builtViewZ = viewZ;
+        builtCull = cull;
         builtMode = VBVLod.getLevel();
         builtRenderDistance = renderDistance;
         builtCacheVersion = VBVLodCache.version();
@@ -174,7 +215,7 @@ public final class VBVLodRenderer {
 
         try (ByteBufferBuilder bytes = new ByteBufferBuilder(1 << 20)) {
             BufferBuilder builder = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
-            Mesher mesher = new Mesher(builder, camera, renderDistance);
+            Mesher mesher = new Mesher(builder, camera, renderDistance, viewX, viewZ, cull);
             mesher.run();
             quadCount = mesher.quads;
             MeshData mesh = builder.build();
@@ -213,6 +254,40 @@ public final class VBVLodRenderer {
         vertexBytes = 0L;
     }
 
+    /** Starts remembering the chunks the client already holds, a slice per frame (see {@link #scanStep}). */
+    private static void beginScan(int centerChunkX, int centerChunkZ) {
+        scanLevel = scannedLevel;
+        scanCenterX = centerChunkX;
+        scanCenterZ = centerChunkZ;
+        scanCursorX = -INITIAL_SCAN_RADIUS;
+        scanCursorZ = -INITIAL_SCAN_RADIUS;
+    }
+
+    /**
+     * Remembers up to {@link #SCAN_CHUNKS_PER_FRAME} chunks of that area per frame, so switching LOD on
+     * mid-game or arriving in a new world costs a few frames of small work instead of one long stall.
+     */
+    private static void scanStep(ClientLevel level) {
+        if (scanLevel != level || scanCursorZ > INITIAL_SCAN_RADIUS) {
+            return;
+        }
+        for (int i = 0; i < SCAN_CHUNKS_PER_FRAME; i++) {
+            if (scanCursorZ > INITIAL_SCAN_RADIUS) {
+                return;
+            }
+            int dx = scanCursorX;
+            int dz = scanCursorZ;
+            if (++scanCursorX > INITIAL_SCAN_RADIUS) {
+                scanCursorX = -INITIAL_SCAN_RADIUS;
+                scanCursorZ++;
+            }
+            LevelChunk chunk = level.getChunkSource().getChunk(scanCenterX + dx, scanCenterZ + dz, false);
+            if (chunk != null) {
+                VBVLodCache.capture(level, chunk);
+            }
+        }
+    }
+
     /** Turns the remembered columns into quads, outermost ring first so alpha blending layers correctly. */
     private static final class Mesher {
         private final BufferBuilder out;
@@ -223,14 +298,21 @@ public final class VBVLodRenderer {
         private final boolean useEnvironment;
         private final float rStart;
         private final float rEnd;
+        /** Camera forward on the ground plane, and whether it is steady enough to cull behind it. */
+        private final double viewX;
+        private final double viewZ;
+        private final boolean cull;
         int quads;
 
-        Mesher(BufferBuilder out, Vec3 camera, int renderDistance) {
+        Mesher(BufferBuilder out, Vec3 camera, int renderDistance, double viewX, double viewZ, boolean cull) {
             this.out = out;
             this.camX = camera.x;
             this.camY = camera.y;
             this.camZ = camera.z;
             this.renderDistance = renderDistance;
+            this.viewX = viewX;
+            this.viewZ = viewZ;
+            this.cull = cull;
             this.useEnvironment = fogValid && envEnd > envStart && envEnd < 1.0E7F;
             this.rStart = fogValid ? renderStart : VBVLod.fogStartBlocks();
             this.rEnd = fogValid ? Math.max(renderEnd, 1.0F) : VBVLod.fogEndBlocks();
@@ -262,10 +344,27 @@ public final class VBVLodRenderer {
                         if (distance <= inner || distance > outer) {
                             continue;
                         }
+                        if (behind(centerX, centerZ, size)) {
+                            continue;
+                        }
                         cell(cellX * size, cellZ * size, size, centerX, centerZ);
                     }
                 }
             }
+        }
+
+        /**
+         * True when the whole cell is behind the camera. {@code 0.75} is above the cell's half diagonal
+         * ({@code 0.71}), so a cell that is only partly behind the camera is always kept: culling can
+         * only ever remove terrain that cannot be on screen.
+         */
+        private boolean behind(int centerX, int centerZ, int size) {
+            if (!cull) {
+                return false;
+            }
+            double dx = centerX - camX;
+            double dz = centerZ - camZ;
+            return dx * viewX + dz * viewZ < -size * 0.75;
         }
 
         private void cell(int minX, int minZ, int size, int centerX, int centerZ) {

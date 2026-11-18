@@ -2,6 +2,7 @@ package com.melonman106.vbvclient;
 
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.PoseStack;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.BufferedReader;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -108,9 +109,27 @@ public final class VBVCem {
     /** Animation variables, one store per entity family (the player and its armor, cape and elytra share one). */
     private static final Map<String, VBVCemRig.VarStore> stores = new HashMap<>();
 
-    /** The main model that was animated last, and the entity it belongs to (armor layers copy its pose). */
-    private static ModelPart mainRoot;
-    private static Object mainEntity;
+    /** The top-level parts an armor or other layer model takes over from an animated main model. */
+    private static final String[] BODY_PARTS = {"head", "body", "right_arm", "left_arm", "right_leg", "left_leg", "waist"};
+    /** x, y, z, xRot, yRot, zRot, xScale, yScale, zScale. */
+    private static final int POSE_STRIDE = 9;
+    /** One slot more than the parts, for the frame the pose was taken in. */
+    private static final int POSE_LENGTH = BODY_PARTS.length * POSE_STRIDE + 1;
+    private static final int POSE_LIMIT = 512;
+
+    /**
+     * The pose of the animated main model of each entity, keyed by entity id.
+     *
+     * <p>It cannot be a single "model animated last": the feature renderer batches its submissions by
+     * render type, so every entity's body is prepared before any armor, cape or wool layer, and the one
+     * baked model's parts then hold whichever body happened to be drawn last. An armor layer looking at
+     * that received the wrong entity's pose (or none at all) and stayed in the rest pose while the
+     * pack's player model walked. Keying by entity gives every layer its own wearer, and holding the
+     * pose until the next frame means an armor batch prepared before the bodies still finds last
+     * frame's pose instead of another player's.</p>
+     */
+    private static final Int2ObjectOpenHashMap<float[]> poses = new Int2ObjectOpenHashMap<>();
+    private static final ArrayDeque<float[]> posePool = new ArrayDeque<>();
 
     /**
      * Layer models of the pack (wool, saddle, ...) that have no animation lines of their own: each takes
@@ -203,8 +222,8 @@ public final class VBVCem {
         rigs.clear();
         followers.clear();
         stores.clear();
-        mainRoot = null;
-        mainEntity = null;
+        poses.clear();
+        posePool.clear();
         lastRoot = null;
         lastRig = null;
         lastFollow = null;
@@ -247,7 +266,13 @@ public final class VBVCem {
                 System.err.println(LOG + "ignored the custom model for " + name + ": " + error);
             }
         }
-        return layer.bakeRoot();
+        ModelPart vanilla = layer.bakeRoot();
+        if (enabled && !"main".equals(id.layer())) {
+            // A vanilla layer model (armor, cape, wool ...) has no pack model of its own, but it still
+            // belongs to an entity whose body the pack animates, so it copies that animated pose.
+            followers.put(vanilla, BODY_PARTS);
+        }
+        return vanilla;
     }
 
     /**
@@ -270,11 +295,10 @@ public final class VBVCem {
             lastRig = rig;
         }
         if (rig == null) {
-            if (lastFollow != null && mainRoot != null && state instanceof EntityRenderState) {
-                Object owner = ((EntityRenderState) state).vbvEntity;
-                if (owner != null && owner == mainEntity) {
-                    copyPose(mainRoot, root, lastFollow);
-                }
+            // A layer model (armor, cape, wool ...) with no animation lines of its own follows the pose
+            // its entity's animated body was given, the way the vanilla layer followed the vanilla model.
+            if (lastFollow != null) {
+                applyPose(state, root);
             }
             return;
         }
@@ -298,15 +322,14 @@ public final class VBVCem {
                 frameStart = now;
             }
             lastCall = now;
-            Object entity = state instanceof EntityRenderState ? ((EntityRenderState) state).vbvEntity : null;
-            if (rig.armor && entity != null && entity == mainEntity && mainRoot != null) {
-                copyPose(mainRoot, root, BODY_PARTS);
+            if (rig.armor || rig.layer) {
+                // Take the wearer's animated pose first, then let the pack's own layer lines refine it.
+                applyPose(state, root);
             }
             rig.fill(state, frameTime, frameCounter);
             rig.run();
-            if (!rig.armor) {
-                mainRoot = root;
-                mainEntity = entity;
+            if (!rig.armor && !rig.layer) {
+                rememberPose(state, root);
             }
             if (measure) {
                 statRuns++;
@@ -318,27 +341,93 @@ public final class VBVCem {
         }
     }
 
-    /** The top-level parts an armor or layer model takes over from the animated main model. */
-    private static final String[] BODY_PARTS = {"head", "hat", "body", "right_arm", "left_arm", "right_leg", "left_leg"};
+    /** Stores the pose a main model has just been animated into, for the armor and layers of its entity. */
+    private static void rememberPose(Object state, ModelPart root) {
+        if (!(state instanceof EntityRenderState)) {
+            return;
+        }
+        EntityRenderState renderState = (EntityRenderState) state;
+        if (renderState.vbvEntity == null) {
+            return;
+        }
+        int id = renderState.vbvEntity.getId();
+        float[] pose = poses.get(id);
+        if (pose == null) {
+            if (poses.size() >= POSE_LIMIT) {
+                prunePoses();
+            }
+            pose = posePool.isEmpty() ? new float[POSE_LENGTH] : posePool.poll();
+            poses.put(id, pose);
+        }
+        int i = 0;
+        for (String name : BODY_PARTS) {
+            ModelPart part = root.hasChild(name) ? root.getChild(name) : null;
+            if (part == null) {
+                // This model does not have the part (an armor mesh only carries its own slot's parts).
+                for (int field = 0; field < POSE_STRIDE; field++) {
+                    pose[i + field] = Float.NaN;
+                }
+            } else {
+                pose[i] = part.x;
+                pose[i + 1] = part.y;
+                pose[i + 2] = part.z;
+                pose[i + 3] = part.xRot;
+                pose[i + 4] = part.yRot;
+                pose[i + 5] = part.zRot;
+                pose[i + 6] = part.xScale;
+                pose[i + 7] = part.yScale;
+                pose[i + 8] = part.zScale;
+            }
+            i += POSE_STRIDE;
+        }
+        pose[POSE_LENGTH - 1] = frameCounter;
+    }
 
     /**
-     * Gives an armor model the pose of the animated main model of the same entity, the way armor used to
-     * copy its wearer's pose: the armor's own vanilla pose would ignore the pack's limb animations.
+     * Gives a layer model the pose its entity's animated body had, on the parts both models share: an
+     * armor layer's own vanilla pose would ignore the pack's limb animations.
      */
-    private static void copyPose(ModelPart from, ModelPart to, String[] names) {
-        for (String name : names) {
-            if (from.hasChild(name) && to.hasChild(name)) {
-                ModelPart source = from.getChild(name);
-                ModelPart target = to.getChild(name);
-                target.x = source.x;
-                target.y = source.y;
-                target.z = source.z;
-                target.xRot = source.xRot;
-                target.yRot = source.yRot;
-                target.zRot = source.zRot;
-                target.xScale = source.xScale;
-                target.yScale = source.yScale;
-                target.zScale = source.zScale;
+    private static void applyPose(Object state, ModelPart root) {
+        if (poses.isEmpty() || !(state instanceof EntityRenderState)) {
+            return;
+        }
+        EntityRenderState renderState = (EntityRenderState) state;
+        if (renderState.vbvEntity == null) {
+            return;
+        }
+        float[] pose = poses.get(renderState.vbvEntity.getId());
+        if (pose == null) {
+            return;
+        }
+        int i = 0;
+        for (String name : BODY_PARTS) {
+            ModelPart part = root.hasChild(name) ? root.getChild(name) : null;
+            if (part != null && Float.isFinite(pose[i])) {
+                part.x = pose[i];
+                part.y = pose[i + 1];
+                part.z = pose[i + 2];
+                part.xRot = pose[i + 3];
+                part.yRot = pose[i + 4];
+                part.zRot = pose[i + 5];
+                part.xScale = pose[i + 6];
+                part.yScale = pose[i + 7];
+                part.zScale = pose[i + 8];
+            }
+            i += POSE_STRIDE;
+        }
+    }
+
+    /** Forgets entities that have not been drawn for a few frames and reuses their arrays. */
+    private static void prunePoses() {
+        var entries = poses.int2ObjectEntrySet().iterator();
+        while (entries.hasNext()) {
+            var entry = entries.next();
+            float[] pose = entry.getValue();
+            if (pose[POSE_LENGTH - 1] < frameCounter - 2) {
+                entries.remove();
+                if (posePool.size() < 64) {
+                    posePool.add(pose);
+                }
             }
         }
     }
@@ -696,18 +785,13 @@ public final class VBVCem {
             VBVCemRig rig = null;
             if (!lines.isEmpty()) {
                 rig = new VBVCemRig(entity, storeFor(entity), named, root.createPartLookup(), lines);
+                rig.layer = followMain;
                 rig.armor = entity.endsWith("_inner_armor") || entity.endsWith("_outer_armor")
                     || "helmet".equals(entity) || "chestplate".equals(entity) || "leggings".equals(entity)
                     || "boots".equals(entity) || "inner_armor".equals(entity) || "outer_armor".equals(entity);
                 rigs.put(root, rig);
             } else if (followMain) {
-                java.util.Set<String> names = new java.util.LinkedHashSet<>(java.util.Arrays.asList(BODY_PARTS));
-                for (List<String> path : vanillaPaths.values()) {
-                    if (!path.isEmpty()) {
-                        names.add(path.get(0));
-                    }
-                }
-                followers.put(root, names.toArray(new String[0]));
+                followers.put(root, BODY_PARTS);
             }
             System.out.println(LOG + entity + ".jem: " + customPaths.size() + " custom parts, "
                 + (jem.parts.size() - skippedParts) + "/" + jem.parts.size() + " vanilla parts replaced, "
