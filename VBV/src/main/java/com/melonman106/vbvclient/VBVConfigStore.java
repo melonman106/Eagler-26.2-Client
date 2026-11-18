@@ -128,6 +128,8 @@ public final class VBVConfigStore {
         VBVCem.setAnimationRange(integer("cem.animRange", 48, 0, 512));
         VBVShaders.setPreset(integer("shaders.preset", 0, 0, 2));
         VBVPanoramaOverlay.selectById(read("panorama.selected", VBVPanoramaOverlay.DEFAULT_ID));
+        VBVPanoramaOverlay.setMotion(bool("panorama.motion", true));
+        VBVWorldMap.setTerrainCaptureEnabled(bool("worldmap.terrain", false));
         VBVShaders.setQuality(integer("shaders.quality", 2, 1, 3));
         VBVShaders.setStrength(integer("shaders.strength", 100, 50, 150));
 
@@ -138,6 +140,12 @@ public final class VBVConfigStore {
             bool("betterF3.enabled", true), bool("betterF3.overlay", false),
             bool("betterF3.performance", true), bool("betterF3.world", true),
             bool("betterF3.player", true), bool("betterF3.compact", false));
+
+        VBVKeybinds.load(
+            integer("keys.mods", VBVKeybinds.DEFAULT_MODS, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
+            integer("keys.map", VBVKeybinds.DEFAULT_MAP, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
+            integer("keys.zoom", VBVKeybinds.DEFAULT_ZOOM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
+            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
     }
 
     public static void saveAll() {
@@ -198,6 +206,8 @@ public final class VBVConfigStore {
         write("cem.animRange", VBVCem.animationRange());
         write("shaders.preset", VBVShaders.getPreset());
         write("panorama.selected", VBVPanoramaOverlay.selectedId());
+        write("panorama.motion", VBVPanoramaOverlay.isMotion());
+        write("worldmap.terrain", VBVWorldMap.isTerrainCaptureEnabled());
         write("shaders.quality", VBVShaders.getQuality());
         write("shaders.strength", VBVShaders.getStrength());
 
@@ -213,6 +223,10 @@ public final class VBVConfigStore {
         write("betterF3.world", VBVExtraFeatures.debugShowWorld());
         write("betterF3.player", VBVExtraFeatures.debugShowPlayer());
         write("betterF3.compact", VBVExtraFeatures.debugCompact());
+        write("keys.mods", VBVKeybinds.code(VBVKeybinds.MODS));
+        write("keys.map", VBVKeybinds.code(VBVKeybinds.MAP));
+        write("keys.zoom", VBVKeybinds.code(VBVKeybinds.ZOOM));
+        write("keys.gamma", VBVKeybinds.code(VBVKeybinds.GAMMA));
         flush();
     }
 }

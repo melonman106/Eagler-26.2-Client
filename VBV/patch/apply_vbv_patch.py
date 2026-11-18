@@ -39,6 +39,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_shaders_hook.py",
     "patch_boot_hooks.py",
     "pack_json_merge.py",
+    "patch_keybind_dispatch.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -56,6 +57,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(sanitize)",
     "subprocess.run([sys.executable, str(upstream_path)",
     "subprocess.run([sys.executable, str(post)",
+    "subprocess.run([sys.executable, str(keybind_dispatch)",
     "subprocess.run([sys.executable, str(sleep_restore)",
     "subprocess.run([sys.executable, str(runtime_patch)",
     "subprocess.run([sys.executable, str(i64_guard)",
@@ -269,6 +271,12 @@ finally:
 post = CLIENT_SIDE / "patch/post_vbv_fixes.py"
 if post.is_file():
     subprocess.run([sys.executable, str(post), *sys.argv[1:]], check=True)
+
+# The upstream patch injects the V/M hotkeys as two hardcoded key codes. Route those two
+# conditions through VBVKeybinds so Options > Modded Settings > Keybinds... can change them.
+keybind_dispatch = PATCH_DIR / "patch_keybind_dispatch.py"
+if keybind_dispatch.is_file():
+    subprocess.run([sys.executable, str(keybind_dispatch), *sys.argv[1:]], check=True)
 
 sleep_restore = CLIENT_SIDE / "patch/restore_upstream_sleep.py"
 if sleep_restore.is_file():

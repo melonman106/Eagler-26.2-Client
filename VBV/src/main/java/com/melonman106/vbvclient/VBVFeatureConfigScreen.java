@@ -115,7 +115,7 @@ public final class VBVFeatureConfigScreen extends Screen {
         String heading = title.getString();
         graphics.text(font, heading, width / 2 - font.width(heading) / 2, 12, VBVTheme.accentLight(), true);
         graphics.fill(width / 2 - 20, 24, width / 2 + 20, 25, VBVTheme.accent());
-        String note = "Changes apply immediately; keybinds shown are fixed in this build.";
+        String note = "Changes apply immediately. Client hotkeys: Options > Modded Settings > Keybinds.";
         if (height >= 200) graphics.text(font, note, width / 2 - font.width(note) / 2, height - 44, 0xFFAAAAAA, true);
         String shaderNote = "shine".equals(modId) ? VBVShaders.statusNote() : "";
         if (!shaderNote.isEmpty() && height >= 200) graphics.text(font, shaderNote, width / 2 - font.width(shaderNote) / 2, height - 54, 0xFFFF6B6B, true);

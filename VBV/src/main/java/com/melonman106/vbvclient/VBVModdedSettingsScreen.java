@@ -37,8 +37,8 @@ public final class VBVModdedSettingsScreen extends Screen {
         int cx = width / 2;
         int rowW = Math.min(280, width - 24);
         int left = cx - rowW / 2;
-        // Three layouts so six rows still fit: tiny (GUI scale 4), compact and roomy.
-        int mode = height < 230 ? 0 : (height < 260 ? 1 : 2);
+        // Three layouts so the full button grid still fits: tiny (GUI scale 4), compact and roomy.
+        int mode = height < 250 ? 0 : (height < 300 ? 1 : 2);
         int btnH = mode == 0 ? 18 : 20;
         int gap = mode == 0 ? 1 : (mode == 1 ? 2 : 4);
         int y = mode == 0 ? 20 : (mode == 1 ? 24 : 34);
@@ -109,6 +109,16 @@ public final class VBVModdedSettingsScreen extends Screen {
         addRenderableWidget(shaderButton);
         addRenderableWidget(Button.builder(Component.literal("Shader Options..."),
             button -> VBVNav.open(new VBVFeatureConfigScreen(this, "shine", "VBV Shaders"))).bounds(right, y, half, btnH).build());
+        y += btnH + gap;
+        addRenderableWidget(Button.builder(Component.literal("Keybinds..."),
+            button -> VBVNav.open(new VBVKeybindConfigScreen(this))).bounds(left, y, half, btnH).build());
+        addRenderableWidget(Button.builder(Component.literal("Performance Preset"), button -> {
+            VBVPerf.applyPerformancePreset();
+            VBVConfigStore.saveAll();
+            button.setMessage(Component.literal("Performance Preset: applied"));
+            // The preset turns the FPS meter on, so keep that row's label in step with it.
+            if (meterButton != null) meterButton.setMessage(meterLabel());
+        }).bounds(right, y, half, btnH).build());
 
         int doneH = mode == 0 ? 18 : 20;
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())

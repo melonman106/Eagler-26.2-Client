@@ -1,5 +1,8 @@
 package com.melonman106.vbvclient;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -137,8 +140,11 @@ final class VBVCemRig {
     static final class VarStore {
         private final Map<String, float[]> slots = new HashMap<>();
         private final ArrayList<float[]> slotList = new ArrayList<>();
-        private final Map<Integer, float[]> saved = new HashMap<>();
-        private final Map<Integer, Integer> lastSeen = new HashMap<>();
+        // Int-keyed maps and a small array pool keep this off the allocator: it runs for every
+        // animated entity on every frame, in a browser heap that is capped at about 2 GB.
+        private final Int2ObjectOpenHashMap<float[]> saved = new Int2ObjectOpenHashMap<>();
+        private final Int2IntOpenHashMap lastSeen = new Int2IntOpenHashMap();
+        private final ArrayDeque<float[]> pool = new ArrayDeque<>();
         private int owner = Integer.MIN_VALUE;
 
         float[] slot(String key) {
@@ -153,34 +159,56 @@ final class VBVCemRig {
 
         /** Makes the slots hold the variables of this entity. */
         void enter(int entityId, int frame) {
+            int count = slotList.size();
+            if (count == 0) {
+                // A model with no var.* lines needs no per-entity state at all.
+                owner = entityId;
+                return;
+            }
             lastSeen.put(entityId, frame);
             if (entityId == owner) {
                 return;
             }
-            int count = slotList.size();
             if (owner != Integer.MIN_VALUE) {
-                float[] snapshot = new float[count];
+                float[] snapshot = take(count);
                 for (int i = 0; i < count; i++) {
                     snapshot[i] = slotList.get(i)[0];
                 }
-                saved.put(owner, snapshot);
+                recycle(saved.put(owner, snapshot), count);
             }
             float[] next = saved.get(entityId);
             for (int i = 0; i < count; i++) {
                 slotList.get(i)[0] = next != null && i < next.length ? next[i] : 0.0F;
             }
             owner = entityId;
-            if (saved.size() > 64) {
+            if (lastSeen.size() > 64) {
                 // Forget entities that have not been drawn for a while (unloaded, far away or dead).
-                java.util.Iterator<Map.Entry<Integer, Integer>> it = lastSeen.entrySet().iterator();
-                while (it.hasNext()) {
-                    Map.Entry<Integer, Integer> entry = it.next();
-                    if (frame - entry.getValue() > 900 && entry.getKey() != owner) {
-                        saved.remove(entry.getKey());
-                        it.remove();
+                var entries = lastSeen.int2IntEntrySet().iterator();
+                while (entries.hasNext()) {
+                    var entry = entries.next();
+                    int id = entry.getIntKey();
+                    if (id != owner && frame - entry.getIntValue() > 900) {
+                        recycle(saved.remove(id), -1);
+                        entries.remove();
                     }
                 }
             }
+        }
+
+        /** A snapshot array of exactly this many slots, reused once it is no longer stored. */
+        private float[] take(int count) {
+            while (!pool.isEmpty()) {
+                float[] candidate = pool.poll();
+                if (candidate.length == count) return candidate;
+            }
+            return new float[count];
+        }
+
+        /** Returns a replaced snapshot to the pool; a length change (new slots) simply drops it. */
+        private void recycle(float[] array, int count) {
+            if (array == null || pool.size() >= 64) return;
+            if (count >= 0 && array.length != count) return;
+            pool.add(array);
         }
     }
 

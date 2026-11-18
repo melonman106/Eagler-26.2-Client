@@ -155,7 +155,20 @@ public final class VBVLauncherScreen extends Screen {
             cards.add(card);
             addRenderableWidget(card);
         }
+        // Freezes the backdrop on one frame: no per-frame decode, upload or blend in the menu.
+        if (contentW >= 200) {
+            addRenderableWidget(new VBVUi.ThemedButton(contentX + contentW - 86, contentY + 1, 86, 13,
+                motionLabel(), VBVUi.Style.SMALL, button -> {
+                    VBVPanoramaOverlay.toggleMotion();
+                    VBVConfigStore.saveAll();
+                    button.setMessage(Component.literal(motionLabel()));
+                }));
+        }
         layoutCards();
+    }
+
+    private static String motionLabel() {
+        return VBVPanoramaOverlay.isMotion() ? "MOTION  ON" : "MOTION  OFF";
     }
 
     private void layoutCards() {
@@ -188,7 +201,8 @@ public final class VBVLauncherScreen extends Screen {
     private void renderPanoramasHeader(GuiGraphicsExtractor graphics) {
         int index = VBVPanoramaOverlay.selectedIndex();
         String active = index < 0 ? "Vanilla panorama" : VBVPanoramaOverlay.name(index);
-        graphics.text(font, VBVUi.fit(font, "MENU BACKDROP  -  " + active.toUpperCase(), contentW), contentX, contentY + 2,
+        int headerW = contentW - (contentW >= 200 ? 90 : 0);
+        graphics.text(font, VBVUi.fit(font, "MENU BACKDROP  -  " + active.toUpperCase(), headerW), contentX, contentY + 2,
             VBVTheme.accentLight(), true);
         int totalRows = (cards.size() + perRow - 1) / perRow;
         if (totalRows > visibleRows) {

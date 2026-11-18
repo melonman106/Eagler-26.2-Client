@@ -12,8 +12,11 @@ import net.minecraft.util.ARGB;
  * file to that folder adds an entry to Extras > Panoramas.
  *
  * <p>Only the frames around the playhead are kept as textures. A 15 second clip is 150 frames of
- * 1280x720 pixels, about 550 MB of GPU memory if every frame stayed loaded; a short ring of
- * {@link #RESIDENT} frames needs about 45 MB and each frame is simply loaded again on the next loop.</p>
+ * 1280x720 pixels, about 550 MB of GPU memory if every frame stayed loaded. Only the frame being
+ * shown and the one being faded in are ever sampled, so the ring holds {@link #RESIDENT} of them
+ * (about 15 MB) and each frame is simply loaded again on the next loop. The <em>Motion</em> button
+ * on the Panorama tab freezes the backdrop on its first frame and removes the per-frame decode,
+ * the texture upload and the second full-screen blend entirely.</p>
  *
  * <p>The frames are stored at a low rate (5 per second by default) to keep the download small: every
  * panorama frame is a PNG that has to be downloaded, unpacked and, when shown, decoded. Between two stored
@@ -34,7 +37,8 @@ public final class VBVPanoramaOverlay {
     private static final long[] FRAME_MS = new long[] { 100L };
 
     private static final String FRAME_DIR = "vbvclient:textures/panorama_overlay/";
-    private static final int RESIDENT = 12;
+    /** Current frame plus the one being faded in, with a little slack for a resize mid-fade. */
+    private static final int RESIDENT = 4;
 
     private static final Identifier[] resident = new Identifier[RESIDENT];
     private static int residentPos;
@@ -43,6 +47,8 @@ public final class VBVPanoramaOverlay {
     private static int cachedFrame = -1;
     private static Identifier cachedId;
     private static Identifier cachedNextId;
+    /** When false the first frame is held: no per-frame decode, upload or blend. */
+    private static boolean motion = true;
 
     private VBVPanoramaOverlay() {}
 
@@ -82,6 +88,18 @@ public final class VBVPanoramaOverlay {
         select(IDS.length > 0 ? 0 : -1);
     }
 
+    public static boolean isMotion() {
+        return motion;
+    }
+
+    public static void setMotion(boolean value) {
+        motion = value;
+    }
+
+    public static void toggleMotion() {
+        motion = !motion;
+    }
+
     public static void select(int index) {
         int next = index >= 0 && index < IDS.length ? index : -1;
         if (next == selected) {
@@ -113,10 +131,10 @@ public final class VBVPanoramaOverlay {
         int count = COUNTS[selected];
         long frameMs = Math.max(1L, FRAME_MS[selected]);
         long now = System.currentTimeMillis();
-        int frame = (int) ((now / frameMs) % count);
+        int frame = motion ? (int) ((now / frameMs) % count) : 0;
         if (selected != cachedPanorama || frame != cachedFrame || cachedId == null) {
             cachedId = frame(selected, frame);
-            cachedNextId = count > 1 ? frame(selected, (frame + 1) % count) : null;
+            cachedNextId = motion && count > 1 ? frame(selected, (frame + 1) % count) : null;
             cachedPanorama = selected;
             cachedFrame = frame;
             remember(cachedId);

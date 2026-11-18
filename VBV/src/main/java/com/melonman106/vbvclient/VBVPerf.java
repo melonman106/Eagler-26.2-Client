@@ -62,6 +62,32 @@ public final class VBVPerf {
         meter = !meter;
     }
 
+    /**
+     * One-click low-end profile. Each item is a setting the player can still change afterwards:
+     * fewer chunks to draw and simulate, cheaper custom-entity animation, culling on, the shaders
+     * off, and the FPS meter on so the difference is visible. Nothing here is reversible state that
+     * a later click cannot undo from the same screens.
+     */
+    public static void applyPerformancePreset() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft != null && minecraft.options != null) {
+            try {
+                minecraft.options.renderDistance().set(Math.min(minecraft.options.renderDistance().get(), 8));
+                minecraft.options.simulationDistance().set(Math.min(minecraft.options.simulationDistance().get(), 5));
+                minecraft.options.save();
+            } catch (Throwable ignored) {
+                // A failed option write must not take the rest of the preset with it.
+            }
+        }
+        VBVEntityCulling.setEnabled(true);
+        VBVShaders.setPreset(0);
+        if (VBVCem.isEnabled()) VBVCem.setAnimationRange(16);
+        VBVExtraFeatures.setDebugHudEnabled(false);
+        // A still backdrop removes the per-frame PNG decode and texture upload in the menu.
+        VBVPanoramaOverlay.setMotion(false);
+        meter = true;
+    }
+
     /** Called once per HUD frame. Records the frame time and draws the meter if it is on. */
     public static void render(GuiGraphicsExtractor graphics) {
         long now = System.nanoTime();

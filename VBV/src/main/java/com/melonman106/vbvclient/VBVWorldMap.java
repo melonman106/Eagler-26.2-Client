@@ -42,6 +42,16 @@ public final class VBVWorldMap {
     private static int nearbyPruneTicks;
     private static boolean worldMapDirty;
     private static int worldMapSaveTicks;
+    /** Last server address handed to the storage bridge, so it is only called when it changes. */
+    private static String lastServerAddress = "";
+    /** Counts ticks since the last storage-revision check (see {@link #tick()}). */
+    private static int revisionCheckTicks;
+    /**
+     * Terrain sampling costs 256 heightmap and block lookups per chunk, on the render thread, every
+     * time the player walks into a new chunk. The explored map does not need it until the map is
+     * actually opened, so it stays off until then (see {@link #captureCurrentChunk()}).
+     */
+    private static boolean terrainCapture;
     private static boolean storageWriteFailed;
     /** Bumped whenever the explored set or terrain changes, so the map screen knows to repaint. */
     private static int dataVersion;
@@ -62,6 +72,35 @@ public final class VBVWorldMap {
 
     public static int dataVersion() { return dataVersion; }
 
+    public static boolean isTerrainCaptureEnabled() {
+        return terrainCapture;
+    }
+
+    /** Turns per-chunk terrain sampling on for this and later sessions. */
+    public static void setTerrainCaptureEnabled(boolean value) {
+        terrainCapture = value;
+    }
+
+    /**
+     * Samples the player's current chunk immediately. Used when the map is opened for the first
+     * time, so the terrain behind the map is not empty while the first chunks are walked through.
+     */
+    public static void captureCurrentChunk() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || !(minecraft.getCameraEntity() instanceof Player player) || minecraft.level == null) {
+            return;
+        }
+        BlockPos pos = player.blockPosition();
+        if (!minecraft.level.hasChunkAt(pos)) {
+            return;
+        }
+        int chunkX = Math.floorDiv(pos.getX(), 16);
+        int chunkZ = Math.floorDiv(pos.getZ(), 16);
+        String world = worldKey(minecraft);
+        loadWorld(world);
+        captureTerrainIfLoaded(minecraft, world, pack(chunkX, chunkZ), chunkX, chunkZ);
+    }
+
     private static final int TERRAIN_SIDE = 16;
     private static final int TERRAIN_SAMPLES = TERRAIN_SIDE * TERRAIN_SIDE;
     private static int minimapRadius() { return Math.max(3, Math.min(5, VBVMiniMap.scanRadius)); }
@@ -78,6 +117,8 @@ public final class VBVWorldMap {
             lastChunk = Long.MIN_VALUE;
             lastWorld = "";
             nearbyScanWorld = "";
+            lastServerAddress = "";
+            revisionCheckTicks = 0;
             return;
         }
         BlockPos pos = player.blockPosition();
@@ -86,10 +127,12 @@ public final class VBVWorldMap {
         int chunkX = Math.floorDiv(pos.getX(), 16);
         int chunkZ = Math.floorDiv(pos.getZ(), 16);
         String world = worldKey(minecraft);
-        if (minecraft.getCurrentServer() != null) {
-            VBVStorage.updateServer(minecraft.getCurrentServer().ip);
-        } else {
-            VBVStorage.updateServer("");
+        // Only tell the storage bridge about a server when the address actually changed. This ran
+        // every tick, and each call re-read and re-parsed the saved profile list in JavaScript.
+        String serverAddress = minecraft.getCurrentServer() != null ? minecraft.getCurrentServer().ip : "";
+        if (!serverAddress.equals(lastServerAddress)) {
+            lastServerAddress = serverAddress;
+            VBVStorage.updateServer(serverAddress);
         }
         boolean worldChanged = !world.equals(lastWorld);
         if (worldChanged && worldMapDirty && !lastWorld.isEmpty()) {
@@ -97,7 +140,13 @@ public final class VBVWorldMap {
             worldMapDirty = storageWriteFailed;
             worldMapSaveTicks = 0;
         }
-        loadWorld(world);
+        // loadWorld re-reads the map when the storage revision changes (for example after the
+        // Storage Manager deletes a file). Checking once a second is enough for that and keeps the
+        // wasm-to-JavaScript revision call off the per-tick path.
+        if (worldChanged || ++revisionCheckTicks >= 20) {
+            revisionCheckTicks = 0;
+            loadWorld(world);
+        }
         long key = pack(chunkX, chunkZ);
         boolean enteredNewChunk = key != lastChunk || worldChanged;
 
@@ -148,6 +197,7 @@ public final class VBVWorldMap {
     }
 
     private static void captureTerrainIfLoaded(Minecraft minecraft, String world, long key, int chunkX, int chunkZ) {
+        if (!terrainCapture) return;
         if (hasTerrain(world, key)) return;
         int minY = minecraft.level.getMinY();
         if (!minecraft.level.hasChunkAt(new BlockPos(chunkX * 16 + 8, minY, chunkZ * 16 + 8))) return;

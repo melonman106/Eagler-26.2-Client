@@ -36,7 +36,18 @@ public final class VBVExtraFeatures {
     private VBVExtraFeatures() {}
     /** Force key mappings to register during client bootstrap, before the first key event. */
     public static void initializeKeyBindings() {
-        // Static key mappings are registered by their constructors.
+        // Static key mappings are registered by their constructors; apply the saved keys to them.
+        applyConfiguredBindings();
+    }
+
+    /**
+     * Pushes the keys chosen in Options &gt; Modded Settings &gt; Keybinds into the native key mappings.
+     * {@code setKey} only changes the mapping itself, so the static dispatch table is rebuilt after it.
+     */
+    public static void applyConfiguredBindings() {
+        ZOOM_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.ZOOM)));
+        GAMMA_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.GAMMA)));
+        KeyMapping.resetMapping();
     }
 
     /** Stop hold-to-zoom immediately when any screen is initialized. */
@@ -160,6 +171,7 @@ public final class VBVExtraFeatures {
     public static boolean isDebugHudEnabled() { return debugHudEnabled; }
     public static void toggleBetterF3Enabled() { betterF3Enabled = !betterF3Enabled; if (!betterF3Enabled) debugHudEnabled = false; }
     public static void toggleDebugHud() { debugHudEnabled = !debugHudEnabled; }
+    public static void setDebugHudEnabled(boolean enabled) { debugHudEnabled = enabled; }
     /** Full replacement for vanilla F3, called from DebugScreenOverlay rather than Hud. */
     public static void renderDebug(GuiGraphicsExtractor graphics) {
         if (!betterF3Enabled || !debugHudEnabled) return;

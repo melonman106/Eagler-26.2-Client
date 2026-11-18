@@ -66,6 +66,12 @@ public final class VBVWorldMapScreen extends Screen {
             this.centerX = focusX;
             this.centerZ = focusZ;
         }
+        // Opening the map is what turns terrain sampling on; until then it costs nothing while walking.
+        if (!VBVWorldMap.isTerrainCaptureEnabled()) {
+            VBVWorldMap.setTerrainCaptureEnabled(true);
+            VBVWorldMap.captureCurrentChunk();
+            VBVConfigStore.saveAll();
+        }
     }
 
     private double panBlocks() {
