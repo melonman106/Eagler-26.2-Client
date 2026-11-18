@@ -517,8 +517,17 @@ final class VBVCemRig {
         v[MOVE_STRAFING] = living.xxa;
         HumanoidArm main = living.getMainArm();
         v[IS_RIGHT_HANDED] = bool(main == HumanoidArm.RIGHT);
-        if (living.swinging) {
-            HumanoidArm arm = living.swingingArm == InteractionHand.MAIN_HAND ? main : main.getOpposite();
+        // EMF's meaning of is_swinging_*_arm, which the packs are written against: true while the arm is
+        // swinging OR the player is using an item with it (bow draw, eating, shield block). Packs such as
+        // Fresh Animations pose a blocking shield arm from these two, so a swing-only version leaves the
+        // shield arm and the shield turned the wrong way round.
+        v[IS_SWINGING_RIGHT] = 0.0F;
+        v[IS_SWINGING_LEFT] = 0.0F;
+        boolean usingItem = living.isUsingItem();
+        if (v[SWING_PROGRESS] != 0.0F || usingItem) {
+            InteractionHand hand = usingItem ? living.getUsedItemHand()
+                : (living.swingingArm != null ? living.swingingArm : InteractionHand.MAIN_HAND);
+            HumanoidArm arm = hand == InteractionHand.MAIN_HAND ? main : main.getOpposite();
             v[IS_SWINGING_RIGHT] = bool(arm == HumanoidArm.RIGHT);
             v[IS_SWINGING_LEFT] = bool(arm == HumanoidArm.LEFT);
         }
