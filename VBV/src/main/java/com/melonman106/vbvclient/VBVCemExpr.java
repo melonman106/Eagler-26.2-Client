@@ -2,6 +2,7 @@ package com.melonman106.vbvclient;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.util.Mth;
 
 /**
  * Compiler for the animation expressions of OptiFine custom entity models, e.g.
@@ -10,7 +11,7 @@ import java.util.List;
  * <p>Everything is a float; booleans are 1 and 0. Operators (lowest to highest precedence):
  * {@code || && == != < <= > >= + - * / %}, then unary {@code - + !}. Names that are not functions are
  * handed to a {@link Resolver}; unknown functions or names make {@link #compile} throw so the caller
- * can skip just that one line. It only uses the Java standard library.</p>
+ * can skip just that one line. It only uses the Java standard library and {@code Mth}'s sine table.</p>
  */
 final class VBVCemExpr {
     /** A compiled expression or variable read. */
@@ -438,38 +439,20 @@ final class VBVCemExpr {
     }
 
     // ---------------------------------------------------------------------------------------
-    // Fast sine / cosine
+    // Sine / cosine
     // ---------------------------------------------------------------------------------------
-    // Math.sin and Math.cos are calls out to JavaScript in the browser build, and the Fresh Animations
-    // pack calls them hundreds of times per entity per frame. A 4096-entry table with linear
-    // interpolation is accurate to about 3e-7 (far below what a model part can show) and stays in WASM.
+    // These are the game's own table functions (Mth.sin / Mth.cos), bit for bit, on purpose: Fresh Animations
+    // detects the vanilla attack swing by testing body.ry == sin(sqrt(swing_progress)*pi*2)*0.2, and the vanilla
+    // pose it compares with was computed by Mth.sin, so any other sine (an interpolated table, Math.sin) never
+    // compares equal and the arm swing never starts. The table lookup also stays inside WebAssembly, where
+    // Math.sin and Math.cos are calls out to JavaScript and the pack calls them hundreds of times per entity.
 
-    private static final int SIN_SIZE = 4096;
-    private static final int SIN_MASK = SIN_SIZE - 1;
-    private static final float SIN_SCALE = (float) (SIN_SIZE / (2.0 * Math.PI));
-    private static final float[] SIN_TABLE = new float[SIN_SIZE + 1];
-
-    static {
-        for (int i = 0; i <= SIN_SIZE; i++) {
-            SIN_TABLE[i] = (float) Math.sin(i * (2.0 * Math.PI / SIN_SIZE));
-        }
+    static float sin(float x) {
+        return Mth.sin(x);
     }
 
-    static float fastSin(float x) {
-        float t = x * SIN_SCALE;
-        if (!(t > -1.0e7F && t < 1.0e7F)) {
-            return (float) Math.sin(x); // NaN, infinities and arguments too large for the table's precision
-        }
-        float f = (float) Math.floor(t);
-        int i = (int) f;
-        float frac = t - f;
-        int index = i & SIN_MASK;
-        float lo = SIN_TABLE[index];
-        return lo + (SIN_TABLE[index + 1] - lo) * frac;
-    }
-
-    static float fastCos(float x) {
-        return fastSin(x + (float) (Math.PI / 2.0));
+    static float cos(float x) {
+        return Mth.cos(x);
     }
 
     /** Folds a one-argument function of a constant into a constant. */
@@ -485,10 +468,10 @@ final class VBVCemExpr {
         switch (name) {
             case "sin":
                 need(name, n, 1);
-                return fold1(a, Math::sin, () -> fastSin(a.get()));
+                return fold1(a, x -> Mth.sin(x), () -> sin(a.get()));
             case "cos":
                 need(name, n, 1);
-                return fold1(a, Math::cos, () -> fastCos(a.get()));
+                return fold1(a, x -> Mth.cos(x), () -> cos(a.get()));
             case "tan":
                 need(name, n, 1);
                 return fold1(a, Math::tan, () -> (float) Math.tan(a.get()));

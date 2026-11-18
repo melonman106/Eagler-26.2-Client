@@ -96,6 +96,7 @@ public final class VBVCem {
     private static int statRuns;
     private static int statFar;
     private static VBVCemRig lastRig;
+    private static String[] lastFollow;
     private static ModelPart lastRoot;
     private static ResourceManager manager;
     /** Entity name -> parsed model, or null when the pack has none (so the lookup happens once). */
@@ -110,6 +111,13 @@ public final class VBVCem {
     /** The main model that was animated last, and the entity it belongs to (armor layers copy its pose). */
     private static ModelPart mainRoot;
     private static Object mainEntity;
+
+    /**
+     * Layer models of the pack (wool, saddle, ...) that have no animation lines of their own: each takes
+     * over the pose of its entity's animated main model, the way the vanilla layer would have followed
+     * the vanilla model. The value is the names of the top-level parts to copy.
+     */
+    private static final Map<ModelPart, String[]> followers = new IdentityHashMap<>();
 
     private static long lastCall;
     private static long frameStart;
@@ -193,11 +201,13 @@ public final class VBVCem {
         redirects.clear();
         reported.clear();
         rigs.clear();
+        followers.clear();
         stores.clear();
         mainRoot = null;
         mainEntity = null;
         lastRoot = null;
         lastRig = null;
+        lastFollow = null;
     }
 
     /** Called by {@code TextureManager.getTexture}; maps a vanilla entity texture to the pack's JEM texture. */
@@ -220,7 +230,7 @@ public final class VBVCem {
                         name = candidate;
                         VBVCemJem jem = modelFor(candidate);
                         if (jem != null && !jem.parts.isEmpty()) {
-                            return bakeWith(candidate, jem, layer);
+                            return bakeWith(candidate, jem, layer, !"main".equals(id.layer()));
                         }
                     }
                 }
@@ -251,14 +261,24 @@ public final class VBVCem {
         // Consecutive entities are usually the same type, so remember the last model -> rig answer.
         ModelPart root = model.root();
         VBVCemRig rig;
-        if (root == lastRoot && lastRig != null) {
+        if (root == lastRoot) {
             rig = lastRig;
         } else {
             rig = rigs.get(root);
+            lastFollow = rig == null && !followers.isEmpty() ? followers.get(root) : null;
             lastRoot = root;
             lastRig = rig;
         }
-        if (rig == null || rig.broken) {
+        if (rig == null) {
+            if (lastFollow != null && mainRoot != null && state instanceof EntityRenderState) {
+                Object owner = ((EntityRenderState) state).vbvEntity;
+                if (owner != null && owner == mainEntity) {
+                    copyPose(mainRoot, root, lastFollow);
+                }
+            }
+            return;
+        }
+        if (rig.broken) {
             return;
         }
         boolean measure = VBVPerf.isMeter();
@@ -280,7 +300,7 @@ public final class VBVCem {
             lastCall = now;
             Object entity = state instanceof EntityRenderState ? ((EntityRenderState) state).vbvEntity : null;
             if (rig.armor && entity != null && entity == mainEntity && mainRoot != null) {
-                copyBodyPose(mainRoot, root);
+                copyPose(mainRoot, root, BODY_PARTS);
             }
             rig.fill(state, frameTime, frameCounter);
             rig.run();
@@ -298,20 +318,15 @@ public final class VBVCem {
         }
     }
 
-    /**
-     * The jem names that can model a layer, best first: the main layer of a model is the entity itself,
-     * its cape layer is {@code <entity>_cape}, and its armor layers are {@code <entity>_inner_armor}
-     * (leggings) or {@code <entity>_outer_armor} (helmet, chestplate, boots), then the generic
-     * {@code <slot>} and {@code inner_armor} / {@code outer_armor} names.
-     */
+    /** The top-level parts an armor or layer model takes over from the animated main model. */
     private static final String[] BODY_PARTS = {"head", "hat", "body", "right_arm", "left_arm", "right_leg", "left_leg"};
 
     /**
      * Gives an armor model the pose of the animated main model of the same entity, the way armor used to
      * copy its wearer's pose: the armor's own vanilla pose would ignore the pack's limb animations.
      */
-    private static void copyBodyPose(ModelPart from, ModelPart to) {
-        for (String name : BODY_PARTS) {
+    private static void copyPose(ModelPart from, ModelPart to, String[] names) {
+        for (String name : names) {
             if (from.hasChild(name) && to.hasChild(name)) {
                 ModelPart source = from.getChild(name);
                 ModelPart target = to.getChild(name);
@@ -328,6 +343,13 @@ public final class VBVCem {
         }
     }
 
+    /**
+     * The jem names that can model a layer, best first: the main layer of a model is the entity itself,
+     * its cape layer is {@code <entity>_cape}, and its armor layers are {@code <entity>_inner_armor}
+     * (leggings) or {@code <entity>_outer_armor} (helmet, chestplate, boots), then the generic
+     * {@code <slot>} and {@code inner_armor} / {@code outer_armor} names. Every other layer (sheep wool,
+     * saddles, horse armor ...) is {@code <entity>_<layer>}.
+     */
     private static String[] entityNames(ModelLayerLocation id) {
         if (!"minecraft".equals(id.model().getNamespace())) {
             return null;
@@ -346,14 +368,15 @@ public final class VBVCem {
             case "leggings":
                 return new String[] {model + "_inner_armor", layer, "inner_armor"};
             default:
-                return null;
+                // Any other layer of a model (sheep wool, saddles, horse armor ...) is <model>_<layer>.
+                return new String[] {model + "_" + layer};
         }
     }
 
     /** Models that animate the same entity share their variables: the player, its armor, cape and elytra. */
     private static String familyOf(String name) {
         String family = name;
-        for (String suffix : new String[] {"_inner_armor", "_outer_armor", "_cape"}) {
+        for (String suffix : new String[] {"_inner_armor", "_outer_armor", "_cape", "_wool_undercoat", "_wool", "_saddle", "_armor", "_decor"}) {
             if (family.endsWith(suffix)) {
                 family = family.substring(0, family.length() - suffix.length());
             }
@@ -490,7 +513,7 @@ public final class VBVCem {
     // Binding a parsed model onto a vanilla layer
     // ---------------------------------------------------------------------------------------
 
-    private static ModelPart bakeWith(String name, VBVCemJem jem, LayerDefinition layer) {
+    private static ModelPart bakeWith(String name, VBVCemJem jem, LayerDefinition layer, boolean followMain) {
         final Binding binding = new Binding(name, jem);
         final MeshDefinition[] captured = new MeshDefinition[1];
         layer.apply(mesh -> {
@@ -501,7 +524,7 @@ public final class VBVCem {
         });
         ModelPart root = LayerDefinition.create(captured[0], jem.texW, jem.texH).bakeRoot();
         binding.patchFaces(root);
-        binding.registerRig(root);
+        binding.registerRig(root, followMain);
         return root;
     }
 
@@ -651,7 +674,7 @@ public final class VBVCem {
             });
         }
 
-        void registerRig(ModelPart root) {
+        void registerRig(ModelPart root, boolean followMain) {
             Map<String, ModelPart> named = new HashMap<>();
             named.put("root", root);
             for (Map.Entry<String, List<String>> entry : vanillaPaths.entrySet()) {
@@ -677,6 +700,14 @@ public final class VBVCem {
                     || "helmet".equals(entity) || "chestplate".equals(entity) || "leggings".equals(entity)
                     || "boots".equals(entity) || "inner_armor".equals(entity) || "outer_armor".equals(entity);
                 rigs.put(root, rig);
+            } else if (followMain) {
+                java.util.Set<String> names = new java.util.LinkedHashSet<>(java.util.Arrays.asList(BODY_PARTS));
+                for (List<String> path : vanillaPaths.values()) {
+                    if (!path.isEmpty()) {
+                        names.add(path.get(0));
+                    }
+                }
+                followers.put(root, names.toArray(new String[0]));
             }
             System.out.println(LOG + entity + ".jem: " + customPaths.size() + " custom parts, "
                 + (jem.parts.size() - skippedParts) + "/" + jem.parts.size() + " vanilla parts replaced, "

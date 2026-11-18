@@ -29,6 +29,9 @@ The client includes custom compatibility support for OptiFine-style Custom Entit
 - Player models, cape and the four armor layers (`player_inner_armor`, `player_outer_armor`) are replaced and animated, not just the main body.
 - Animation expressions support `nbt()` (held item, equipment slots, off hand, sleeping, flying), `wraprad()` / `wrapdeg()`, `log10`, `sinh`/`cosh`/`tanh` and the frame-counter pattern packs use for smoothing.
 - Variables shared between a player's body, armor, cape and elytra models are kept per entity, so the add-on's smoothing and state carry over between parts.
+- Layered models follow their main model: a sheep's `wool` / `wool_undercoat` (and baby sheep) layers, saddles and similar overlays are mapped by name and copy the animated body's pose, so the fleece moves with the body instead of staying frozen over it.
+- `sin` / `cos` in animation expressions use Minecraft's own lookup-table sine, because packs such as Fresh Animations detect a vanilla attack swing by comparing against it exactly; with a different sine the player's arms never moved when attacking.
+- `is_swinging_right_arm` / `is_swinging_left_arm` follow EMF's meaning (swinging **or** using an item with that arm), which Fresh Animations needs to pose a blocking shield arm and item-use arms.
 
 What is still not supported: first-person hand animations, `.properties` variant rules (random entities), emissive `_e` textures, CIT, CTM, colormaps and the other non-model OptiFine features. `nbt()` only answers the paths packs are known to use.
 
