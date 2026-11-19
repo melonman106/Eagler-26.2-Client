@@ -33,6 +33,10 @@ public final class VBVFreecam {
     private static double posX;
     private static double posY;
     private static double posZ;
+    /** Where the camera was at the start of the current tick, so frames in between can be interpolated. */
+    private static double prevX;
+    private static double prevY;
+    private static double prevZ;
     private static float yRot;
     private static float xRot;
 
@@ -55,6 +59,9 @@ public final class VBVFreecam {
         posX = eye.x;
         posY = eye.y;
         posZ = eye.z;
+        prevX = posX;
+        prevY = posY;
+        prevZ = posZ;
         yRot = minecraft.player.getYRot();
         xRot = minecraft.player.getXRot();
         active = true;
@@ -85,6 +92,23 @@ public final class VBVFreecam {
         return posZ;
     }
 
+    /**
+     * The camera position for a frame {@code partialTick} of the way through the current tick. The
+     * camera only moves 20 times a second, so placing the view at the raw position would make it jump
+     * in steps while flying (at sprint speed, several blocks per step).
+     */
+    public static double posX(float partialTick) {
+        return prevX + (posX - prevX) * partialTick;
+    }
+
+    public static double posY(float partialTick) {
+        return prevY + (posY - prevY) * partialTick;
+    }
+
+    public static double posZ(float partialTick) {
+        return prevZ + (posZ - prevZ) * partialTick;
+    }
+
     /** Ground-plane forward direction of the free camera, for the LOD's behind-camera culling. */
     public static double forwardX() {
         return -Math.sin(Math.toRadians(yRot));
@@ -113,6 +137,9 @@ public final class VBVFreecam {
             active = false;
             return;
         }
+        prevX = posX;
+        prevY = posY;
+        prevZ = posZ;
         if (minecraft.gui.screen() != null) {
             // Menus should not fly the camera around; the keys belong to the screen.
             return;
