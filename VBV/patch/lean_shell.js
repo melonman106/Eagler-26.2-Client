@@ -9,8 +9,10 @@ let html = fs.readFileSync(input, "utf8");
 const originalLength = html.length;
 function has(id) { return html.includes('id="' + id + '"') || html.includes("id='" + id + "'"); }
 
-const SERVER_FLAG = /serverWorker:\s*(?:window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0|window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0|enableWorkers\b)(?:\s*\/\*[\s\S]*?\*\/\s*)?,/;
-const MESH_FLAG = /meshWorkers:\s*(?:window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0|window\.location\.search\.indexOf\("workers"\)\s*>=\s*0\s*&&\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0|enableWorkers\b)(?:\s*\/\*[\s\S]*?\*\/\s*)?,/;
+// The option value runs up to its trailing comma and may span lines (meshWorkers also has "&& nomesh"). It must
+// mention singlethread, which keeps this from matching the unrelated "meshWorkers: copy(...)" entry earlier in the page.
+const SERVER_FLAG = /serverWorker:\s*(?:[^,]*?indexOf\("singlethread"\)|enableWorkers\b)[^,]*,/;
+const MESH_FLAG = /meshWorkers:\s*(?:[^,]*?indexOf\("singlethread"\)|enableWorkers\b)[^,]*,/;
 
 if (SERVER_FLAG.test(html)) html = html.replace(SERVER_FLAG, "serverWorker: false,");
 else if (!/serverWorker:\s*false\s*,/.test(html)) die("serverWorker option not found");
@@ -31,6 +33,24 @@ if (meshStart < 0 || serverStart < 0 || workerModulesStart < 0) die("worker boot
 const workerModulesEnd = html.indexOf(";", workerModulesStart);
 if (workerModulesEnd < 0) die("workerModules terminator not found");
 
+// patch_wasm_runtime.py puts its own "const enableWorkers = ..." and a console.info line in front of the first
+// worker declaration. Replacing only from meshModulePromise on would leave that declaration behind next to the one
+// below, which is a SyntaxError ("Identifier 'enableWorkers' has already been declared") that blanks the whole page.
+// So when the marker is there, start the replacement at the marker instead (only if nothing but those two
+// statements sits between it and the mesh declaration).
+const BOOTSTRAP_MARKER = "/* VBV low-memory worker bootstrap */";
+let replaceStart = meshStart;
+const markerPos = html.lastIndexOf(BOOTSTRAP_MARKER, meshStart);
+if (markerPos >= 0) {
+  const between = html.slice(markerPos + BOOTSTRAP_MARKER.length, meshStart);
+  const stray = between
+    .replace(/\s*const enableWorkers\b[^;]*;/g, "")
+    .replace(/\s*console\.info\([^;]*\);/g, "")
+    .trim();
+  if (stray !== "") die("unexpected code between the worker bootstrap marker and the mesh declaration: " + stray.slice(0, 80));
+  replaceStart = markerPos;
+}
+
 const inert =
   "/* VBV low-memory worker bootstrap */\n" +
   "const enableWorkers = false;\n" +
@@ -38,7 +58,7 @@ const inert =
   "const meshModulePromise = Promise.resolve(null);\n" +
   "const serverModulePromise = Promise.resolve(null);\n" +
   "const workerModules = [null, null];";
-html = html.slice(0, meshStart) + inert + html.slice(workerModulesEnd + 1);
+html = html.slice(0, replaceStart) + inert + html.slice(workerModulesEnd + 1);
 
 // Remove the dedicated worker WASM payloads only after their runtime code has
 // been neutralized. Keep the normal client WASM, decoder, assets and sounds.
@@ -59,6 +79,7 @@ if (blobStart >= 0 && blobEnd >= 0) {
 if (!/serverWorker:\s*false\s*,/.test(html)) die("serverWorker was not disabled");
 if (!/meshWorkers:\s*false\s*,/.test(html)) die("meshWorkers was not disabled");
 if (!/const enableWorkers = false;/.test(html)) die("single-threaded gate missing");
+if ((html.match(/\bconst enableWorkers\b/g) || []).length !== 1) die("enableWorkers must be declared exactly once");
 if (!/const meshModulePromise = Promise\.resolve\(null\);/.test(html)) die("mesh promise not neutralized");
 if (!/const serverModulePromise = Promise\.resolve\(null\);/.test(html)) die("server promise not neutralized");
 if (!/const workerModules = \[null, null\];/.test(html)) die("workerModules not neutralized");

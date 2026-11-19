@@ -433,6 +433,26 @@ The resulting standalone client is:
 eaglercraft-26.2-vbv-herz.html
 ```
 
+### Worker modes and singleplayer
+
+The standalone HTML decides at start-up which Web Workers it uses:
+
+| URL | Integrated server worker | Mesh workers | Singleplayer |
+|---|---|---|---|
+| (default) | on | off | works |
+| `?workers` | on | on | works |
+| `?singlethread` | off | off | **not available** |
+
+On the Wasm-GC build a world can only be started by the integrated-server worker (the single-thread
+fallback has no server classes), so the server worker is on by default. Its WebAssembly module is compiled
+a moment *after* the game has booted, so it does not slow down start-up or raise the peak memory while
+loading. Mesh workers speed up chunk meshing but cost extra memory, so they stay opt-in.
+
+With `?singlethread`, or in the lean build (`eaglercraft-26.2-vbv-herz-lean.html`, which has the server and
+mesh payloads removed), creating a singleplayer world shows a "Singleplayer cannot start in this page"
+screen instead of waiting forever on "Starting integrated server". Use the normal single HTML for
+singleplayer; use the lean build only for joining servers on very low-memory devices.
+
 ### Build Artifacts
 
 The main compilation workflow produces:

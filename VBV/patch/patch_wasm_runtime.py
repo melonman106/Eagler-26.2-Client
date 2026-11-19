@@ -90,7 +90,11 @@ function vbvPatchStandaloneHtml(source) {
     if (headEnd < 0) throw new Error("VBV storage manager: standalone HTML has no closing </head> tag");
     html = html.slice(0, headEnd) + storageTag + html.slice(headEnd);
   }
-  const enableWorkers = '(window.location.search.indexOf("workers") >= 0 || window.location.search.indexOf("serverworker") >= 0) && window.location.search.indexOf("singlethread") < 0';
+  // Mesh workers stay opt-in (?workers) to keep memory and start-up low.
+  // The integrated server is different: on Wasm-GC the world can only be started by the server
+  // worker (nothing hands a world to a same-thread server), so serverWorker keeps upstream's
+  // default (on unless ?singlethread). With it off, "Starting Integrated Server" waits forever.
+  const enableWorkers = '(window.location.search.indexOf("workers") >= 0) && window.location.search.indexOf("singlethread") < 0';
 
   const serverWorkerPattern = /serverWorker:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g;
   const meshWorkerPattern = /meshWorkers:\s*window\.location\.search\.indexOf\("singlethread"\)\s*<\s*0/g;
@@ -100,10 +104,6 @@ function vbvPatchStandaloneHtml(source) {
   serverWorkerPattern.lastIndex = 0;
   meshWorkerPattern.lastIndex = 0;
 
-  html = html.replace(
-    serverWorkerPattern,
-    `serverWorker: ${enableWorkers} /* serverWorker: window.location.search.indexOf("singlethread") < 0 */`
-  );
   html = html.replace(
     meshWorkerPattern,
     `meshWorkers: ${enableWorkers} /* meshWorkers: window.location.search.indexOf("singlethread") < 0 */`
@@ -172,20 +172,37 @@ function vbvPatchStandaloneHtml(source) {
       "const meshModulePromise = WebAssembly.compileStreaming(",
       "const meshModulePromise = enableWorkers ? WebAssembly.compileStreaming("
     );
-    const serverExpr = serverBefore.replace(
-      "const serverModulePromise =",
-      "const serverModulePromise = enableWorkers ?"
-    );
-    if (meshExpr === meshBefore || serverExpr === serverBefore) {
+    // The server compile expression is wrapped in a function so it can run in two places: right
+    // away with ?workers, otherwise once the client has finished booting (see the deferred start).
+    const serverCompile = serverBefore.replace("const serverModulePromise =", "").trim();
+    const serverExpr =
+      "const vbvStartServerModule = () => (" + serverCompile + "\n);\n" +
+      "const serverModulePromise = enableWorkers ? vbvStartServerModule()";
+    if (meshExpr === meshBefore || serverCompile === serverBefore.trim()) {
       throw new Error("VBV low-memory patch: worker compile expression was not rewritten");
     }
 
     const replacement =
       "/* VBV low-memory worker bootstrap */\n" +
       "const enableWorkers = window.location.search.indexOf(\"workers\") >= 0 && window.location.search.indexOf(\"singlethread\") < 0;\n" +
-      "console.info(\"[VBV runtime] worker mode:\", enableWorkers ? \"enabled\" : \"single-threaded\");\n" +
+      "console.info(\"[VBV runtime] worker mode:\", enableWorkers ? \"mesh + server workers\" : (window.location.search.indexOf(\"singlethread\") < 0 ? \"server worker only (singleplayer)\" : \"single-threaded (no singleplayer)\"));\n" +
       meshExpr + " : Promise.resolve(null);" + meshBlock.slice(meshSemicolon + 1) +
       serverExpr + " : Promise.resolve(null);" + serverBlock.slice(serverSemicolon + 1) +
+      // Singleplayer without ?workers: compile the server module in the background after the client
+      // has instantiated, so boot is not slowed and the two compiles never overlap. The title screen
+      // and world list take far longer than this to reach, so it is ready before a world is opened.
+      "if (!enableWorkers && window.location.search.indexOf(\"singlethread\") < 0) {\n" +
+      "  const vbvServerWait = setInterval(() => {\n" +
+      "    if (window.__loaded !== true) return;\n" +
+      "    clearInterval(vbvServerWait);\n" +
+      "    setTimeout(() => {\n" +
+      "      vbvStartServerModule().then((serverModule) => {\n" +
+      "        if (serverModule) window.__eaglerServerWasmModule = serverModule;\n" +
+      "        console.info(\"[VBV runtime] integrated-server worker module:\", serverModule ? \"ready\" : \"unavailable\");\n" +
+      "      }).catch((error) => console.error(\"[VBV runtime] integrated-server worker module failed to compile:\", error));\n" +
+      "    }, 1500);\n" +
+      "  }, 400);\n" +
+      "}\n" +
       "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];";
 
     html = html.slice(0, meshStart) + replacement + html.slice(workersStart + workersLine.length);
@@ -233,4 +250,4 @@ fs.writeFileSync = function(file, data, ...args) {
 else:
     print(f"[VBV runtime] standalone packager hook already installed: {PACKAGER}")
 
-print("[VBV runtime] low-memory worker startup patch installed; normal startup is single-threaded and ?workers opts in to worker compilation.")
+print("[VBV runtime] worker startup patch installed; the integrated-server worker is on by default (compiled after boot), mesh workers are opt-in with ?workers, ?singlethread turns every worker off.")
