@@ -249,6 +249,34 @@ Resource-pack client modifications are imported from `ModsPack/` during the buil
 
 ---
 
+## HUD, diagnostics and performance controls
+
+- **HUD Editor** (Mods screen) cycles through the overlays that can be dragged: the Jade target
+tooltip, the Simple HUD information block and the FPS meter. Each one is shown at its real size and
+position, the offset is saved on mouse release, and **Reset position** puts the current overlay back
+where its anchor puts it. The minimap is not part of the editor; its own config page no longer links
+there either.
+- **Options > Modded Settings > Diagnostics...** prints the frame breakdown, what the resource packs
+supplied (models found, baked rigs, layer followers, remembered poses), the LOD mesh and sample
+counts, and the heap state. **Copy** puts the same text on the clipboard.
+- **Auto Quality** lowers the render distance one step while the smoothed FPS stays under 42, falls
+back to LOD when the render distance is at its floor, and walks back up to where it started once the
+frame rate recovers. Changes are at least eight seconds apart and saved like any other setting.
+- **LOD** remembers its sampled terrain in browser storage, so far terrain is drawn immediately on
+the next visit instead of filling in as you explore. The saved set is capped at 8192 chunks around
+the player (under a megabyte).
+- **Entity Culling** also drops anything that is entirely behind the camera, before the block ray
+walk, which catches the near range the block test skips.
+- **Custom models** refresh far rigs every second or third frame and put the last pose back on the
+frames in between, so distant animated mobs cost less without snapping to the vanilla pose.
+- **FPS meter** adds the chunk build / upload / terrain draw phases, the LOD mesh size and rebuild
+time, the auto-quality line and a low-memory warning.
+- **Shields**: a pack written for 1.20 that ships `models/item/shield.json` parented to
+`builtin/entity` has that file skipped at build time. The parent was removed in this version, and its
+old display transforms turn the shield the wrong way round, so the game's own special shield renderer
+draws it (with the pack's textures) in the vanilla orientation. The build fails if such a file is ever
+copied again.
+
 ## Herz Client API
 
 The project includes a lightweight Herz-style client API integrated with VBV.

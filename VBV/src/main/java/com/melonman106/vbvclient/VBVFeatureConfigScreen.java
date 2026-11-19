@@ -44,22 +44,15 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Frame: " + onOff(VBVMiniMap.showFrame), () -> VBVMiniMap.showFrame = !VBVMiniMap.showFrame);
             option(() -> "Player marker: " + onOff(VBVMiniMap.showPlayerMarker), () -> VBVMiniMap.showPlayerMarker = !VBVMiniMap.showPlayerMarker);
             option(() -> "North indicator: " + onOff(VBVMiniMap.showNorth), () -> VBVMiniMap.showNorth = !VBVMiniMap.showNorth);
-            link("Edit minimap position", () -> VBVNav.open(new VBVHudEditorScreen(this)));
         } else if ("jade".equals(modId)) {
             option(() -> "Jade overlay: " + onOff(VBVJadeHud.enabled), () -> VBVJadeHud.enabled = !VBVJadeHud.enabled);
             option(() -> "Show coordinates: " + onOff(VBVJadeHud.showCoordinates), () -> VBVJadeHud.showCoordinates = !VBVJadeHud.showCoordinates);
             option(() -> "Entity health: " + onOff(VBVJadeHud.showEntityHealth), () -> VBVJadeHud.showEntityHealth = !VBVJadeHud.showEntityHealth);
             option(() -> "Block hardness: " + onOff(VBVJadeHud.showBlockHardness), () -> VBVJadeHud.showBlockHardness = !VBVJadeHud.showBlockHardness);
             option(() -> "Target name: " + onOff(VBVJadeHud.showTargetName), () -> VBVJadeHud.showTargetName = !VBVJadeHud.showTargetName);
-            link("Edit Jade position", () -> VBVNav.open(new VBVHudEditorScreen(this, true)));
+            link("Edit Jade position", () -> VBVNav.open(new VBVHudEditorScreen(this, 0)));
         } else if ("shulkerboxtooltip".equals(modId)) {
             option(() -> "Shulker preview: " + onOff(VBVShulkerViewer.enabled), VBVShulkerViewer::toggle);
-        } else if ("appleskin".equals(modId)) {
-            option(() -> "Saturation overlay: " + onOff(VBVAppleSkin.isEnabled()), VBVAppleSkin::toggleEnabled);
-            option(() -> "Held food preview: " + onOff(VBVAppleSkin.isFoodPreview()), VBVAppleSkin::toggleFoodPreview);
-            option(() -> "Food / saturation text: " + onOff(VBVAppleSkin.isShowText()), VBVAppleSkin::toggleShowText);
-            option(() -> "Food level text: " + onOff(VBVAppleSkin.isShowFoodText()), VBVAppleSkin::toggleFoodText);
-            option(() -> "Saturation text: " + onOff(VBVAppleSkin.isShowSaturationText()), VBVAppleSkin::toggleSaturationText);
         } else if ("shine".equals(modId)) {
             option(() -> "Shader preset: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"), VBVShaders::cyclePreset);
             option(() -> "Shader quality: " + VBVShaders.qualityName(), VBVShaders::cycleQuality);

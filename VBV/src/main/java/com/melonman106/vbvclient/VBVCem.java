@@ -96,6 +96,8 @@ public final class VBVCem {
     private static long statNanos;
     private static int statRuns;
     private static int statFar;
+    /** Rigs that were skipped this frame and had their last pose put back instead. */
+    private static int statTiered;
     private static VBVCemRig lastRig;
     private static String[] lastFollow;
     private static ModelPart lastRoot;
@@ -206,11 +208,24 @@ public final class VBVCem {
 
     /** Resets and returns {runs, far-skipped, nanoseconds} since the last call; used by the FPS meter. */
     public static long[] drainStats() {
-        long[] out = {statRuns, statFar, statNanos};
+        long[] out = {statRuns, statFar, statNanos, statTiered};
         statRuns = 0;
         statFar = 0;
         statNanos = 0L;
+        statTiered = 0;
         return out;
+    }
+
+    /**
+     * What this client actually picked up from the resource packs, for the Diagnostics screen. It
+     * answers the three questions a look at a mob cannot: was a model found, was it baked, and are
+     * the armor and cape layers following it.
+     */
+    public static String diagnostics() {
+        return "Custom models: " + (enabled ? "ON" : "OFF") + " | animations " + animationsLabel()
+            + "\nEntity models found: " + models.size() + " | baked rigs: " + rigs.size()
+            + " | layer followers: " + followers.size() + " | remembered poses: " + poses.size()
+            + "\nResource manager: " + (manager != null ? "ready" : "not set (no pack scanned yet)");
     }
 
     /** Called at the start of every entity renderer rebuild (resource reload). */
@@ -313,6 +328,26 @@ public final class VBVCem {
             }
             return;
         }
+        // Beyond a few blocks an animated rig costs the same as one next to the camera but covers a
+        // fraction of the pixels. Those rigs run every second (or third) frame instead, and the pose
+        // they produced last time is put back on the skipped frames, so nothing snaps to the vanilla
+        // rest pose in between.
+        int tier = 1;
+        int entityId = -1;
+        if (state instanceof EntityRenderState) {
+            EntityRenderState renderState = (EntityRenderState) state;
+            if (renderState.vbvEntity != null) {
+                entityId = renderState.vbvEntity.getId();
+                double distanceSq = renderState.distanceToCameraSq;
+                tier = distanceSq <= 24.0 * 24.0 ? 1 : (distanceSq <= 48.0 * 48.0 ? 2 : 3);
+            }
+        }
+        if (tier > 1 && entityId >= 0 && Math.floorMod(frameCounter + entityId, tier) != 0 && rig.restorePose()) {
+            if (measure) {
+                statTiered++;
+            }
+            return;
+        }
         try {
             long now = System.nanoTime();
             if (now - lastCall > FRAME_GAP_NANOS) {
@@ -328,6 +363,9 @@ public final class VBVCem {
             }
             rig.fill(state, frameTime, frameCounter);
             rig.run();
+            if (tier > 1) {
+                rig.snapshotPose();
+            }
             if (!rig.armor && !rig.layer) {
                 rememberPose(state, root);
             }
@@ -423,7 +461,9 @@ public final class VBVCem {
         while (entries.hasNext()) {
             var entry = entries.next();
             float[] pose = entry.getValue();
-            if (pose[POSE_LENGTH - 1] < frameCounter - 2) {
+            // Poses of far entities are refreshed every few frames, so they have to outlive a couple
+            // of frames or a layer would find nothing to follow.
+            if (pose[POSE_LENGTH - 1] < frameCounter - 4) {
                 entries.remove();
                 if (posePool.size() < 64) {
                     posePool.add(pose);

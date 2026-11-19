@@ -120,6 +120,17 @@ public final class VBVModdedSettingsScreen extends Screen {
             if (meterButton != null) meterButton.setMessage(meterLabel());
         }).bounds(right, y, half, btnH).build());
 
+        // Diagnostics shows what the client actually loaded (models, layers, LOD mesh) and the
+        // automatic quality governor can be switched off here without hunting through menus.
+        y += btnH + gap;
+        addRenderableWidget(Button.builder(Component.literal("Diagnostics..."),
+            button -> VBVNav.open(new VBVDiagnosticsScreen(this))).bounds(left, y, half, btnH).build());
+        addRenderableWidget(Button.builder(autoQualityLabel(), button -> {
+            VBVAdaptive.toggle();
+            VBVConfigStore.saveAll();
+            button.setMessage(autoQualityLabel());
+        }).bounds(right, y, half, btnH).build());
+
         int doneH = mode == 0 ? 18 : 20;
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
             .bounds(cx - 100, height - (mode == 0 ? 21 : 27), 200, doneH).build());
@@ -139,6 +150,10 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private static Component shaderLabel() {
         return Component.literal("Shaders: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"));
+    }
+
+    private static Component autoQualityLabel() {
+        return Component.literal("Auto Quality: " + (VBVAdaptive.isEnabled() ? "ON" : "OFF"));
     }
 
     private static Component meterLabel() {

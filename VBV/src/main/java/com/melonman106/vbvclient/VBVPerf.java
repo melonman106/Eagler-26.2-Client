@@ -25,6 +25,23 @@ public final class VBVPerf {
 
     private static boolean meter;
 
+    /** Draggable screen offset, set from the HUD Editor. */
+    public static int offsetX;
+    public static int offsetY;
+
+    /**
+     * Frame phases timed by the engine hooks in {@code LevelRenderer}: building section meshes,
+     * uploading them and drawing the opaque terrain. Together with the CEM and LOD costs they say
+     * where a frame actually went, which the frame-time graph alone cannot.
+     */
+    public static final int PHASE_BUILD = 0, PHASE_UPLOAD = 1, PHASE_DRAW = 2;
+    private static final String[] PHASE_NAMES = { "build", "upload", "draw" };
+    private static final long[] PHASE_START = new long[3];
+    private static final long[] PHASE_TOTAL = new long[3];
+    private static long phaseBuildMs;
+    private static long phaseUploadMs;
+    private static long phaseDrawMs;
+
     private static final float[] FRAME_MS = new float[CAPACITY];
     private static int head;
     private static int count;
@@ -56,6 +73,39 @@ public final class VBVPerf {
 
     public static void setMeter(boolean value) {
         meter = value;
+    }
+
+    /** Called by the engine hook just before a timed phase starts. */
+    public static void phaseStart(int phase) {
+        if (phase >= 0 && phase < PHASE_START.length) {
+            PHASE_START[phase] = System.nanoTime();
+        }
+    }
+
+    /** Called by the engine hook right after a timed phase; a phase that never started is ignored. */
+    public static void phaseEnd(int phase) {
+        if (phase < 0 || phase >= PHASE_START.length) {
+            return;
+        }
+        long started = PHASE_START[phase];
+        if (started == 0L) {
+            return;
+        }
+        PHASE_START[phase] = 0L;
+        long elapsed = System.nanoTime() - started;
+        if (elapsed > 0L) {
+            PHASE_TOTAL[phase] += elapsed;
+        }
+    }
+
+    /** Milliseconds the given phase took since the previous HUD frame; shown as a whole number. */
+    public static long phaseMs(int phase) {
+        return phase == PHASE_BUILD ? phaseBuildMs : (phase == PHASE_UPLOAD ? phaseUploadMs : phaseDrawMs);
+    }
+
+    public static String phaseLine() {
+        return "Chunks " + one(phaseBuildMs) + "/" + one(phaseUploadMs) + "/" + one(phaseDrawMs) + " ms ("
+            + PHASE_NAMES[PHASE_BUILD] + "/" + PHASE_NAMES[PHASE_UPLOAD] + "/" + PHASE_NAMES[PHASE_DRAW] + ")";
     }
 
     public static void toggleMeter() {
@@ -100,6 +150,16 @@ public final class VBVPerf {
                 record(gap / 1_000_000.0F, System.currentTimeMillis());
             }
         }
+        // Phase totals always drain, so the meter starts from a clean window when it is switched on.
+        phaseBuildMs = PHASE_TOTAL[PHASE_BUILD] / 1_000_000L;
+        phaseUploadMs = PHASE_TOTAL[PHASE_UPLOAD] / 1_000_000L;
+        phaseDrawMs = PHASE_TOTAL[PHASE_DRAW] / 1_000_000L;
+        Arrays.fill(PHASE_TOTAL, 0L);
+        // The governor and the watchdog work whether or not the meter is being drawn, so the FPS
+        // summary they use has to be refreshed here rather than inside draw().
+        refreshSummary(System.currentTimeMillis());
+        VBVAdaptive.tick(fps);
+        VBVMemory.tick();
         if (meter) {
             long[] cem = VBVCem.drainStats();
             if (cem[0] + cem[1] > 0L) {
@@ -176,15 +236,23 @@ public final class VBVPerf {
         }
         String line4 = cemRuns + cemFar > 0
             ? "Models: " + cemRuns + " animated, " + cemFar + " far, " + one(cemMs) + " ms" : null;
+        String line5 = phaseLine();
+        String line6 = VBVLodRenderer.statsLine();
+        String line7 = VBVAdaptive.reportLine();
+        String line8 = VBVMemory.pressureNote();
         int width = Math.max(Math.max(font.width(line1), font.width(line2)), Math.max(line3 == null ? 0 : font.width(line3), GRAPH_FRAMES));
-        if (line4 != null) {
-            width = Math.max(width, font.width(line4));
-        }
+        if (line4 != null) width = Math.max(width, font.width(line4));
+        width = Math.max(width, font.width(line5));
+        if (line6 != null) width = Math.max(width, font.width(line6));
+        if (line7 != null) width = Math.max(width, font.width(line7));
+        if (line8 != null) width = Math.max(width, font.width(line8));
         width += 8;
         int lineH = font.lineHeight + 1;
-        int height = 4 + lineH * (2 + (line3 == null ? 0 : 1) + (line4 == null ? 0 : 1)) + GRAPH_HEIGHT + 6;
-        int x = graphics.guiWidth() / 2 - width / 2;
-        int y = 2;
+        int extra = (line3 == null ? 0 : 1) + (line4 == null ? 0 : 1) + (line6 == null ? 0 : 1)
+            + (line7 == null ? 0 : 1) + (line8 == null ? 0 : 1);
+        int height = 4 + lineH * (3 + extra) + GRAPH_HEIGHT + 6;
+        int x = graphics.guiWidth() / 2 - width / 2 + offsetX;
+        int y = 2 + offsetY;
         graphics.fill(x, y, x + width, y + height, 0xA0000000);
         graphics.fill(x, y, x + width, y + 1, VBVTheme.accentAlpha(0xC0));
         int color = fps >= 50 ? 0xFF8CFF8C : (fps >= 30 ? 0xFFFFE070 : 0xFFFF7070);
@@ -199,6 +267,20 @@ public final class VBVPerf {
         }
         if (line4 != null) {
             graphics.text(font, line4, x + 4, ty, accent, true);
+            ty += lineH;
+        }
+        graphics.text(font, line5, x + 4, ty, accent, true);
+        ty += lineH;
+        if (line6 != null) {
+            graphics.text(font, line6, x + 4, ty, accent, true);
+            ty += lineH;
+        }
+        if (line7 != null) {
+            graphics.text(font, line7, x + 4, ty, accent, true);
+            ty += lineH;
+        }
+        if (line8 != null) {
+            graphics.text(font, line8, x + 4, ty, 0xFFFFB070, true);
             ty += lineH;
         }
         // Frame-time bars: each bar is one frame, full height = 50 ms or worse.
@@ -254,11 +336,25 @@ public final class VBVPerf {
         out.append("Custom models: ").append(VBVCem.isEnabled() ? "ON" : "OFF").append(" | animations ")
             .append(VBVCem.animationsLabel()).append(" (last frames ").append(cemRuns).append(" animated, ")
             .append(cemFar).append(" beyond range, ").append(one(cemMs)).append(" ms)\n");
+        out.append(VBVCem.diagnostics()).append('\n');
+        out.append("Frame phases: ").append(phaseLine()).append('\n');
         out.append("LOD: ").append(VBVLod.name());
         if (VBVLod.getLevel() != VBVLod.OFF) {
-            out.append(" (").append(VBVLod.rangeChunks()).append(" chunks, ").append(VBVLodCache.size()).append(" remembered)");
+            out.append(" (").append(VBVLod.rangeChunks()).append(" chunks, ").append(VBVLodCache.size()).append(" remembered")
+                .append(VBVLodCache.persistedChunks() > 0 ? ", " + VBVLodCache.persistedChunks() + " restored" : "")
+                .append(')');
         }
         out.append('\n');
+        String lodStats = VBVLodRenderer.statsLine();
+        if (lodStats != null) {
+            out.append(lodStats).append('\n');
+        }
+        out.append(VBVLodRenderer.diagnostics()).append('\n');
+        String adaptive = VBVAdaptive.reportLine();
+        if (adaptive != null) {
+            out.append(adaptive).append('\n');
+        }
+        out.append(VBVMemory.reportLine()).append('\n');
         if (mc.options != null) {
             out.append("Render distance ").append(mc.options.getEffectiveRenderDistance())
                 .append(" | simulation ").append(mc.options.simulationDistance().get()).append('\n');

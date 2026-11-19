@@ -123,6 +123,10 @@ public final class VBVConfigStore {
         VBVLod.load(integer("lod.level", VBVLod.OFF, VBVLod.OFF, VBVLod.FULL));
         VBVEntityCulling.setEnabled(bool("entityCulling.enabled", true));
         VBVPerf.setMeter(bool("perf.meter", false));
+        VBVPerf.offsetX = integer("perf.x", 0, -2000, 2000);
+        VBVPerf.offsetY = integer("perf.y", 0, -2000, 2000);
+        VBVAdaptive.setEnabled(bool("adaptive.enabled", true));
+        VBVMemory.setEnabled(bool("memory.watchdog", true));
         VBVCem.setEnabled(bool("cem.enabled", true));
         VBVCem.setAnimationsEnabled(bool("cem.animations", true));
         VBVCem.setAnimationRange(integer("cem.animRange", 48, 0, 512));
@@ -201,6 +205,10 @@ public final class VBVConfigStore {
         write("lod.level", VBVLod.getLevel());
         write("entityCulling.enabled", VBVEntityCulling.isEnabled());
         write("perf.meter", VBVPerf.isMeter());
+        write("perf.x", VBVPerf.offsetX);
+        write("perf.y", VBVPerf.offsetY);
+        write("adaptive.enabled", VBVAdaptive.isEnabled());
+        write("memory.watchdog", VBVMemory.isEnabled());
         write("cem.enabled", VBVCem.isEnabled());
         write("cem.animations", VBVCem.isAnimationsEnabled());
         write("cem.animRange", VBVCem.animationRange());

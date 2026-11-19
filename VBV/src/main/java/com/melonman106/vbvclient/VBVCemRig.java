@@ -228,6 +228,9 @@ final class VBVCemRig {
     private final Map<String, Boolean> warned = new HashMap<>();
     private int skipped;
     boolean broken;
+    /** Parts this rig writes to, and the values they were left with; used to skip frames safely. */
+    private ModelPart[] poseParts;
+    private float[] lastPose;
 
     private interface Writer {
         void set(float value);
@@ -581,6 +584,53 @@ final class VBVCemRig {
             pos.move(Direction.UP);
         }
         return depth;
+    }
+
+    /**
+     * Remembers where every part this rig owns is now. A far entity can then be refreshed every
+     * second or third frame while the frames in between put this pose back, instead of falling back
+     * to the vanilla rest pose and visibly snapping.
+     */
+    void snapshotPose() {
+        if (poseParts == null) {
+            poseParts = new ModelPart[parts.size()];
+            parts.values().toArray(poseParts);
+            lastPose = new float[poseParts.length * 9];
+        }
+        int i = 0;
+        for (ModelPart part : poseParts) {
+            lastPose[i] = part.x;
+            lastPose[i + 1] = part.y;
+            lastPose[i + 2] = part.z;
+            lastPose[i + 3] = part.xRot;
+            lastPose[i + 4] = part.yRot;
+            lastPose[i + 5] = part.zRot;
+            lastPose[i + 6] = part.xScale;
+            lastPose[i + 7] = part.yScale;
+            lastPose[i + 8] = part.zScale;
+            i += 9;
+        }
+    }
+
+    /** Puts the last snapshot back; false when this rig has never run, so the caller must run it. */
+    boolean restorePose() {
+        if (poseParts == null || lastPose == null) {
+            return false;
+        }
+        int i = 0;
+        for (ModelPart part : poseParts) {
+            part.x = lastPose[i];
+            part.y = lastPose[i + 1];
+            part.z = lastPose[i + 2];
+            part.xRot = lastPose[i + 3];
+            part.yRot = lastPose[i + 4];
+            part.zRot = lastPose[i + 5];
+            part.xScale = lastPose[i + 6];
+            part.yScale = lastPose[i + 7];
+            part.zScale = lastPose[i + 8];
+            i += 9;
+        }
+        return true;
     }
 
     /** Runs every line in order. */

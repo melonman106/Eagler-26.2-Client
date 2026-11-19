@@ -128,8 +128,15 @@ def vbv_clean_model_definition(incoming_bytes, source_label):
     1.21.4 replaced the "builtin/entity" item models with ``minecraft:special``. A pack written for
     1.20 such as Vanilla Tweaks still ships ``models/item/shield.json`` with
     ``"parent": "builtin/entity"``: that parent is now looked up as a model id, does not exist, and
-    the shield's base model falls back to the missing model (the checkerboard shield). Dropping the
-    dead parent keeps the pack's ``display`` transforms, which is all that base model is used for.
+    the shield's base model falls back to the missing model (the checkerboard shield).
+
+    The file also cannot simply be kept with the parent removed: its ``display`` transforms were
+    written for the 1.20 entity-rendered shield, and applied on top of the 1.21.4 special renderer
+    they put the shield's handle on the wrong side of the hand. Vanilla owns the shield's shape and
+    transforms now, so the correct repair is to leave the file out entirely and let the game's own
+    ``models/item/shield.json`` and ``minecraft:special`` renderer draw it with the pack's textures.
+
+    Returns the replacement bytes, ``b""`` to mean "skip this file", or None to copy it unchanged.
     """
     import json
 
@@ -145,9 +152,14 @@ def vbv_clean_model_definition(incoming_bytes, source_label):
     if parent == "builtin/generated":
         # Still supported: it is the generated item model this game itself uses.
         return None
-    del model["parent"]
-    print("[VBV model fix] " + source_label + ": dropped the removed parent " + repr(parent))
-    return (json.dumps(model, ensure_ascii=True, indent=2) + "\n").encode("utf-8")
+    print(
+        "[VBV model fix] "
+        + source_label
+        + ": skipped, its parent "
+        + repr(parent)
+        + " was removed in 1.21.4 and the game's special item renderer owns this item now"
+    )
+    return b""
 
 
 def vbv_valid_atlas_source(source):

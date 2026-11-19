@@ -53,6 +53,14 @@ public final class VBVEntityCulling {
     private static ClientLevel level;
     private static int frame;
     private static int stepsLeft;
+    /**
+     * Camera forward on the ground plane, refreshed once per frame. Anything entirely behind it
+     * cannot be on screen at all, whatever the blocks between say, so it is culled before the ray
+     * walk. This catches the near range the block test skips and costs two multiplies.
+     */
+    private static double viewX;
+    private static double viewZ;
+    private static boolean viewValid;
 
     // Counters for the performance meter (last finished frame).
     private static int entitiesSeen;
@@ -110,6 +118,21 @@ public final class VBVEntityCulling {
         blockEntitiesCulled = 0;
         frame++;
         stepsLeft = STEPS_PER_FRAME;
+        viewValid = false;
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc != null && mc.player != null) {
+                net.minecraft.world.phys.Vec3 look = mc.player.getViewVector(1.0F);
+                double length = Math.sqrt(look.x * look.x + look.z * look.z);
+                if (length > 0.1) {
+                    viewX = look.x / length;
+                    viewZ = look.z / length;
+                    viewValid = true;
+                }
+            }
+        } catch (Throwable ignored) {
+            viewValid = false;
+        }
         if (current != level) {
             level = current;
             ENTITIES.clear();
@@ -141,6 +164,10 @@ public final class VBVEntityCulling {
             double distanceSqr = distanceSqr(camX, camY, camZ, cx, cy, cz);
             if (distanceSqr < NEAR_DISTANCE_SQR || distanceSqr > FAR_DISTANCE_SQR) {
                 return true;
+            }
+            if (behind(camX, camZ, cx, cz, box)) {
+                entitiesCulled++;
+                return false;
             }
             int id = entity.getId();
             Cached cached = ENTITIES.get(id);
@@ -184,6 +211,11 @@ public final class VBVEntityCulling {
             if (distanceSqr < NEAR_DISTANCE_SQR || distanceSqr > FAR_DISTANCE_SQR) {
                 return true;
             }
+            AABB box = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0);
+            if (behind(camX, camZ, pos.getX() + 0.5, pos.getZ() + 0.5, box)) {
+                blockEntitiesCulled++;
+                return false;
+            }
             long key = pos.asLong();
             Cached cached = BLOCK_ENTITIES.get(key);
             if (cached == null) {
@@ -192,7 +224,6 @@ public final class VBVEntityCulling {
                 BLOCK_ENTITIES.put(key, cached);
             }
             if (frame - cached.checkedFrame >= RECHECK_FRAMES && stepsLeft > 0) {
-                AABB box = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0);
                 Boolean result = test(box, camX, camY, camZ);
                 if (result != null) {
                     cached.visible = result;
@@ -297,6 +328,22 @@ public final class VBVEntityCulling {
             }
         }
         return 1;
+    }
+
+    /**
+     * True when the whole box is behind the camera's ground-plane direction. The box radius is its
+     * own half diagonal, so a box that is only partly behind the camera is kept: like the block
+     * test, this only ever removes something that cannot be on screen.
+     */
+    private static boolean behind(double camX, double camZ, double cx, double cz, AABB box) {
+        if (!viewValid) {
+            return false;
+        }
+        double dx = cx - camX;
+        double dz = cz - camZ;
+        double half = 0.5 * Math.sqrt(
+            box.getXsize() * box.getXsize() + box.getYsize() * box.getYsize() + box.getZsize() * box.getZsize());
+        return dx * viewX + dz * viewZ < -half - MARGIN;
     }
 
     private static double distanceSqr(double ax, double ay, double az, double bx, double by, double bz) {

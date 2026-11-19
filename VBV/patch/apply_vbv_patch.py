@@ -38,6 +38,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_cem_hooks.py",
     "patch_shaders_hook.py",
     "patch_boot_hooks.py",
+    "patch_perf_hooks.py",
     "pack_json_merge.py",
     "patch_keybind_dispatch.py",
 )
@@ -243,7 +244,10 @@ font_branch_fixed = """            elif relative.startswith("assets/"):
                     and relative.lower().endswith(".json")
                 ):
                     # A model parented to "builtin/entity" cannot load here (1.21.4 replaced it with
-                    # minecraft:special), and the shield fell back to the missing model.
+                    # minecraft:special), and the shield fell back to the missing model. Keeping the
+                    # file without its parent is not right either: its 1.20 display transforms put
+                    # the shield's handle on the wrong side, so the file is left out completely and
+                    # the game's special renderer draws the shield.
                     try:
                         vbv_model_bytes = zf.read(raw_name)
                     except KeyError:
@@ -252,9 +256,11 @@ font_branch_fixed = """            elif relative.startswith("assets/"):
                         vbv_model_bytes, mod_id + " " + relative
                     )
                     if vbv_clean_model_bytes is not None:
-                        target = RESOURCE_ROOT / relative
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(vbv_clean_model_bytes)
+                        # b"" means "do not copy this file at all"; None means "copy it unchanged".
+                        if vbv_clean_model_bytes:
+                            target = RESOURCE_ROOT / relative
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            target.write_bytes(vbv_clean_model_bytes)
                         continue
                 target = RESOURCE_ROOT / relative"""
 if upstream.count(font_branch.encode("utf-8")) != 1:
@@ -408,6 +414,12 @@ if shaders_hook.is_file():
 boot_hooks = PATCH_DIR / "patch_boot_hooks.py"
 if boot_hooks.is_file():
     subprocess.run([sys.executable, str(boot_hooks), *sys.argv[1:]], check=True)
+
+# Frame phases: three pairs of empty calls in LevelRenderer so the FPS meter can report how much of
+# a frame went to building chunk meshes, uploading them and drawing the terrain. No behaviour change.
+perf_hooks = PATCH_DIR / "patch_perf_hooks.py"
+if perf_hooks.is_file():
+    subprocess.run([sys.executable, str(perf_hooks), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.

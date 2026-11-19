@@ -76,6 +76,8 @@ public final class VBVLodRenderer {
     private static double builtViewZ;
     private static boolean builtCull;
     private static long builtAtMs;
+    /** Last mesh size and rebuild cost, shown by the FPS meter and the performance report. */
+    private static long lastBuildMs;
 
     // Fog as the real terrain sees it this frame (set by the FogRenderer hook).
     private static boolean fogValid;
@@ -134,6 +136,8 @@ public final class VBVLodRenderer {
         }
         int camBlockX = Mth.floor(camera.x);
         int camBlockZ = Mth.floor(camera.z);
+        // Restores this dimension's saved samples on first use and writes new ones back now and then.
+        VBVLodCache.maintain(level, camBlockX >> 4, camBlockZ >> 4);
         // Underground, the real rock hides the surface; the LOD would show through gaps in it.
         int surface = level.getHeight(Heightmap.Types.WORLD_SURFACE, camBlockX, camBlockZ);
         if (camera.y < surface - 14.0) {
@@ -216,7 +220,9 @@ public final class VBVLodRenderer {
         try (ByteBufferBuilder bytes = new ByteBufferBuilder(1 << 20)) {
             BufferBuilder builder = new BufferBuilder(bytes, PrimitiveTopology.QUADS, DefaultVertexFormat.POSITION_COLOR);
             Mesher mesher = new Mesher(builder, camera, renderDistance, viewX, viewZ, cull);
+            long started = System.nanoTime();
             mesher.run();
+            lastBuildMs = (System.nanoTime() - started) / 1_000_000L;
             quadCount = mesher.quads;
             MeshData mesh = builder.build();
             if (mesh == null) {
@@ -242,6 +248,33 @@ public final class VBVLodRenderer {
         vertexBuffer = RenderSystem.getDevice()
             .createBuffer(() -> "VBV LOD vertex buffer", GpuBuffer.USAGE_VERTEX | GpuBuffer.USAGE_COPY_DST, size);
         vertexBufferSize = size;
+    }
+
+    /**
+     * One line for the FPS meter: how large the far-terrain mesh is and what the last rebuild cost.
+     * Null while LOD is off, so the meter does not show an empty row.
+     */
+    public static String statsLine() {
+        if (!VBVLod.isActive() || quadCount <= 0) {
+            return null;
+        }
+        return "LOD: " + quadCount + " quads, last build " + lastBuildMs + " ms";
+    }
+
+    /** Multi-line state for the Diagnostics screen. */
+    public static String diagnostics() {
+        StringBuilder out = new StringBuilder();
+        out.append("LOD: ").append(VBVLod.name());
+        String failure = VBVLod.failure();
+        if (!failure.isEmpty()) {
+            out.append(" (switched off: ").append(failure).append(')');
+        }
+        out.append('\n');
+        out.append("Mesh: ").append(quadCount).append(" quads, last rebuild ").append(lastBuildMs).append(" ms");
+        out.append(VBVLod.isActive() && builtCull ? " | back-of-camera culling on" : "").append('\n');
+        out.append("Terrain samples: ").append(VBVLodCache.size()).append(" chunks remembered, ")
+            .append(VBVLodCache.persistedChunks()).append(" restored from storage");
+        return out.toString();
     }
 
     private static void releaseBuffer() {
@@ -303,6 +336,8 @@ public final class VBVLodRenderer {
         private final double viewZ;
         private final boolean cull;
         int quads;
+        /** Colour of the last {@link #heightAt} probe, so a run can compare it without a second lookup. */
+        private int probeRgb;
 
         Mesher(BufferBuilder out, Vec3 camera, int renderDistance, double viewX, double viewZ, boolean cull) {
             this.out = out;
@@ -337,17 +372,34 @@ public final class VBVLodRenderer {
                 int minCellZ = Math.floorDiv(Mth.floor(camZ) - outer * 16, size);
                 int maxCellZ = Math.floorDiv(Mth.floor(camZ) + outer * 16, size);
                 for (int cellZ = minCellZ; cellZ <= maxCellZ && quads < MAX_QUADS; cellZ++) {
-                    for (int cellX = minCellX; cellX <= maxCellX; cellX++) {
+                    for (int cellX = minCellX; cellX <= maxCellX && quads < MAX_QUADS; cellX++) {
                         int centerX = cellX * size + half;
                         int centerZ = cellZ * size + half;
-                        int distance = Math.max(Math.abs((centerX >> 4) - camChunkX), Math.abs((centerZ >> 4) - camChunkZ));
-                        if (distance <= inner || distance > outer) {
+                        if (!select(centerX, centerZ, size, camChunkX, camChunkZ, inner, outer)) {
                             continue;
                         }
-                        if (behind(centerX, centerZ, size)) {
+                        int height = heightAt(centerX, centerZ);
+                        if (height == VBVLodCache.NO_DATA) {
                             continue;
                         }
-                        cell(cellX * size, cellZ * size, size, centerX, centerZ);
+                        int rgb = probeRgb;
+                        // Flat ground is the common case, so the rest of the row is merged into one
+                        // quad while height, colour and distance band stay the same. Walls are still
+                        // emitted where a neighbour really steps, so nothing is lost.
+                        int run = 1;
+                        while (cellX + run <= maxCellX) {
+                            int nextX = (cellX + run) * size + half;
+                            int nextHeight = heightAt(nextX, centerZ);
+                            if (nextHeight != height || probeRgb != rgb) {
+                                break;
+                            }
+                            if (!select(nextX, centerZ, size, camChunkX, camChunkZ, inner, outer)) {
+                                break;
+                            }
+                            run++;
+                        }
+                        emitRun(cellX * size, cellZ * size, size, run, height, rgb, centerX, centerZ);
+                        cellX += run - 1;
                     }
                 }
             }
@@ -367,26 +419,42 @@ public final class VBVLodRenderer {
             return dx * viewX + dz * viewZ < -size * 0.75;
         }
 
-        private void cell(int minX, int minZ, int size, int centerX, int centerZ) {
-            VBVLodCache.Column column = VBVLodCache.get(centerX >> 4, centerZ >> 4);
+        /** True when this cell belongs in this ring and is not entirely behind the camera. */
+        private boolean select(int centerX, int centerZ, int size, int camChunkX, int camChunkZ, int inner, int outer) {
+            int distance = Math.max(Math.abs((centerX >> 4) - camChunkX), Math.abs((centerZ >> 4) - camChunkZ));
+            return distance > inner && distance <= outer && !behind(centerX, centerZ, size);
+        }
+
+        /** Surface height of the cell whose centre is the given block, or NO_DATA; sets {@link #probeRgb}. */
+        private int heightAt(int blockX, int blockZ) {
+            VBVLodCache.Column column = VBVLodCache.get(blockX >> 4, blockZ >> 4);
             if (column == null) {
-                return;
+                return VBVLodCache.NO_DATA;
             }
-            int index = sampleIndex(centerX, centerZ);
-            int height = column.height[index];
-            if (height == VBVLodCache.NO_DATA) {
-                return;
-            }
-            int rgb = column.rgb[index];
+            int index = sampleIndex(blockX, blockZ);
+            probeRgb = column.rgb[index];
+            return column.height[index];
+        }
+
+        /**
+         * One merged strip of {@code run} cells: a single top quad, the wall at the far end of the
+         * strip and one south wall per cell (the row below can step at any column).
+         */
+        private void emitRun(int minX, int minZ, int size, int run, int height, int rgb, int centerX, int centerZ) {
             // Sit one block under the real terrain so it never fights the chunks it overlaps.
             double top = height - 1.0;
-            double maxX = minX + size;
+            double maxX = minX + (double) size * run;
             double maxZ = minZ + size;
             quad(minX, top, minZ, maxX, top, minZ, maxX, top, maxZ, minX, top, maxZ, rgb, 1.0F);
 
-            // Walls to the east and south neighbours so cliffs are not see-through.
-            wall(true, maxX, minZ, maxZ, height, rgb, centerX + size, centerZ);
-            wall(false, maxZ, minX, maxX, height, rgb, centerX, centerZ + size);
+            // Only the far end of the strip faces a cell outside it; inside the strip the heights
+            // matched, so there is no step to draw.
+            wall(true, maxX, minZ, maxZ, height, rgb, centerX + size * run, centerZ);
+            for (int i = 0; i < run && quads < MAX_QUADS; i++) {
+                double edgeZ = minZ + size;
+                double from = minX + (double) size * i;
+                wall(false, edgeZ, from, from + size, height, rgb, centerX + size * i, centerZ + size);
+            }
         }
 
         /** Vertical face on the shared edge with a neighbour that has a different height. */
