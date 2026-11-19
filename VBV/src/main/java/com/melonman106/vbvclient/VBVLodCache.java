@@ -91,7 +91,9 @@ public final class VBVLodCache {
         }
         String key;
         try {
-            key = level.dimension().location().toString();
+            // ResourceKey has no location() in these mappings; the key's identity string is
+            // stable for a given dimension and is only used to tell saved sets apart.
+            key = String.valueOf(level.dimension());
         } catch (Throwable ignored) {
             return;
         }
