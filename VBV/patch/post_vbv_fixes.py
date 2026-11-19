@@ -210,9 +210,10 @@ if custom_start >= 0 or sleep_marker in sleep_text:
 elif "private static void sleep(int millis, final AsyncCallback<Void> callback)" not in sleep_text:
     raise RuntimeError("Expected upstream PlatformRuntime.sleep implementation was not found")
 print("[VBV runtime] using upstream TeaVM async sleep callback; custom VBVSleepTimer bridge is disabled.")
-# Keep server-worker activation opt-in, matching the low-memory HTML bootstrap.
-# ?workers or ?serverworker enables the matching worker modules and server flag;
-# ordinary pages remain single-threaded even when cross-origin isolated.
+# Server-worker activation follows the page's eaglercraftXOpts.serverWorker option (or ?serverworker)
+# instead of upstream's "always on for Wasm-GC", so ?singlethread and the lean build can turn it
+# off. The HTML bootstrap keeps that option on by default (see patch_wasm_runtime.py): on Wasm-GC
+# the integrated server only exists as a worker, so without it no world could ever start.
 sp_path = ROOT / "platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/sp/internal/ClientPlatformSingleplayer.java"
 if not sp_path.is_file():
     raise RuntimeError("ClientPlatformSingleplayer.java not found for server-worker opt-in fix")
@@ -232,9 +233,9 @@ if sp_marker not in sp_text:
             "Expected two U2 WASM-GC server-worker gates, found " + str(gate_count)
         )
     sp_path.write_text(sp_text, encoding="utf-8")
-    print("[VBV singleplayer] server workers remain opt-in via ?workers or ?serverworker.")
+    print("[VBV singleplayer] server-worker gates now follow the page option (on by default, off with ?singlethread).")
 else:
-    print("[VBV singleplayer] opt-in server-worker gate already installed.")
+    print("[VBV singleplayer] server-worker page-option gate already installed.")
 
 # The original gate includes an outer parenthesized boolean expression.
 # Earlier replacement left the trailing call parentheses behind, producing
@@ -250,6 +251,48 @@ if repaired_gates:
     print("[VBV singleplayer] repaired", repaired_gates, "leftover worker-gate call suffix(es).")
 if sp_text.count(sp_marker) != 2 or re.search(broken_gate, sp_text):
     raise RuntimeError("Server-worker opt-in gate did not normalize to two valid Java expressions")
+
+
+# Fail fast instead of waiting forever. On Wasm-GC, Minecraft.doWorldLoad only calls
+# launchLocalServerWorker(): it hands the world to the server worker and has no same-thread
+# fallback (the integrated-server classes are stripped from the page image). If the worker is off
+# (?singlethread, or the lean build that drops the server image) nothing would ever start the
+# server and "Starting Integrated Server" would spin with no error. Report it as a server crash so
+# the load loop shows a readable screen and returns.
+ctl_path = GAME / "net/lax1dude/eaglercraft/v1_8/sp/SingleplayerServerController26.java"
+if not ctl_path.is_file():
+    raise RuntimeError("SingleplayerServerController26.java not found for the no-worker launch guard")
+ctl_text = ctl_path.read_text(encoding="utf-8")
+ctl_marker = "VBV_NO_SERVER_WORKER_GUARD"
+if ctl_marker not in ctl_text:
+    ctl_anchor = (
+        "\tpublic static void launchLocalServerWorker(String worldName) {\n"
+        "\t\tbeginLocalServerLaunch(worldName);\n"
+        "\t\tsendWorkerLaunch(worldName);\n"
+        "\t}"
+    )
+    if ctl_text.count(ctl_anchor) != 1:
+        raise RuntimeError("launchLocalServerWorker anchor not found exactly once; refusing to patch")
+    ctl_guard = (
+        "\tpublic static void launchLocalServerWorker(String worldName) {\n"
+        "\t\t// " + ctl_marker + "\n"
+        "\t\tif(!ClientPlatformSingleplayer.isServerWorkerModeRequested()) {\n"
+        "\t\t\tlogger.error(\"Singleplayer launch refused: the integrated-server worker is turned off in this page\");\n"
+        "\t\t\tpendingCrashReport = \"Singleplayer cannot start in this page.\\n\\n\"\n"
+        "\t\t\t\t\t+ \"On the WebAssembly build the integrated server only runs inside its own worker, and the worker is turned off here: \"\n"
+        "\t\t\t\t\t+ \"the page was opened with ?singlethread, or this is the lean build, which leaves the server out.\\n\\n\"\n"
+        "\t\t\t\t\t+ \"Open the normal single-HTML build without ?singlethread to play singleplayer, or join a server instead.\";\n"
+        "\t\t\treturn;\n"
+        "\t\t}\n"
+        "\t\tbeginLocalServerLaunch(worldName);\n"
+        "\t\tsendWorkerLaunch(worldName);\n"
+        "\t}"
+    )
+    ctl_text = ctl_text.replace(ctl_anchor, ctl_guard, 1)
+    ctl_path.write_text(ctl_text, encoding="utf-8")
+    print("[VBV singleplayer] a world launch with the server worker turned off now shows an error instead of hanging.")
+else:
+    print("[VBV singleplayer] no-worker launch guard already installed.")
 
 
 # Make the existing inventory hooks use the container's actual quick-move action.

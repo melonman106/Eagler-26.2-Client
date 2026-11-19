@@ -76,6 +76,7 @@ jobs:
               "/* VBV low-memory worker bootstrap */",
               'const enableWorkers = window.location.search.indexOf("workers") >= 0 && window.location.search.indexOf("singlethread") < 0;',
               "const workerModules = enableWorkers ? await Promise.all([meshModulePromise, serverModulePromise]) : [null, null];",
+              "const vbvStartServerModule = () => (",
               "[VBV runtime] standalone bootstrap loaded",
           )
           for token in required:
@@ -94,8 +95,8 @@ jobs:
               raise SystemExit("Lean standalone build unexpectedly contains embedded music")
 
           print("Verified patched standalone runtime:", path.stat().st_size, "bytes")
-          print("Normal worker mode: single-threaded")
-          print("Optional worker mode: ?workers")
+          print("Normal worker mode: integrated-server worker only (singleplayer), compiled after boot")
+          print("Optional worker mode: ?workers also enables mesh workers; ?singlethread turns every worker off")
           PY
 
       - name: Verify fixed downloaded client is native-only
