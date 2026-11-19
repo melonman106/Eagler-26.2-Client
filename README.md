@@ -283,8 +283,10 @@ seconds below 40 FPS instead of letting it cost frames; picking a preset again r
 flies it with the normal movement keys (sprint for 4x speed, jump/sneak for up/down). The player
 stands still where the camera left: movement input is cleared, the mouse turns the camera rather
 than the player, and attacking, using items or blocks and mining are all suppressed, so nothing is
-placed, hit or opened. Turning it off (or leaving the world) puts the camera straight back on the
-player, who never moved.
+placed, hit or opened. It flies only through chunks that are already loaded - at the edge of the
+loaded area it stops and slides along the edge, so it never makes the game load terrain while you
+fly. Turning it off (or leaving the world) puts the camera straight back on the player, who never
+moved.
 - **BetterF3** (F3) is a native port of the mod's layout: gold section titles, dim `Label:` with a
 bright value, a left/right split, and sections for the player, the world, the targeted block or
 entity, the system, rendering (with the frame breakdown, LOD and shader state) and the free camera.

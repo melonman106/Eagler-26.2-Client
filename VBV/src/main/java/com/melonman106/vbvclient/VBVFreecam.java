@@ -12,6 +12,10 @@ import net.minecraft.world.phys.Vec3;
  * turns the camera instead of the player. Turning it off puts the camera straight back on the
  * player, who never moved.</p>
  *
+ * <p>The camera can only fly through chunks the client already has: it is stopped at the edge of
+ * the loaded area around the frozen player instead of flying into unloaded terrain. Chunk streaming
+ * is driven by the server around the player, so the camera never makes the game load anything.</p>
+ *
  * <p>The generated-source hooks that make this work are in {@code Camera.alignWithEntity} (place
  * and rotation), {@code MouseHandler.turnPlayer} (look), {@code KeyboardInput.tick} (freeze the
  * player), three guards in {@code Minecraft} (no attack/use) and one in {@code ItemInHandRenderer}
@@ -141,12 +145,28 @@ public final class VBVFreecam {
             dy = dy / length * speed;
             dz = dz / length * speed;
         }
-        posX += dx;
+        // Slide along the edge of the loaded area: a move into a chunk that is not loaded is
+        // refused, so the camera can never fly where there is no terrain (and never makes the game
+        // load any). The player is frozen, so the loaded area stays exactly where it was.
+        double nextX = posX + dx;
+        if (chunkLoaded(minecraft, nextX, posZ)) {
+            posX = nextX;
+        }
+        double nextZ = posZ + dz;
+        if (chunkLoaded(minecraft, posX, nextZ)) {
+            posZ = nextZ;
+        }
         posY += dy;
-        posZ += dz;
         double minY = minecraft.level.getMinY() - MIN_Y_OFFSET;
         double maxY = minecraft.level.getMinY() + MAX_Y_OFFSET;
         posY = Math.max(minY, Math.min(maxY, posY));
+    }
+
+    /** True when the chunk under the given block coordinates is already loaded on the client. */
+    private static boolean chunkLoaded(Minecraft minecraft, double x, double z) {
+        int chunkX = (int) Math.floor(x) >> 4;
+        int chunkZ = (int) Math.floor(z) >> 4;
+        return minecraft.level.hasChunk(chunkX, chunkZ);
     }
 
     /** One line for the FPS meter, or null when the free camera is off. */
@@ -154,6 +174,6 @@ public final class VBVFreecam {
         if (!active) {
             return null;
         }
-        return String.format(java.util.Locale.ROOT, "Freecam: %.1f %.1f %.1f (player stays put)", posX, posY, posZ);
+        return String.format(java.util.Locale.ROOT, "Freecam: %.1f %.1f %.1f (loaded chunks only)", posX, posY, posZ);
     }
 }
