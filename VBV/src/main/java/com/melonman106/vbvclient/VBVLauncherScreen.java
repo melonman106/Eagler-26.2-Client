@@ -17,6 +17,7 @@ import net.minecraft.resources.Identifier;
  * <ul>
  *   <li><b>Panoramas</b> - pick the animated backdrop for the menus (or the vanilla one).</li>
  *   <li><b>Hero</b> - your skin, cape and name.</li>
+ *   <li><b>Friends</b> - your friends list (Cloudflare Worker + D1) and who is online.</li>
  *   <li><b>Party</b> - party status and manager.</li>
  *   <li><b>Storage</b> - the browser-folder storage settings.</li>
  *   <li><b>Appearance</b> - accent colour and hand position.</li>
@@ -29,7 +30,7 @@ import net.minecraft.resources.Identifier;
  */
 public final class VBVLauncherScreen extends Screen {
     public enum Tab {
-        PANORAMAS("PANORAMAS"), HERO("HERO"), PARTY("PARTY"), STORAGE("STORAGE"), APPEARANCE("APPEARANCE");
+        PANORAMAS("PANORAMAS"), HERO("HERO"), FRIENDS("FRIENDS"), PARTY("PARTY"), STORAGE("STORAGE"), APPEARANCE("APPEARANCE");
 
         final String label;
 
@@ -95,6 +96,7 @@ public final class VBVLauncherScreen extends Screen {
         super.init();
         VBVClient.init();
         VBVParty.initialize();
+        VBVFriends.initialize();
         EaglerProfile.readIfNeeded();
         computeLayout();
         hints.clear();
@@ -104,6 +106,7 @@ public final class VBVLauncherScreen extends Screen {
         switch (tab) {
             case PANORAMAS -> buildPanoramas();
             case HERO -> buildHero();
+            case FRIENDS -> buildFriends();
             case PARTY -> buildParty();
             case STORAGE -> buildStorage();
             case APPEARANCE -> buildAppearance();
@@ -286,6 +289,33 @@ public final class VBVLauncherScreen extends Screen {
         graphics.text(font, "Your hero in VBV", tx, contentY + 28, VBVTheme.accentLight(), false);
     }
 
+    // -------------------------------------------------------------- friends
+
+    private void buildFriends() {
+        List<Action> actions = new ArrayList<>();
+        actions.add(new Action("FRIENDS LIST", "Add friends, answer requests and see who is online.",
+            b -> VBVNav.open(new VBVFriendsScreen(this))));
+        addActions(contentBottom - 36, actions);
+    }
+
+    private void renderFriends(GuiGraphicsExtractor graphics) {
+        int panelW = Math.min(contentW, 300);
+        VBVUi.panel(graphics, contentX, contentY, panelW, 56);
+        graphics.text(font, "FRIENDS", contentX + 8, contentY + 8, VBVTheme.accentLight(), true);
+        if (!VBVFriends.signedIn()) {
+            graphics.text(font, "No Friends account yet.", contentX + 8, contentY + 24, VBVUi.TEXT_DIM, false);
+            graphics.text(font, "Open the list to create one.", contentX + 8, contentY + 38, VBVUi.TEXT_DIM, false);
+            return;
+        }
+        int friends = VBVFriends.friendRows().length;
+        int requests = VBVFriends.incomingRows().length;
+        graphics.text(font, VBVUi.fit(font, "Signed in as " + VBVFriends.name(), panelW - 16), contentX + 8, contentY + 24,
+            VBVUi.TEXT, false);
+        graphics.text(font, VBVFriends.onlineCount() + " of " + friends + " friends online"
+            + (requests > 0 ? "  |  " + requests + " request" + (requests == 1 ? "" : "s") : ""),
+            contentX + 8, contentY + 38, VBVUi.TEXT_DIM, false);
+    }
+
     // ---------------------------------------------------------------- party
 
     private void buildParty() {
@@ -465,6 +495,7 @@ public final class VBVLauncherScreen extends Screen {
         switch (tab) {
             case PANORAMAS -> renderPanoramasHeader(graphics);
             case HERO -> renderHero(graphics);
+            case FRIENDS -> renderFriends(graphics);
             case PARTY -> renderParty(graphics);
             case STORAGE -> renderStorage(graphics);
             case APPEARANCE -> renderAppearance(graphics);
