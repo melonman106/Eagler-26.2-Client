@@ -264,13 +264,31 @@ back to LOD when the render distance is at its floor, and walks back up to where
 frame rate recovers. Changes are at least eight seconds apart and saved like any other setting.
 - **LOD** remembers its sampled terrain in browser storage, so far terrain is drawn immediately on
 the next visit instead of filling in as you explore. The saved set is capped at 8192 chunks around
-the player (under a megabyte).
+the player (under a megabyte). The three levels reach 32, 64 and 128 chunks, and the first ring
+always starts two chunks inside the real render distance, so the far terrain stacks with any render
+distance you pick - including 30. The mesh has a quad budget that follows the frame rate: below
+about 45 FPS it drops to 70k quads (and below 30 FPS to 40k) and stops rebuilding until the camera
+has moved 96 blocks, so the far terrain costs least when the machine can least afford it.
 - **Entity Culling** also drops anything that is entirely behind the camera, before the block ray
 walk, which catches the near range the block test skips.
 - **Custom models** refresh far rigs every second or third frame and put the last pose back on the
 frames in between, so distant animated mobs cost less without snapping to the vanilla pose.
 - **FPS meter** adds the chunk build / upload / terrain draw phases, the LOD mesh size and rebuild
 time, the auto-quality line and a low-memory warning.
+- **Shaders** draw a cartoon look: a toon brightness band, strong vibrance, a small contrast curve,
+warmth and a vignette, with an optional four-tap outline at High quality. The old nine-tap bloom is
+gone, which was most of the cost of the pass. An FPS guard switches the preset off after four
+seconds below 40 FPS instead of letting it cost frames; picking a preset again re-arms the guard.
+- **Free camera** (default **B**, rebindable in Modded Settings > Keybinds) detaches the camera and
+flies it with the normal movement keys (sprint for 4x speed, jump/sneak for up/down). The player
+stands still where the camera left: movement input is cleared, the mouse turns the camera rather
+than the player, and attacking, using items or blocks and mining are all suppressed, so nothing is
+placed, hit or opened. Turning it off (or leaving the world) puts the camera straight back on the
+player, who never moved.
+- **BetterF3** (F3) is a native port of the mod's layout: gold section titles, dim `Label:` with a
+bright value, a left/right split, and sections for the player, the world, the targeted block or
+entity, the system, rendering (with the frame breakdown, LOD and shader state) and the free camera.
+Each section can be switched off in Mods > BetterF3; the compact layout tightens the spacing.
 - **Shields**: a pack written for 1.20 that ships `models/item/shield.json` parented to
 `builtin/entity` has that file skipped at build time. The parent was removed in this version, and its
 old display transforms turn the shield the wrong way round, so the game's own special shield renderer

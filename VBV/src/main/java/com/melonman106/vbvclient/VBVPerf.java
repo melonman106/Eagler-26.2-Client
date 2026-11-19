@@ -159,6 +159,10 @@ public final class VBVPerf {
         // summary they use has to be refreshed here rather than inside draw().
         refreshSummary(System.currentTimeMillis());
         VBVAdaptive.tick(fps);
+        // Both of these use the same smoothed FPS: the shader guard switches a preset off rather
+        // than let it cost frames, and the LOD mesh budget shrinks before the far terrain does.
+        VBVShaders.tickGuard(fps);
+        VBVLodRenderer.updateBudget(fps);
         VBVMemory.tick();
         if (meter) {
             long[] cem = VBVCem.drainStats();

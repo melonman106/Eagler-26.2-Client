@@ -131,6 +131,7 @@ public final class VBVConfigStore {
         VBVCem.setAnimationsEnabled(bool("cem.animations", true));
         VBVCem.setAnimationRange(integer("cem.animRange", 48, 0, 512));
         VBVShaders.setPreset(integer("shaders.preset", 0, 0, 2));
+        VBVShaders.setGuard(bool("shaders.guard", true));
         VBVPanoramaOverlay.selectById(read("panorama.selected", VBVPanoramaOverlay.DEFAULT_ID));
         VBVPanoramaOverlay.setMotion(bool("panorama.motion", true));
         VBVWorldMap.setTerrainCaptureEnabled(bool("worldmap.terrain", false));
@@ -143,13 +144,15 @@ public final class VBVConfigStore {
             bool("zoom.toggle", false), integer("zoom.fov", 30, 20, 50),
             bool("betterF3.enabled", true), bool("betterF3.overlay", false),
             bool("betterF3.performance", true), bool("betterF3.world", true),
-            bool("betterF3.player", true), bool("betterF3.compact", false));
+            bool("betterF3.player", true), bool("betterF3.compact", false),
+            bool("betterF3.target", true), bool("betterF3.system", true));
 
         VBVKeybinds.load(
             integer("keys.mods", VBVKeybinds.DEFAULT_MODS, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.map", VBVKeybinds.DEFAULT_MAP, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.zoom", VBVKeybinds.DEFAULT_ZOOM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
-            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
+            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
+            integer("keys.freecam", VBVKeybinds.DEFAULT_FREECAM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
     }
 
     public static void saveAll() {
@@ -218,6 +221,7 @@ public final class VBVConfigStore {
         write("worldmap.terrain", VBVWorldMap.isTerrainCaptureEnabled());
         write("shaders.quality", VBVShaders.getQuality());
         write("shaders.strength", VBVShaders.getStrength());
+        write("shaders.guard", VBVShaders.isGuardEnabled());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());
@@ -231,10 +235,13 @@ public final class VBVConfigStore {
         write("betterF3.world", VBVExtraFeatures.debugShowWorld());
         write("betterF3.player", VBVExtraFeatures.debugShowPlayer());
         write("betterF3.compact", VBVExtraFeatures.debugCompact());
+        write("betterF3.target", VBVExtraFeatures.debugShowTarget());
+        write("betterF3.system", VBVExtraFeatures.debugShowSystem());
         write("keys.mods", VBVKeybinds.code(VBVKeybinds.MODS));
         write("keys.map", VBVKeybinds.code(VBVKeybinds.MAP));
         write("keys.zoom", VBVKeybinds.code(VBVKeybinds.ZOOM));
         write("keys.gamma", VBVKeybinds.code(VBVKeybinds.GAMMA));
+        write("keys.freecam", VBVKeybinds.code(VBVKeybinds.FREECAM));
         flush();
     }
 }

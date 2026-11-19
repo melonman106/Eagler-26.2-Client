@@ -20,8 +20,9 @@ import net.minecraft.world.level.material.FogType;
  * and the HUD are drawn.
  *
  * <ul>
- *   <li><b>Vibrant</b> - colour only: vibrance, a gentle contrast curve, a little warmth, a soft
- *       glow on bright areas and a vignette. Needs no depth data.</li>
+ *   <li><b>Vibrant</b> - colour only: a cartoon toon band, strong vibrance, a gentle contrast
+ *       curve, a little warmth and a vignette. Needs no depth data. At High quality it also draws
+ *       a cheap four-tap outline on edges.</li>
  *   <li><b>Shadows</b> - Vibrant plus ambient occlusion and sun contact shadows. These are
  *       screen-space effects computed from the world depth buffer, not real shadow maps: they
  *       darken the ground and walls next to things that block the sun, but only for geometry that is
@@ -50,6 +51,19 @@ public final class VBVShaders {
     private static boolean vibrantFailed;
     private static String lastError = "";
 
+    /**
+     * The performance guard. A post chain cannot be free: it is at least one more full-screen pass
+     * over the frame. Rather than slow the game down on a machine that cannot afford it, the guard
+     * watches the smoothed FPS and, after a few seconds below {@link #GUARD_FPS}, turns the preset
+     * off for the session (the player can switch it back on, which re-arms the guard). It is on by
+     * default and can be turned off in the shader options.
+     */
+    private static final int GUARD_FPS = 40;
+    private static final long GUARD_MS = 4000L;
+    private static boolean guardEnabled = true;
+    private static boolean guardTripped;
+    private static long lowFpsSince;
+
     private static DynamicTexture dataTexture;
     private static float skyExposure = -1.0F;
 
@@ -67,6 +81,9 @@ public final class VBVShaders {
             shadowsFailed = false;
             vibrantFailed = false;
             lastError = "";
+            // Picking a preset by hand also re-arms the performance guard.
+            guardTripped = false;
+            lowFpsSince = 0L;
         }
     }
 
@@ -79,7 +96,7 @@ public final class VBVShaders {
     public static int getQuality() { return quality; }
     public static void setQuality(int value) { quality = Math.max(1, Math.min(3, value)); }
     public static void cycleQuality() { quality = quality >= 3 ? 1 : quality + 1; }
-    public static String qualityName() { return switch (quality) { case 1 -> "Low"; case 3 -> "High"; default -> "Medium"; }; }
+    public static String qualityName() { return switch (quality) { case 1 -> "Low (colour)"; case 3 -> "High (outline)"; default -> "Medium"; }; }
 
     public static int getStrength() { return strength; }
 
@@ -101,8 +118,52 @@ public final class VBVShaders {
         strength = 100;
     }
 
+    /** Turns the FPS guard on or off; switching the preset re-arms a guard that has tripped. */
+    public static boolean isGuardEnabled() { return guardEnabled; }
+
+    public static void toggleGuard() {
+        setGuard(!guardEnabled);
+    }
+
+    public static void setGuard(boolean value) {
+        guardEnabled = value;
+        guardTripped = false;
+        lowFpsSince = 0L;
+    }
+
+    public static boolean guardTripped() { return guardTripped; }
+
+    /**
+     * Called about four times a second with the smoothed FPS. Below {@link #GUARD_FPS} for
+     * {@link #GUARD_MS} the preset switches itself off once, so the shader can never be the reason
+     * the game is unplayable.
+     */
+    public static void tickGuard(int fps) {
+        if (preset == OFF || !guardEnabled || guardTripped || fps <= 0) {
+            lowFpsSince = 0L;
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (fps >= GUARD_FPS) {
+            lowFpsSince = 0L;
+            return;
+        }
+        if (lowFpsSince == 0L) {
+            lowFpsSince = now;
+            return;
+        }
+        if (now - lowFpsSince >= GUARD_MS) {
+            guardTripped = true;
+            lowFpsSince = 0L;
+            preset = OFF;
+            System.err.println("[VBV Shaders] turned off: below " + GUARD_FPS + " FPS for " + GUARD_MS / 1000 + " s");
+            VBVConfigStore.saveAll();
+        }
+    }
+
     /** Short note for the settings screens when a preset had to switch itself off, or "". */
     public static String statusNote() {
+        if (guardTripped) return "Shaders were turned off to protect the frame rate";
         if (preset == OFF) return "";
         if (preset == SHADOWS && shadowsFailed && !vibrantFailed) return "Shadows unavailable here - using Vibrant";
         if ((preset == SHADOWS && shadowsFailed && vibrantFailed) || (preset == VIBRANT && vibrantFailed)) {
@@ -189,11 +250,13 @@ public final class VBVShaders {
 
         float k = strength / 100.0F;
         boolean shadows = effective == SHADOWS;
-        float saturation = 1.0F + (shadows ? 0.14F : 0.20F) * k;
-        float contrast = (shadows ? 0.26F : 0.30F) * k;
-        float vignette = (shadows ? 0.18F : 0.20F) * k;
-        float bloom = (shadows ? 0.25F : 0.30F) * k;
-        float warmth = 0.03F * k;
+        // The cartoon look: more saturation than before, a firm toon band, and a little less
+        // contrast so the bands do not clip. Shadows trades a bit of banding for the occlusion.
+        float saturation = 1.0F + (shadows ? 0.20F : 0.28F) * k;
+        float contrast = (shadows ? 0.20F : 0.24F) * k;
+        float vignette = (shadows ? 0.14F : 0.16F) * k;
+        float toon = (shadows ? 0.60F : 0.75F) * k;
+        float warmth = 0.035F * k;
         float ao = shadows ? Math.min(0.8F * k, 1.0F) : 0.0F;
         float shadow = shadows ? Math.min(0.85F * k, 1.0F) : 0.0F;
 
@@ -204,7 +267,7 @@ public final class VBVShaders {
         NativeImage pixels = dataTexture.getPixels();
         pixels.setPixelABGR(0, 0, VBVShaderMath.packAbgr(sunView[0] * 0.5F + 0.5F, sunView[1] * 0.5F + 0.5F, sunView[2] * 0.5F + 0.5F, sunStrength));
         pixels.setPixelABGR(1, 0, (VBVShaderMath.toByte(quality / 3.0F) << 24) | ((far & 255) << 16) | (((far >> 8) & 255) << 8));
-        pixels.setPixelABGR(2, 0, VBVShaderMath.packAbgr(saturation / 2.0F, contrast, vignette, bloom));
+        pixels.setPixelABGR(2, 0, VBVShaderMath.packAbgr(saturation / 2.0F, contrast, vignette, toon));
         pixels.setPixelABGR(3, 0, VBVShaderMath.packAbgr(ao, shadow, shadows ? 1.0F : 0.0F, 0.5F + warmth * 2.0F));
         int tan16 = Math.max(0, Math.min(65535, Math.round(tanHalfFov / 4.0F * 65535.0F)));
         pixels.setPixelABGR(4, 0, (((tan16 >> 8) & 255)) | ((tan16 & 255) << 8));

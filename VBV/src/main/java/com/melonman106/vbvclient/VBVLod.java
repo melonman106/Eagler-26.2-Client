@@ -17,8 +17,13 @@ public final class VBVLod {
     public static final int FULL = 3;
     public static final String[] NAMES = {"Off", "Low", "Medium", "Full"};
 
-    /** How far each level reaches, in chunks, measured from the camera. */
-    private static final int[] RANGE_CHUNKS = {0, 32, 96, 256};
+    /**
+     * How far each level reaches, in chunks, measured from the camera. The first ring always starts
+     * two chunks inside the real render distance, so these reaches stack with whatever the player
+     * picked: at 16 chunks the LOD fills 16-32, and at 30 chunks it still fills 28-32 before the
+     * medium and full levels take over further out.
+     */
+    private static final int[] RANGE_CHUNKS = {0, 32, 64, 128};
 
     /**
      * Per level, rings of {outerChunkDistance, cellSizeInBlocks}. Rings are listed from the
@@ -26,16 +31,16 @@ public final class VBVLod {
      */
     private static final int[][][] TIERS = {
         {},
-        {{16, 16}, {32, 32}},
-        {{16, 8}, {40, 16}, {64, 32}, {96, 64}},
-        {{12, 4}, {32, 8}, {72, 16}, {128, 32}, {256, 64}}
+        {{16, 16}, {32, 16}},
+        {{12, 8}, {28, 8}, {48, 16}, {64, 32}},
+        {{8, 4}, {24, 8}, {48, 8}, {96, 16}, {128, 32}}
     };
 
     private static final String[] DETAIL = {
         "Distant terrain is not simplified; only real chunks are drawn.",
-        "Short reach, coarse 16-32 block columns. Lightest on memory and GPU.",
-        "Medium reach, 8-64 block columns. A good balance.",
-        "Longest reach, finest columns (4 blocks near, 64 blocks far)."
+        "32 chunk reach, 16 block columns. Lightest on memory and GPU.",
+        "64 chunk reach, 8-32 block columns. Fills the gap from a 16-30 chunk view.",
+        "128 chunk reach, finest columns (4 blocks near, 32 blocks far)."
     };
 
     private static int level = OFF;

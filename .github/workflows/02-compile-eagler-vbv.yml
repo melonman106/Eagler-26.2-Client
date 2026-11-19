@@ -178,7 +178,7 @@ jobs:
                   )
               print("Verified the shield keeps the game's own base model and display transforms.")
           PYMODEL
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVKeybinds.java VBVKeybindConfigScreen.java VBVMapPainter.java VBVWorldMapScreen.java VBVEntityCulling.java VBVPerf.java VBVAdaptive.java VBVMemory.java VBVDiagnosticsScreen.java VBVCem.java VBVCemJem.java VBVCemExpr.java VBVCemRig.java VBVCemNames.java VBVCemNbt.java VBVShaders.java VBVShaderMath.java VBVBoot.java VBVPanoramaOverlay.java VBVSplashScreen.java VBVModrinthScreen.java VBVBootScreen.java VBVDungeonsTitleScreen.java; do
+          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVKeybinds.java VBVKeybindConfigScreen.java VBVMapPainter.java VBVWorldMapScreen.java VBVEntityCulling.java VBVPerf.java VBVAdaptive.java VBVMemory.java VBVDiagnosticsScreen.java VBVCem.java VBVCemJem.java VBVCemExpr.java VBVCemRig.java VBVCemNames.java VBVCemNbt.java VBVShaders.java VBVShaderMath.java VBVFreecam.java VBVBetterF3.java VBVBoot.java VBVPanoramaOverlay.java VBVSplashScreen.java VBVModrinthScreen.java VBVBootScreen.java VBVDungeonsTitleScreen.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }
@@ -242,6 +242,11 @@ jobs:
           grep -q 'VBV_LOD_FAR_PLANE' eaglercraft-u2/game/src/main/java/net/minecraft/client/Camera.java
           grep -q 'VBV_LOD_FOG' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/fog/FogRenderer.java
           grep -q 'VBV_LOD_CAPTURE' eaglercraft-u2/game/src/main/java/net/minecraft/client/multiplayer/ClientChunkCache.java
+          grep -q 'VBV_FREECAM_CAMERA' eaglercraft-u2/game/src/main/java/net/minecraft/client/Camera.java
+          grep -q 'VBV_FREECAM_LOOK' eaglercraft-u2/game/src/main/java/net/minecraft/client/MouseHandler.java
+          grep -q 'VBV_FREECAM_FREEZE' eaglercraft-u2/game/src/main/java/net/minecraft/client/player/KeyboardInput.java
+          test "$(grep -c 'VBV_FREECAM_NO_' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java)" -eq 3
+          grep -q 'VBV_FREECAM_NO_HANDS' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/ItemInHandRenderer.java
           test "$(grep -c 'VBV_ENTITY_CULLING' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/extract/LevelExtractor.java)" -eq 3
           grep -q 'VBV_CEM' eaglercraft-u2/game/src/main/java/net/minecraft/client/model/geom/EntityModelSet.java
           grep -q 'VBV_CEM' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/entity/EntityRenderDispatcher.java

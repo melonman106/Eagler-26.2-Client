@@ -32,6 +32,8 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Performance section: " + onOff(VBVExtraFeatures.debugShowPerformance()), VBVExtraFeatures::toggleDebugShowPerformance);
             option(() -> "World section: " + onOff(VBVExtraFeatures.debugShowWorld()), VBVExtraFeatures::toggleDebugShowWorld);
             option(() -> "Player section: " + onOff(VBVExtraFeatures.debugShowPlayer()), VBVExtraFeatures::toggleDebugShowPlayer);
+            option(() -> "Target section: " + onOff(VBVExtraFeatures.debugShowTarget()), VBVExtraFeatures::toggleDebugShowTarget);
+            option(() -> "System section: " + onOff(VBVExtraFeatures.debugShowSystem()), VBVExtraFeatures::toggleDebugShowSystem);
             option(() -> "Compact layout: " + onOff(VBVExtraFeatures.debugCompact()), VBVExtraFeatures::toggleDebugCompact);
         } else if ("mouse-tweaks".equals(modId)) {
             option(() -> "Wheel tweak: " + onOff(VBVMouseTweaks.isWheelTweakEnabled()), () -> VBVMouseTweaks.setWheelTweakEnabled(!VBVMouseTweaks.isWheelTweakEnabled()));
@@ -57,6 +59,7 @@ public final class VBVFeatureConfigScreen extends Screen {
             option(() -> "Shader preset: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"), VBVShaders::cyclePreset);
             option(() -> "Shader quality: " + VBVShaders.qualityName(), VBVShaders::cycleQuality);
             option(() -> "Shader strength: " + VBVShaders.getStrength() + "%", VBVShaders::cycleStrength);
+            option(() -> "FPS guard: " + onOff(VBVShaders.isGuardEnabled()), VBVShaders::toggleGuard);
             option(() -> "VBV shader effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
             option(() -> "Bloom (optional): " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
             option(() -> "Colored lighting (optional): " + onOff(ShineConfig.coloredLighting()), ShineConfig::toggleColoredLighting);

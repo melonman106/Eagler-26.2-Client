@@ -28,11 +28,10 @@ public final class VBVExtraFeatures {
     static int debugHudX = 6;
     static int debugHudY = 6;
     private static boolean betterF3Enabled = true;
-    private static boolean debugShowPerformance = true;
-    private static boolean debugShowWorld = true;
-    private static boolean debugShowPlayer = true;
-    private static boolean debugCompact = false;
     private static boolean fKeyHeld;
+    /** Free camera hotkey; the camera itself lives in {@link VBVFreecam}. */
+    private static final KeyMapping FREECAM_KEY = KeyBindingHelper.registerKeyBinding(
+        new KeyMapping("key.vbv.freecam", InputConstants.Type.KEYSYM, 66, KeyMapping.Category.MISC));
     private VBVExtraFeatures() {}
     /** Force key mappings to register during client bootstrap, before the first key event. */
     public static void initializeKeyBindings() {
@@ -47,6 +46,7 @@ public final class VBVExtraFeatures {
     public static void applyConfiguredBindings() {
         ZOOM_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.ZOOM)));
         GAMMA_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.GAMMA)));
+        FREECAM_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.FREECAM)));
         KeyMapping.resetMapping();
     }
 
@@ -57,6 +57,7 @@ public final class VBVExtraFeatures {
         ZOOM_KEY.setDown(false);
         while (ZOOM_KEY.consumeClick()) { }
         while (GAMMA_KEY.consumeClick()) { }
+        while (FREECAM_KEY.consumeClick()) { }
     }
 
     /** Poll registered mappings from the shared Fabric client-tick event. */
@@ -65,9 +66,13 @@ public final class VBVExtraFeatures {
         if (minecraft.gui.screen() != null) {
             while (GAMMA_KEY.consumeClick()) { }
             while (ZOOM_KEY.consumeClick()) { }
+            while (FREECAM_KEY.consumeClick()) { }
             if (zooming) stopZoom(minecraft);
             return;
         }
+
+        // Handled before the zoom branch, which returns early when zoom is switched off.
+        if (FREECAM_KEY.consumeClick()) VBVFreecam.toggle(minecraft);
 
         if (GAMMA_KEY.consumeClick() && gammaFeatureEnabled) toggleGamma(minecraft);
 
@@ -137,23 +142,28 @@ public final class VBVExtraFeatures {
     public static void loadSettings(boolean gammaFeature, double gammaStrength, boolean gammaStatus,
                                     boolean zoom, boolean zoomToggle, int fov,
                                     boolean betterF3, boolean debugOverlay,
-                                    boolean showPerformance, boolean showWorld, boolean showPlayer, boolean compact) {
+                                    boolean showPerformance, boolean showWorld, boolean showPlayer,
+                                    boolean compact, boolean showTarget, boolean showSystem) {
         gammaFeatureEnabled = gammaFeature; gammaLevel = Math.max(1.0D, Math.min(8.0D, gammaStrength));
         gammaStatusEnabled = gammaStatus; zoomEnabled = zoom; zoomToggleMode = zoomToggle;
         zoomFov = Math.max(20, Math.min(50, fov)); betterF3Enabled = betterF3;
-        debugHudEnabled = debugOverlay; debugShowPerformance = showPerformance;
-        debugShowWorld = showWorld; debugShowPlayer = showPlayer; debugCompact = compact;
+        debugHudEnabled = debugOverlay;
+        VBVBetterF3.load(showPerformance, showWorld, showPlayer, showTarget, showSystem, compact);
     }
     public static boolean isGammaStatusEnabled() { return gammaStatusEnabled; }
     public static void toggleGammaStatus() { gammaStatusEnabled = !gammaStatusEnabled; }
-    public static boolean debugShowPerformance() { return debugShowPerformance; }
-    public static boolean debugShowWorld() { return debugShowWorld; }
-    public static boolean debugShowPlayer() { return debugShowPlayer; }
-    public static boolean debugCompact() { return debugCompact; }
-    public static void toggleDebugShowPerformance() { debugShowPerformance = !debugShowPerformance; }
-    public static void toggleDebugShowWorld() { debugShowWorld = !debugShowWorld; }
-    public static void toggleDebugShowPlayer() { debugShowPlayer = !debugShowPlayer; }
-    public static void toggleDebugCompact() { debugCompact = !debugCompact; }
+    public static boolean debugShowPerformance() { return VBVBetterF3.showPerformance(); }
+    public static boolean debugShowWorld() { return VBVBetterF3.showWorld(); }
+    public static boolean debugShowPlayer() { return VBVBetterF3.showPlayer(); }
+    public static boolean debugShowTarget() { return VBVBetterF3.showTarget(); }
+    public static boolean debugShowSystem() { return VBVBetterF3.showSystem(); }
+    public static boolean debugCompact() { return VBVBetterF3.isCompact(); }
+    public static void toggleDebugShowPerformance() { VBVBetterF3.togglePerformance(); }
+    public static void toggleDebugShowWorld() { VBVBetterF3.toggleWorld(); }
+    public static void toggleDebugShowPlayer() { VBVBetterF3.togglePlayer(); }
+    public static void toggleDebugShowTarget() { VBVBetterF3.toggleTarget(); }
+    public static void toggleDebugShowSystem() { VBVBetterF3.toggleSystem(); }
+    public static void toggleDebugCompact() { VBVBetterF3.toggleCompact(); }
     public static boolean isGammaFeatureEnabled() { return gammaFeatureEnabled; }
     public static double gammaLevel() { return gammaLevel; }
     public static void toggleGammaFeature() {
@@ -175,87 +185,6 @@ public final class VBVExtraFeatures {
     /** Full replacement for vanilla F3, called from DebugScreenOverlay rather than Hud. */
     public static void renderDebug(GuiGraphicsExtractor graphics) {
         if (!betterF3Enabled || !debugHudEnabled) return;
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
-        if (player == null || mc.level == null) return;
-        BlockPos pos = player.blockPosition();
-        int cx = Math.floorDiv(pos.getX(), 16), cz = Math.floorDiv(pos.getZ(), 16);
-        Direction facing = Direction.fromYRot(player.getYRot());
-        String biome = mc.level.getBiome(pos).unwrapKey().map(key -> key.identifier().toString()).orElse("unknown");
-        String block = mc.level.getBlockState(pos).getBlock().getName().getString();
-        net.minecraft.world.phys.Vec3 velocity = player.getDeltaMovement();
-        Runtime runtime = Runtime.getRuntime();
-        long usedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024L * 1024L);
-        long maxMb = runtime.maxMemory() / (1024L * 1024L);
-        long time = mc.level.getOverworldClockTime();
-        int renderedEntities = 0;
-        for (Object ignored : mc.level.entitiesForRendering()) renderedEntities++;
-
-        java.util.List<String> left = new java.util.ArrayList<>();
-        left.add("Minecraft 26.2 | VBV BetterF3");
-        if (debugShowPlayer) {
-            left.add(String.format(java.util.Locale.ROOT, "XYZ: %.3f / %.3f / %.3f", player.getX(), player.getY(), player.getZ()));
-            left.add("Block: " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
-            left.add(String.format(java.util.Locale.ROOT, "Facing: %s | yaw %.1f | pitch %.1f", facing.getName(), player.getYRot(), player.getXRot()));
-            left.add(String.format(java.util.Locale.ROOT, "Velocity: %.3f / %.3f / %.3f", velocity.x, velocity.y, velocity.z));
-            left.add(String.format(java.util.Locale.ROOT, "Horizontal speed: %.3f blocks/s", Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z) * 20.0D));
-        }
-        if (debugShowWorld) {
-            left.add("Chunk: " + cx + " " + Math.floorDiv(pos.getY(), 16) + " " + cz);
-            left.add("Dimension: " + mc.level.dimension());
-            left.add("Biome: " + biome);
-            left.add("Block at feet: " + block);
-            left.add("Light level: " + mc.level.getMaxLocalRawBrightness(pos));
-            left.add("World time: day " + Math.floorDiv(time, 24000L) + ", tick " + Math.floorMod(time, 24000L));
-            left.add("Local server: " + (mc.isLocalServer() ? "yes" : "no"));
-        }
-
-        java.util.List<String> right = new java.util.ArrayList<>();
-        if (debugShowPerformance) {
-            right.add("Performance");
-            right.add("FPS: " + mc.getFps());
-            right.add(String.format(java.util.Locale.ROOT, "Memory: %d / %d MB", usedMb, maxMb));
-            right.add("Runtime: " + System.getProperty("java.version", "browser"));
-            right.add("Render distance: " + mc.options.renderDistance().get() + " chunks");
-            right.add("Effective/server-limited distance: " + mc.options.getEffectiveRenderDistance() + " chunks");
-            right.add("Simulation distance: " + mc.options.simulationDistance().get() + " chunks");
-            right.add("Rendered entities: " + renderedEntities);
-            right.add("Connection: " + (mc.getCurrentServer() == null ? "Singleplayer" : mc.getCurrentServer().ip));
-        }
-        if (debugShowPlayer) {
-            right.add("Player");
-            right.add("On ground: " + player.onGround());
-            right.add("Sprinting: " + player.isSprinting());
-            right.add("Sneaking: " + player.isCrouching());
-            right.add(String.format(java.util.Locale.ROOT, "Fall distance: %.2f", player.fallDistance));
-            right.add("Local brightness: " + mc.level.getMaxLocalRawBrightness(pos));
-            right.add(String.format(java.util.Locale.ROOT, "Memory use: %.1f%%", maxMb <= 0 ? 0.0D : usedMb * 100.0D / maxMb));
-            right.add("Player: " + player.getName().getString());
-            right.add(String.format(java.util.Locale.ROOT, "Health: %.1f / %.1f", player.getHealth(), player.getMaxHealth()));
-            right.add("Food: " + player.getFoodData().getFoodLevel() + " / 20");
-            right.add("Armor: " + player.getArmorValue());
-            right.add("Selected hotbar slot: " + (player.getInventory().getSelectedSlot() + 1));
-            right.add("Game mode: " + (mc.gameMode == null ? "unknown" : mc.gameMode.getPlayerMode().getName()));
-        }
-
-        drawDebugColumn(graphics, mc, left, 4, 4);
-        int rightWidth = Math.max(170, graphics.guiWidth() / 2 - 8);
-        drawDebugColumn(graphics, mc, right, graphics.guiWidth() - rightWidth - 4, 4);
+        VBVBetterF3.render(graphics);
     }
-
-    private static void drawDebugColumn(GuiGraphicsExtractor graphics, Minecraft mc, java.util.List<String> lines, int x, int y) {
-        int lineHeight = mc.font.lineHeight + (debugCompact ? 0 : 2);
-        int maxWidth = Math.max(120, graphics.guiWidth() / 2 - 14);
-        int visible = Math.min(lines.size(), Math.max(1, (graphics.guiHeight() - 12) / lineHeight));
-        // Text-only BetterF3 layout: no opaque panel behind the debug lines.
-        for (int i = 0; i < visible; i++) {
-            String line = lines.get(i);
-            if (mc.font.width(line) > maxWidth) {
-                line = mc.font.plainSubstrByWidth(line, Math.max(0, maxWidth - mc.font.width("..."))) + "...";
-            }
-            int color = i == 0 ? 0xFFFFFF55 : (i == 1 ? 0xFF55FFFF : 0xFFE0E0E0);
-            graphics.text(mc.font, line, x + 4, y + 3 + i * lineHeight, color, true);
-        }
-    }
-
 }

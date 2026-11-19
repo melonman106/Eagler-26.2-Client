@@ -35,8 +35,21 @@ import org.joml.Vector4f;
  */
 public final class VBVLodRenderer {
     private static final int VERTEX_SIZE = DefaultVertexFormat.POSITION_COLOR.getVertexSize();
-    private static final int MAX_QUADS = 160_000;
+    /**
+     * The far-terrain mesh is capped by a quad budget that follows the frame rate. A low frame rate
+     * shrinks the budget and rebuilds at once, so the smaller mesh is used now; when the frame rate
+     * recovers the budget grows again and the next natural rebuild picks it up, so the good frames
+     * are not spent rebuilding. Far terrain therefore costs least exactly when the machine can least
+     * afford it, which is what keeps LOD usable at a 30 chunk view.
+     */
+    private static final int BUDGET_MAX = 160_000;
+    private static final int BUDGET_HIGH = 110_000;
+    private static final int BUDGET_MID = 70_000;
+    private static final int BUDGET_LOW = 40_000;
+    private static int quadBudget = BUDGET_MAX;
     private static final int REBUILD_DISTANCE = 48;
+    /** While the budget is small the camera has to move further before another rebuild is worth it. */
+    private static final int REBUILD_DISTANCE_SLOW = 96;
     private static final long MIN_REBUILD_MS = 400L;
     private static final long CACHE_SETTLE_MS = 1500L;
     /**
@@ -109,6 +122,25 @@ public final class VBVLodRenderer {
         scannedLevel = null;
     }
 
+    /**
+     * Called about four times a second with the smoothed FPS. Shrinking the budget drops the mesh
+     * immediately; growing it waits for the next natural rebuild.
+     */
+    public static void updateBudget(int fps) {
+        if (fps <= 0) {
+            return;
+        }
+        int next = fps < 30 ? BUDGET_LOW : (fps < 45 ? BUDGET_MID : (fps < 55 ? BUDGET_HIGH : BUDGET_MAX));
+        if (next == quadBudget) {
+            return;
+        }
+        boolean smaller = next < quadBudget;
+        quadBudget = next;
+        if (smaller) {
+            built = false;
+        }
+    }
+
     public static void render(Vec3 camera, RenderTarget target, boolean atmospheric) {
         if (!VBVLod.isActive() || !atmospheric || camera == null || target == null) {
             return;
@@ -154,7 +186,12 @@ public final class VBVLodRenderer {
         double viewX = 0.0;
         double viewZ = 0.0;
         boolean cull = false;
-        if (mc.player != null) {
+        if (VBVFreecam.isActive()) {
+            // The free camera is the one being rendered, so its facing decides what is behind it.
+            viewX = VBVFreecam.forwardX();
+            viewZ = VBVFreecam.forwardZ();
+            cull = true;
+        } else if (mc.player != null) {
             Vec3 look = mc.player.getViewVector(1.0F);
             double length = Math.sqrt(look.x * look.x + look.z * look.z);
             if (length > 0.1) {
@@ -168,7 +205,8 @@ public final class VBVLodRenderer {
         double moveX = camera.x - builtCamX;
         double moveZ = camera.z - builtCamZ;
         boolean settingsChanged = !built || builtLevel != level || builtMode != VBVLod.getLevel() || builtRenderDistance != renderDistance;
-        boolean moved = moveX * moveX + moveZ * moveZ > (double) REBUILD_DISTANCE * REBUILD_DISTANCE;
+        int rebuildDistance = quadBudget <= BUDGET_MID ? REBUILD_DISTANCE_SLOW : REBUILD_DISTANCE;
+        boolean moved = moveX * moveX + moveZ * moveZ > (double) rebuildDistance * rebuildDistance;
         boolean cacheChanged = builtCacheVersion != VBVLodCache.version();
         boolean turned = built && builtCull && cull && viewX * builtViewX + viewZ * builtViewZ < TURN_COS;
         if (settingsChanged || turned
@@ -258,7 +296,7 @@ public final class VBVLodRenderer {
         if (!VBVLod.isActive() || quadCount <= 0) {
             return null;
         }
-        return "LOD: " + quadCount + " quads, last build " + lastBuildMs + " ms";
+        return "LOD: " + quadCount + "/" + quadBudget + " quads, last build " + lastBuildMs + " ms";
     }
 
     /** Multi-line state for the Diagnostics screen. */
@@ -270,7 +308,7 @@ public final class VBVLodRenderer {
             out.append(" (switched off: ").append(failure).append(')');
         }
         out.append('\n');
-        out.append("Mesh: ").append(quadCount).append(" quads, last rebuild ").append(lastBuildMs).append(" ms");
+        out.append("Mesh: ").append(quadCount).append("/").append(quadBudget).append(" quads, last rebuild ").append(lastBuildMs).append(" ms");
         out.append(VBVLod.isActive() && builtCull ? " | back-of-camera culling on" : "").append('\n');
         out.append("Terrain samples: ").append(VBVLodCache.size()).append(" chunks remembered, ")
             .append(VBVLodCache.persistedChunks()).append(" restored from storage");
@@ -359,7 +397,7 @@ public final class VBVLodRenderer {
             int camChunkZ = Mth.floor(camZ) >> 4;
             // Chunks this close are drawn by the real renderer; keep a one chunk overlap.
             int innerEdge = Math.max(0, renderDistance - 2);
-            for (int t = tiers.length - 1; t >= 0 && quads < MAX_QUADS; t--) {
+            for (int t = tiers.length - 1; t >= 0 && quads < quadBudget; t--) {
                 int outer = tiers[t][0];
                 int size = tiers[t][1];
                 int inner = t == 0 ? innerEdge : Math.max(tiers[t - 1][0], innerEdge);
@@ -371,8 +409,8 @@ public final class VBVLodRenderer {
                 int maxCellX = Math.floorDiv(Mth.floor(camX) + outer * 16, size);
                 int minCellZ = Math.floorDiv(Mth.floor(camZ) - outer * 16, size);
                 int maxCellZ = Math.floorDiv(Mth.floor(camZ) + outer * 16, size);
-                for (int cellZ = minCellZ; cellZ <= maxCellZ && quads < MAX_QUADS; cellZ++) {
-                    for (int cellX = minCellX; cellX <= maxCellX && quads < MAX_QUADS; cellX++) {
+                for (int cellZ = minCellZ; cellZ <= maxCellZ && quads < quadBudget; cellZ++) {
+                    for (int cellX = minCellX; cellX <= maxCellX && quads < quadBudget; cellX++) {
                         int centerX = cellX * size + half;
                         int centerZ = cellZ * size + half;
                         if (!select(centerX, centerZ, size, camChunkX, camChunkZ, inner, outer)) {
@@ -450,7 +488,7 @@ public final class VBVLodRenderer {
             // Only the far end of the strip faces a cell outside it; inside the strip the heights
             // matched, so there is no step to draw.
             wall(true, maxX, minZ, maxZ, height, rgb, centerX + size * run, centerZ);
-            for (int i = 0; i < run && quads < MAX_QUADS; i++) {
+            for (int i = 0; i < run && quads < quadBudget; i++) {
                 double edgeZ = minZ + size;
                 double from = minX + (double) size * i;
                 wall(false, edgeZ, from, from + size, height, rgb, centerX + size * i, centerZ + size);
