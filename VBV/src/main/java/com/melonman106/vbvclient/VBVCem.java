@@ -6,6 +6,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.BufferedReader;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -111,12 +113,20 @@ public final class VBVCem {
     /** Animation variables, one store per entity family (the player and its armor, cape and elytra share one). */
     private static final Map<String, VBVCemRig.VarStore> stores = new HashMap<>();
 
-    /** The top-level parts an armor or other layer model takes over from an animated main model. */
+    /** The humanoid top-level parts every layer model can take over from an animated main model. */
     private static final String[] BODY_PARTS = {"head", "body", "right_arm", "left_arm", "right_leg", "left_leg", "waist"};
+    /**
+     * The top-level part names whose pose is remembered and handed to layer models: {@link #BODY_PARTS} plus
+     * the top-level vanilla parts every bound .jem replaces (a sheep's legs, a horse's neck ...). Without
+     * the extras a quadruped's wool, saddle or armor would follow only its head and body and its legs
+     * would swing in the vanilla walk while the pack's own legs do something else. It is filled while the
+     * models are baked, so it is complete before the first frame and stays the same length until the next
+     * reload (the pose arrays are sized from it).
+     */
+    private static final List<String> trackedParts = new ArrayList<>(Arrays.asList(BODY_PARTS));
+    private static final int MAX_TRACKED_PARTS = 40;
     /** x, y, z, xRot, yRot, zRot, xScale, yScale, zScale. */
     private static final int POSE_STRIDE = 9;
-    /** One slot more than the parts, for the frame the pose was taken in. */
-    private static final int POSE_LENGTH = BODY_PARTS.length * POSE_STRIDE + 1;
     private static final int POSE_LIMIT = 512;
 
     /**
@@ -239,6 +249,8 @@ public final class VBVCem {
         stores.clear();
         poses.clear();
         posePool.clear();
+        trackedParts.clear();
+        trackedParts.addAll(Arrays.asList(BODY_PARTS));
         lastRoot = null;
         lastRig = null;
         lastFollow = null;
@@ -389,16 +401,22 @@ public final class VBVCem {
             return;
         }
         int id = renderState.vbvEntity.getId();
+        int length = poseLength();
         float[] pose = poses.get(id);
-        if (pose == null) {
-            if (poses.size() >= POSE_LIMIT) {
+        if (pose == null || pose.length != length) {
+            // Missing, or taken before another model added a tracked part: start a fresh array.
+            if (pose == null && poses.size() >= POSE_LIMIT) {
                 prunePoses();
             }
-            pose = posePool.isEmpty() ? new float[POSE_LENGTH] : posePool.poll();
+            pose = posePool.isEmpty() ? null : posePool.poll();
+            if (pose == null || pose.length != length) {
+                pose = new float[length];
+            }
             poses.put(id, pose);
         }
         int i = 0;
-        for (String name : BODY_PARTS) {
+        for (int slot = 0, slots = trackedParts.size(); slot < slots; slot++) {
+            String name = trackedParts.get(slot);
             ModelPart part = root.hasChild(name) ? root.getChild(name) : null;
             if (part == null) {
                 // This model does not have the part (an armor mesh only carries its own slot's parts).
@@ -418,7 +436,7 @@ public final class VBVCem {
             }
             i += POSE_STRIDE;
         }
-        pose[POSE_LENGTH - 1] = frameCounter;
+        pose[pose.length - 1] = frameCounter;
     }
 
     /**
@@ -438,7 +456,8 @@ public final class VBVCem {
             return;
         }
         int i = 0;
-        for (String name : BODY_PARTS) {
+        for (int slot = 0, slots = Math.min(trackedParts.size(), (pose.length - 1) / POSE_STRIDE); slot < slots; slot++) {
+            String name = trackedParts.get(slot);
             ModelPart part = root.hasChild(name) ? root.getChild(name) : null;
             if (part != null && Float.isFinite(pose[i])) {
                 part.x = pose[i];
@@ -455,6 +474,24 @@ public final class VBVCem {
         }
     }
 
+    /** Length of one remembered pose: nine values per tracked part, plus the frame it was taken in. */
+    private static int poseLength() {
+        return trackedParts.size() * POSE_STRIDE + 1;
+    }
+
+    /** Adds the top-level vanilla parts a bound .jem replaces to the poses that are remembered and followed. */
+    private static void trackParts(Collection<List<String>> vanillaPaths) {
+        for (List<String> path : vanillaPaths) {
+            if (path.isEmpty()) {
+                continue;
+            }
+            String top = path.get(0);
+            if (trackedParts.size() < MAX_TRACKED_PARTS && !trackedParts.contains(top)) {
+                trackedParts.add(top);
+            }
+        }
+    }
+
     /** Forgets entities that have not been drawn for a few frames and reuses their arrays. */
     private static void prunePoses() {
         var entries = poses.int2ObjectEntrySet().iterator();
@@ -463,7 +500,7 @@ public final class VBVCem {
             float[] pose = entry.getValue();
             // Poses of far entities are refreshed every few frames, so they have to outlive a couple
             // of frames or a layer would find nothing to follow.
-            if (pose[POSE_LENGTH - 1] < frameCounter - 4) {
+            if (pose[pose.length - 1] < frameCounter - 4) {
                 entries.remove();
                 if (posePool.size() < 64) {
                     posePool.add(pose);
@@ -818,6 +855,7 @@ public final class VBVCem {
                     named.putIfAbsent(entry.getKey(), part);
                 }
             }
+            trackParts(vanillaPaths.values());
             List<String[]> lines = new ArrayList<>();
             for (VBVCemJem.Part part : jem.parts) {
                 lines.addAll(part.animations);

@@ -136,7 +136,9 @@ public final class VBVLodRenderer {
         }
         boolean smaller = next < quadBudget;
         quadBudget = next;
-        if (smaller) {
+        // Only a mesh that is bigger than the new budget has to be rebuilt; a mesh that already fits would
+        // come out identical, and a rebuild costs frame time, which is what pushed the budget down.
+        if (smaller && quadCount > next) {
             built = false;
         }
     }
@@ -209,8 +211,10 @@ public final class VBVLodRenderer {
         boolean moved = moveX * moveX + moveZ * moveZ > (double) rebuildDistance * rebuildDistance;
         boolean cacheChanged = builtCacheVersion != VBVLodCache.version();
         boolean turned = built && builtCull && cull && viewX * builtViewX + viewZ * builtViewZ < TURN_COS;
-        if (settingsChanged || turned
-            || ((moved || (cacheChanged && now - builtAtMs > CACHE_SETTLE_MS)) && now - builtAtMs > MIN_REBUILD_MS)) {
+        // A turn is rate-limited like a move: whipping the mouse round would otherwise rebuild the mesh
+        // every 26 degrees, several times a second, and the rebuilds themselves would be the stutter.
+        if (settingsChanged
+            || ((moved || turned || (cacheChanged && now - builtAtMs > CACHE_SETTLE_MS)) && now - builtAtMs > MIN_REBUILD_MS)) {
             rebuild(level, camera, renderDistance, now, viewX, viewZ, cull);
         }
         if (quadCount <= 0 || vertexBuffer == null) {

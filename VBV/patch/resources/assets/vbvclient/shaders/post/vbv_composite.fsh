@@ -72,7 +72,9 @@ void main() {
     // Cartoon outline: four taps, High quality only, so the lower levels stay nearly free.
     if (quality > 0.9) {
         vec2 texel = 1.0 / max(InSize, vec2(1.0));
-        float centre = dot(col, LUMA);
+        // The neighbours below are raw scene pixels, so the centre has to be one too. Comparing the
+        // shaded / banded colour against them drew an outline over every shadow and every toon step.
+        float centre = dot(scene.rgb, LUMA);
         float east = dot(texture(InSampler, texCoord + vec2(texel.x, 0.0)).rgb, LUMA);
         float west = dot(texture(InSampler, texCoord - vec2(texel.x, 0.0)).rgb, LUMA);
         float north = dot(texture(InSampler, texCoord + vec2(0.0, texel.y)).rgb, LUMA);

@@ -20,7 +20,13 @@ public final class VBVAdaptive {
     private static final long WINDOW_MS = 2000L;
     private static final long COOLDOWN_MS = 8000L;
     private static final int BAD_FPS = 42;
-    private static final int GOOD_FPS = 70;
+    /**
+     * "Good enough to give a chunk back". It has to be reachable on a 60 Hz screen, where the frame rate
+     * can never exceed 60: with 70 here, a render distance that was lowered was never raised again.
+     */
+    private static final int GOOD_FPS = 56;
+    /** A render distance that just caused a step down is not tried again for this long (stops a see-saw). */
+    private static final long RETRY_MS = 120_000L;
     private static final int BAD_WINDOWS = 3;
     private static final int GOOD_WINDOWS = 6;
     private static final int MIN_RENDER_DISTANCE = 5;
@@ -29,6 +35,11 @@ public final class VBVAdaptive {
     private static int badWindows;
     private static int goodWindows;
     private static int originalRenderDistance = -1;
+    /** The render distance this class set last; anything else means the player changed it by hand. */
+    private static int lastSetDistance = -1;
+    /** The render distance at which the frame rate was last too low, and when it may be tried again. */
+    private static int badDistance = -1;
+    private static long badUntil;
     private static long windowStarted;
     private static long nextChangeAt;
     private static String lastAction = "";
@@ -54,6 +65,9 @@ public final class VBVAdaptive {
         badWindows = 0;
         goodWindows = 0;
         originalRenderDistance = -1;
+        lastSetDistance = -1;
+        badDistance = -1;
+        badUntil = 0L;
         windowStarted = 0L;
         nextChangeAt = 0L;
         lastAction = "";
@@ -75,6 +89,11 @@ public final class VBVAdaptive {
         windowStarted = now;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null || mc.player == null || mc.level == null) {
+            return;
+        }
+        if (lastSetDistance >= 0 && mc.options.renderDistance().get() != lastSetDistance) {
+            // The player moved the slider themselves: that is their setting now, so stop managing it.
+            reset();
             return;
         }
         if (fps < BAD_FPS) {
@@ -107,6 +126,9 @@ public final class VBVAdaptive {
         if (renderDistance > MIN_RENDER_DISTANCE) {
             mc.options.renderDistance().set(renderDistance - 1);
             mc.options.save();
+            lastSetDistance = renderDistance - 1;
+            badDistance = renderDistance;
+            badUntil = now + RETRY_MS;
             lastAction = "render distance " + (renderDistance - 1);
             nextChangeAt = now + COOLDOWN_MS;
             return;
@@ -124,8 +146,12 @@ public final class VBVAdaptive {
         }
         int renderDistance = mc.options.renderDistance().get();
         if (renderDistance < originalRenderDistance) {
+            if (badDistance >= 0 && now < badUntil && renderDistance + 1 >= badDistance) {
+                return; // that distance was too heavy a moment ago
+            }
             mc.options.renderDistance().set(renderDistance + 1);
             mc.options.save();
+            lastSetDistance = renderDistance + 1;
             lastAction = "render distance " + (renderDistance + 1);
             nextChangeAt = now + COOLDOWN_MS;
         }

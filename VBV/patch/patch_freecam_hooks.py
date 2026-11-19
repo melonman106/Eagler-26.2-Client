@@ -37,9 +37,9 @@ HOOKS = [
         "         this.detached = false;\n"
         "         this.setRotation(com.melonman106.vbvclient.VBVFreecam.yRot(),\n"
         "            com.melonman106.vbvclient.VBVFreecam.xRot());\n"
-        "         this.setPosition(com.melonman106.vbvclient.VBVFreecam.posX(),\n"
-        "            com.melonman106.vbvclient.VBVFreecam.posY(),\n"
-        "            com.melonman106.vbvclient.VBVFreecam.posZ());\n"
+        "         this.setPosition(com.melonman106.vbvclient.VBVFreecam.posX(partialTicks),\n"
+        "            com.melonman106.vbvclient.VBVFreecam.posY(partialTicks),\n"
+        "            com.melonman106.vbvclient.VBVFreecam.posZ(partialTicks));\n"
         "      }\n"
         "   }\n",
         "camera placement",
