@@ -1,0 +1,9 @@
+{
+  "name": "vbv-friends",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker + D1 backend for the VBV client's Friends screen",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

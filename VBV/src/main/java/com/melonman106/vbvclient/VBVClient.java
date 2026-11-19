@@ -81,6 +81,7 @@ public final class VBVClient {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             VBVExtraFeatures.tick(client);
             VBVFreecam.tick(client);
+            VBVFriends.tick(client);
             VBVWorldMap.tick();
         });
     }

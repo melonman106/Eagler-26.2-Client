@@ -240,7 +240,7 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
   step count, elapsed time and a rotating tip. It is drawn with a few flat rectangles per frame so
   it stays cheap on low-power machines. The page that appears before the game starts (the browser
   page and WebAssembly download) is not part of it.
-- **Extras** has a sidebar: Panoramas, Hero (skin and name), Party, Storage and Appearance
+- **Extras** has a sidebar: Panoramas, Hero (skin and name), Friends, Party, Storage and Appearance
   (accent colour, hand position).
 - **Options > Resource Packs** now has a **Modrinth...** button that opens the Modrinth pack browser.
   Resource packs are no longer listed in the Mods menu; they still work exactly as before.
@@ -248,6 +248,37 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
 Resource-pack client modifications are imported from `ModsPack/` during the build.
 
 ---
+
+## Friends (Cloudflare Worker + D1)
+
+Extras > Friends opens a friends list: add players by name, accept or decline requests, and see who is online
+and which server they are on. It is backed by a small Cloudflare Worker with a D1 (SQLite) database, in
+[`cloudflare/vbv-friends`](cloudflare/vbv-friends).
+
+- **Accounts are anonymous.** The first time, you pick a name (it defaults to your Eagler name). The browser
+  creates a random account key; only a hash of it is stored. Names are first come, first served, because
+  Eaglercraft has no account system to check them against. **Copy key** saves the key so the account can be
+  restored in another browser with **Sign in with name + key**.
+- **Presence** is a heartbeat every 30 seconds with the server address (or "Singleplayer"). **Appear: offline**
+  hides you and your server from friends. Nothing else about you, and no IP address, is stored.
+- Limits: 100 friends, 50 waiting requests, and rate limits on registering and sending requests.
+
+### Deploying the Friends service (one time)
+
+Nothing is created in your Cloudflare account until you run the workflow yourself.
+
+1. In Cloudflare, create an API token with **Workers Scripts: Edit** and **D1: Edit** permissions, and copy your
+   account id (Workers & Pages overview).
+2. In this repository, Settings > Secrets and variables > Actions, add the secrets `CLOUDFLARE_API_TOKEN` and
+   `CLOUDFLARE_ACCOUNT_ID`.
+3. Actions > **06 - Deploy VBV Friends** > Run workflow. It runs the tests, creates the `vbv-friends` D1
+   database if it does not exist, applies the migrations, deploys the Worker and checks `/health`.
+
+The Worker is called `vbv-friends`, so it is served at `https://vbv-friends.<your-subdomain>.workers.dev`. The
+client assumes the subdomain of the existing party relay (`u2471966200`); if yours differs, paste the address
+shown in the workflow summary into the service address box on the Friends screen while signed out.
+To run the tests locally: `cd cloudflare/vbv-friends && npm test` (Node 22; they use the real schema and also run the
+browser bridge from `VBVFriends.java` against the Worker).
 
 ## HUD, diagnostics and performance controls
 

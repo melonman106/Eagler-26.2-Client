@@ -1,0 +1,11 @@
+name = "vbv-friends"
+main = "src/index.js"
+compatibility_date = "2025-11-01"
+
+# The deploy workflow (.github/workflows/06-deploy-vbv-friends.yml) creates the database if it does not exist
+# yet and replaces the id below. To deploy by hand, run `wrangler d1 create vbv-friends` and paste its id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "vbv-friends"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
