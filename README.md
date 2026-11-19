@@ -449,7 +449,7 @@ a moment *after* the game has booted, so it does not slow down start-up or raise
 loading. Mesh workers speed up chunk meshing but cost extra memory, so they stay opt-in.
 
 With `?singlethread`, or in the lean build (`eaglercraft-26.2-vbv-herz-lean.html`, which has the server and
-mesh payloads removed), creating a singleplayer world shows a "singleplayer is not available in this build"
+mesh payloads removed), creating a singleplayer world shows a "Singleplayer cannot start in this page"
 screen instead of waiting forever on "Starting integrated server". Use the normal single HTML for
 singleplayer; use the lean build only for joining servers on very low-memory devices.
 
