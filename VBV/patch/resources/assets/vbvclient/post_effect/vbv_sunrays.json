@@ -12,10 +12,9 @@
                     "target": "minecraft:main"
                 },
                 {
-                    "sampler_name": "Shade",
-                    "location": "vbvclient:vbv_data",
-                    "width": 8,
-                    "height": 1
+                    "sampler_name": "Depth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
                 },
                 {
                     "sampler_name": "Data",

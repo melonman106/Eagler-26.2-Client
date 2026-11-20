@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wire VBV's Vibrant / Shadows post effects into the generated Eagler 26.2 sources.
+"""Wire VBV's Sun Rays post effect into the generated Eagler 26.2 sources.
 
 One small hook in GameRenderer.renderLevel, placed just before the existing Shine bloom block:
 after the world is drawn and before the hand and the HUD, so the effect only touches the world
@@ -21,7 +21,7 @@ REL = "net/minecraft/client/renderer/GameRenderer.java"
 
 ANCHOR = "      if (com.melonman106.vbvclient.ShineConfig.bloom() && !this.vbvShineBloomFailed) {\n"
 REPLACEMENT = (
-    "      // VBV_SHADERS: Vibrant / Shadows post effects on the finished world image\n"
+    "      // VBV_SHADERS: sun rays on the finished world image\n"
     "      com.melonman106.vbvclient.VBVShaders.apply(this.minecraft, this.mainRenderTarget, this.resourcePool,\n"
     "         this.gameRenderState.levelRenderState, this.isEaglerOptimizedShaderSupported());\n"
     + ANCHOR

@@ -254,7 +254,8 @@ jobs:
           grep -q 'VBV_CEM' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/texture/TextureManager.java
           grep -q 'VBV_CEM' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/feature/ModelFeatureRenderer.java
           grep -q 'VBV_SHADERS' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/GameRenderer.java
-          for shader_file in post_effect/vbv_vibrant.json post_effect/vbv_shadows.json shaders/post/vbv_ssao.fsh shaders/post/vbv_shade_blur.fsh shaders/post/vbv_composite.fsh; do
+          grep -q 'VBV_EPK_YIELD' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/teavm/EPKDownloadHelper.java
+          for shader_file in post_effect/vbv_sunrays.json shaders/post/vbv_composite.fsh; do
             test -s "eaglercraft-u2/game/src/main/resources/assets/vbvclient/$shader_file" || { echo "::error::VBV shader resource missing from the generated game: $shader_file"; exit 1; }
           done
           grep -q 'EaglerProfile.getActiveSkinResourceLocation' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVLauncherScreen.java

@@ -114,9 +114,10 @@ public final class VBVPerf {
 
     /**
      * One-click low-end profile. Each item is a setting the player can still change afterwards:
-     * fewer chunks to draw and simulate, cheaper custom-entity animation, culling on, the shaders
-     * off, and the FPS meter on so the difference is visible. Nothing here is reversible state that
-     * a later click cannot undo from the same screens.
+     * fewer chunks to draw and simulate, far terrain from LOD instead of real chunks, the automatic
+     * governor on, cheaper custom-entity animation, culling on, no shader pass, no world-map terrain
+     * capture and a still menu backdrop, plus the FPS meter on so the difference is visible. Nothing
+     * here is state a later click cannot undo from the same screens.
      */
     public static void applyPerformancePreset() {
         Minecraft minecraft = Minecraft.getInstance();
@@ -129,9 +130,14 @@ public final class VBVPerf {
                 // A failed option write must not take the rest of the preset with it.
             }
         }
+        // Far terrain is cheaper than real chunks at the same distance, so make sure LOD is on.
+        if (VBVLod.getLevel() < VBVLod.LOW) VBVLod.setLevel(VBVLod.LOW);
+        VBVAdaptive.setEnabled(true);
         VBVEntityCulling.setEnabled(true);
-        VBVShaders.setPreset(0);
+        VBVShaders.setPreset(VBVShaders.OFF);
         if (VBVCem.isEnabled()) VBVCem.setAnimationRange(16);
+        // Painting explored chunks into the world map is a per-chunk cost with no frame-rate payoff.
+        VBVWorldMap.setTerrainCaptureEnabled(false);
         VBVExtraFeatures.setDebugHudEnabled(false);
         // A still backdrop removes the per-frame PNG decode and texture upload in the menu.
         VBVPanoramaOverlay.setMotion(false);
@@ -358,7 +364,7 @@ public final class VBVPerf {
         if (adaptive != null) {
             out.append(adaptive).append('\n');
         }
-        out.append(VBVMemory.reportLine()).append('\n');
+        out.append(VBVMemory.audit());
         if (mc.options != null) {
             out.append("Render distance ").append(mc.options.getEffectiveRenderDistance())
                 .append(" | simulation ").append(mc.options.simulationDistance().get()).append('\n');

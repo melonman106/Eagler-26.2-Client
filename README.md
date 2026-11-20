@@ -238,7 +238,10 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
   with the wordmark, a segmented progress bar with a sweeping light (so you can tell the game is
   still working when the percentage sits still), the name of the loading step that is running, the
   step count, elapsed time and a rotating tip. It is drawn with a few flat rectangles per frame so
-  it stays cheap on low-power machines. The page that appears before the game starts (the browser
+  it stays cheap on low-power machines. The asset pack is one compressed stream that used to be
+  unpacked in a single blocking call, which froze the tab for seconds on a slow machine; it is now
+  unpacked in 24 ms slices (only after the first 1.5 s, so fast machines pay nothing) and the bar
+  moves through it, with the asset count and unpack time written to the log. The page that appears before the game starts (the browser
   page and WebAssembly download) is not part of it.
 - **Extras** has a sidebar: Panoramas, Hero (skin and name), Friends, Party, Storage and Appearance
   (accent colour, hand position).
@@ -291,8 +294,20 @@ there either.
 supplied (models found, baked rigs, layer followers, remembered poses), the LOD mesh and sample
 counts, and the heap state. **Copy** puts the same text on the clipboard.
 - **Auto Quality** lowers the render distance one step while the smoothed FPS stays under 42, falls
-back to LOD when the render distance is at its floor, and walks back up to where it started once the
-frame rate recovers. Changes are at least eight seconds apart and saved like any other setting.
+  back to LOD when the render distance is at its floor, and walks back up to where it started once the
+  frame rate recovers. Changes are at least eight seconds apart and saved like any other setting.
+- **Performance Preset** (Modded Settings) is the one-click low-end profile: render distance 8 and
+  simulation 5 at most, LOD at least Low, auto quality on, entity culling on, shaders off, custom-model
+  animations to 16 blocks, world-map terrain capture off, a still menu backdrop and the FPS meter on.
+  Every item can still be changed afterwards from its own screen.
+- **Memory** figures come from the browser (`performance.memory`) when it exposes them, because
+  `Runtime.maxMemory()` is constant-folded to a meaningless donor value inside TeaVM. Chrome gives
+  this tab about 2 GB of heap on an 8 GB machine, the embedded asset pack lives in that same heap, and
+  the page cannot raise the limit, so the client measures against the real number instead of a fake
+  one. The watchdog sheds the far LOD cache once the heap passes 78 % or has under 256 MB free, and
+  drops LOD altogether after three sheds, rather than let the tab be killed with the session in it.
+  **Diagnostics** includes a heap audit (heap used, limit and free, LOD cache size, panorama frame
+  count, entity counts) so it is clear which cache is worth shrinking.
 - **LOD** remembers its sampled terrain in browser storage, so far terrain is drawn immediately on
 the next visit instead of filling in as you explore. The saved set is capped at 8192 chunks around
 the player (under a megabyte). The three levels reach 32, 64 and 128 chunks, and the first ring
@@ -306,10 +321,12 @@ walk, which catches the near range the block test skips.
 frames in between, so distant animated mobs cost less without snapping to the vanilla pose.
 - **FPS meter** adds the chunk build / upload / terrain draw phases, the LOD mesh size and rebuild
 time, the auto-quality line and a low-memory warning.
-- **Shaders** draw a cartoon look: a toon brightness band, strong vibrance, a small contrast curve,
-warmth and a vignette, with an optional four-tap outline at High quality. The old nine-tap bloom is
-gone, which was most of the cost of the pass. An FPS guard switches the preset off after four
-seconds below 40 FPS instead of letting it cost frames; picking a preset again re-arms the guard.
+- **Shaders** are sun rays only: a screen-space pass that samples the sky along the line to the sun
+  and adds a warm, saturated glow with a bright gold core (6 / 10 / 14 taps at Low / Medium / High).
+  The toon band, vibrance, contrast, warmth, vignette, outline and the screen-space shadows are gone.
+  It only contributes where the sky is visible, so it is off at night, in rain, in caves, under water
+  and in the Nether/End. An FPS guard switches it off after four seconds below 40 FPS instead of
+  letting it cost frames; picking it again re-arms the guard.
 - **Free camera** (default **B**, rebindable in Modded Settings > Keybinds) detaches the camera and
 flies it with the normal movement keys (sprint for 4x speed, jump/sneak for up/down). The player
 stands still where the camera left: movement input is cleared, the mouse turns the camera rather

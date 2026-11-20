@@ -100,7 +100,7 @@ public final class VBVModdedSettingsScreen extends Screen {
         }).bounds(right, y, half, btnH).build();
         addRenderableWidget(cemAnimButton);
         y += btnH + gap;
-        // Shaders: left cycles Off / Vibrant / Shadows right away; right opens strength and quality.
+        // Shaders: left cycles Off / Sun Rays right away; right opens strength and quality.
         shaderButton = Button.builder(shaderLabel(), button -> {
             VBVShaders.cyclePreset();
             VBVConfigStore.saveAll();

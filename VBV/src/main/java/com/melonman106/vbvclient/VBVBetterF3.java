@@ -193,15 +193,18 @@ public final class VBVBetterF3 {
 
     private static Section systemSection(Minecraft mc) {
         Runtime runtime = Runtime.getRuntime();
-        long usedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024L * 1024L);
-        long maxMb = runtime.maxMemory() / (1024L * 1024L);
+        // The watchdog reads the browser's own heap counters; Runtime.maxMemory() is constant-folded
+        // to a meaningless value on TeaVM, so it is only the fallback.
+        long usedMb = VBVMemory.usedMb();
+        long maxMb = VBVMemory.maxMb();
         Section section = new Section("System");
         section.add("Client", "Eaglercraft 26.2 | VBV 2.0");
         section.add("Runtime", System.getProperty("java.version", "browser"));
         section.add("Platform", System.getProperty("os.name", "browser"));
         section.add("Memory", usedMb + " / " + maxMb + " MB"
-            + (maxMb > 0 ? String.format(Locale.ROOT, " (%.0f%%)", usedMb * 100.0D / maxMb) : ""),
-            maxMb > 0 && usedMb * 100L / maxMb > 85L ? WARN : VALUE);
+            + (maxMb > 0 ? String.format(Locale.ROOT, " (%.0f%%)", usedMb * 100.0D / Math.max(1L, maxMb)) : "")
+            + (VBVMemory.usingBrowserStats() ? " browser" : ""),
+            maxMb > 0 && usedMb * 100L / Math.max(1L, maxMb) > 85L ? WARN : VALUE);
         section.add("Window", mc.getWindow().getWidth() + "x" + mc.getWindow().getHeight()
             + " (scale " + mc.getWindow().getGuiScale() + ")");
         section.add("Cores", Integer.toString(runtime.availableProcessors()));

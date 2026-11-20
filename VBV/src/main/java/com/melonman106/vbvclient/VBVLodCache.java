@@ -62,6 +62,11 @@ public final class VBVLodCache {
         return version;
     }
 
+    /** Rough retained size of every remembered chunk: 16 heights, 16 colours and the entry itself. */
+    public static long estimatedBytes() {
+        return (long) size() * (GRID * GRID * (2L + 4L) + 24L);
+    }
+
     public static int size() {
         return COLUMNS.size();
     }

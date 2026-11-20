@@ -418,6 +418,13 @@ shaders_hook = PATCH_DIR / "patch_shaders_hook.py"
 if shaders_hook.is_file():
     subprocess.run([sys.executable, str(shaders_hook), *sys.argv[1:]], check=True)
 
+# Asset pack unpack: the whole pack is one compressed stream that used to inflate in a single
+# blocking call, which is what froze the tab on a slow machine. This slices it and drives the boot
+# splash bar; it changes nothing about which assets are unpacked.
+epk_yield = PATCH_DIR / "patch_epk_yield.py"
+if epk_yield.is_file():
+    subprocess.run([sys.executable, str(epk_yield), *sys.argv[1:]], check=True)
+
 # Start-up timer: records how long the resource reload and each of its listeners take.
 # Records timestamps only; it never changes what the game loads.
 boot_hooks = PATCH_DIR / "patch_boot_hooks.py"

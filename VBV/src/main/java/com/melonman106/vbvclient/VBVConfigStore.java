@@ -130,7 +130,7 @@ public final class VBVConfigStore {
         VBVCem.setEnabled(bool("cem.enabled", true));
         VBVCem.setAnimationsEnabled(bool("cem.animations", true));
         VBVCem.setAnimationRange(integer("cem.animRange", 48, 0, 512));
-        VBVShaders.setPreset(integer("shaders.preset", 0, 0, 2));
+        VBVShaders.setPreset(integer("shaders.preset", 0, 0, 1));
         VBVShaders.setGuard(bool("shaders.guard", true));
         VBVPanoramaOverlay.selectById(read("panorama.selected", VBVPanoramaOverlay.DEFAULT_ID));
         VBVPanoramaOverlay.setMotion(bool("panorama.motion", true));

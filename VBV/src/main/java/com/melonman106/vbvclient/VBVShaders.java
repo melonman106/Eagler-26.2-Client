@@ -16,47 +16,44 @@ import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.material.FogType;
 
 /**
- * VBV Shaders: two post-processing presets that run on the finished world image, before the hand
- * and the HUD are drawn.
+ * VBV Shaders: one post-processing effect, <b>Sun Rays</b>.
  *
- * <ul>
- *   <li><b>Vibrant</b> - colour only: a cartoon toon band, strong vibrance, a gentle contrast
- *       curve, a little warmth and a vignette. Needs no depth data. At High quality it also draws
- *       a cheap four-tap outline on edges.</li>
- *   <li><b>Shadows</b> - Vibrant plus ambient occlusion and sun contact shadows. These are
- *       screen-space effects computed from the world depth buffer, not real shadow maps: they
- *       darken the ground and walls next to things that block the sun, but only for geometry that is
- *       on screen.</li>
- * </ul>
+ * <p>The world is already on screen when this runs, so the effect never touches geometry or
+ * lighting: it walks a handful of samples along the line from each pixel towards the sun, keeps
+ * the ones that land on sky (the depth buffer says sky is exactly the far plane), and adds the
+ * result back as a warm, saturated glow with a soft core around the sun. Everything the old
+ * presets did - toon banding, vibrance, contrast, warmth, vignette, outlines and the screen-space
+ * shadows - has been removed.</p>
  *
- * The shaders read their settings (sun direction, field of view, strengths...) from a tiny 8x1
- * data texture that is rewritten every frame. If anything fails, that preset switches itself off
- * (Shadows falls back to Vibrant) and the game keeps rendering normally.
+ * <p>Cost is one screen-sized pass with 6 / 10 / 14 depth taps depending on the quality setting,
+ * so it is cheaper than the old Vibrant pass at Low and Medium. The FPS guard from before is still
+ * here: a preset that cannot hold the frame rate switches itself off instead of costing frames.</p>
+ *
+ * <p>The shader reads its settings from a tiny 8x1 data texture that is rewritten every frame
+ * (sun direction in view space, strength, quality, field of view). If anything fails, the effect
+ * switches itself off and the game keeps rendering normally.</p>
  */
 public final class VBVShaders {
     public static final int OFF = 0;
-    public static final int VIBRANT = 1;
-    public static final int SHADOWS = 2;
+    public static final int SUN_RAYS = 1;
 
-    private static final Identifier DATA_ID = Identifier.fromNamespaceAndPath("vbvclient", "textures/effect/vbv_data.png");
-    private static final Identifier VIBRANT_CHAIN = Identifier.fromNamespaceAndPath("vbvclient", "vbv_vibrant");
-    private static final Identifier SHADOWS_CHAIN = Identifier.fromNamespaceAndPath("vbvclient", "vbv_shadows");
+    private static final Identifier DATA_ID =
+        Identifier.fromNamespaceAndPath("vbvclient", "textures/effect/vbv_data.png");
+    private static final Identifier RAYS_CHAIN = Identifier.fromNamespaceAndPath("vbvclient", "vbv_sunrays");
     private static final int[] STRENGTH_STEPS = { 50, 75, 100, 125, 150 };
 
     private static int preset = OFF;
     private static int quality = 2;
     private static int strength = 100;
 
-    private static boolean shadowsFailed;
-    private static boolean vibrantFailed;
+    private static boolean raysFailed;
     private static String lastError = "";
 
     /**
-     * The performance guard. A post chain cannot be free: it is at least one more full-screen pass
-     * over the frame. Rather than slow the game down on a machine that cannot afford it, the guard
-     * watches the smoothed FPS and, after a few seconds below {@link #GUARD_FPS}, turns the preset
-     * off for the session (the player can switch it back on, which re-arms the guard). It is on by
-     * default and can be turned off in the shader options.
+     * The performance guard. A post chain is at least one more full-screen pass over the frame.
+     * Rather than slow the game down on a machine that cannot afford it, the guard watches the
+     * smoothed FPS and, after a few seconds below {@link #GUARD_FPS}, turns the effect off for the
+     * session (the player can switch it back on, which re-arms the guard).
      */
     private static final int GUARD_FPS = 40;
     private static final long GUARD_MS = 4000L;
@@ -74,29 +71,34 @@ public final class VBVShaders {
     public static int getPreset() { return preset; }
 
     public static void setPreset(int value) {
-        int clamped = Math.max(OFF, Math.min(SHADOWS, value));
+        int clamped = value <= OFF ? OFF : SUN_RAYS;
         if (clamped != preset) {
             preset = clamped;
-            // Give a preset another chance when the player picks it again.
-            shadowsFailed = false;
-            vibrantFailed = false;
+            // Give the effect another chance when the player picks it again.
+            raysFailed = false;
             lastError = "";
-            // Picking a preset by hand also re-arms the performance guard.
+            // Picking it by hand also re-arms the performance guard.
             guardTripped = false;
             lowFpsSince = 0L;
         }
     }
 
-    public static void cyclePreset() { setPreset(preset == SHADOWS ? OFF : preset + 1); }
+    public static void cyclePreset() { setPreset(preset == SUN_RAYS ? OFF : SUN_RAYS); }
 
     public static String presetName() {
-        return switch (preset) { case VIBRANT -> "Vibrant"; case SHADOWS -> "Shadows"; default -> "Off"; };
+        return preset == SUN_RAYS ? "Sun Rays" : "Off";
     }
 
     public static int getQuality() { return quality; }
     public static void setQuality(int value) { quality = Math.max(1, Math.min(3, value)); }
     public static void cycleQuality() { quality = quality >= 3 ? 1 : quality + 1; }
-    public static String qualityName() { return switch (quality) { case 1 -> "Low (colour)"; case 3 -> "High (outline)"; default -> "Medium"; }; }
+    public static String qualityName() {
+        return switch (quality) {
+            case 1 -> "Low (6 rays)";
+            case 3 -> "High (14 rays)";
+            default -> "Medium (10 rays)";
+        };
+    }
 
     public static int getStrength() { return strength; }
 
@@ -135,7 +137,7 @@ public final class VBVShaders {
 
     /**
      * Called about four times a second with the smoothed FPS. Below {@link #GUARD_FPS} for
-     * {@link #GUARD_MS} the preset switches itself off once, so the shader can never be the reason
+     * {@link #GUARD_MS} the effect switches itself off once, so the shader can never be the reason
      * the game is unplayable.
      */
     public static void tickGuard(int fps) {
@@ -161,14 +163,10 @@ public final class VBVShaders {
         }
     }
 
-    /** Short note for the settings screens when a preset had to switch itself off, or "". */
+    /** Short note for the settings screens when the effect had to switch itself off, or "". */
     public static String statusNote() {
-        if (guardTripped) return "Shaders were turned off to protect the frame rate";
-        if (preset == OFF) return "";
-        if (preset == SHADOWS && shadowsFailed && !vibrantFailed) return "Shadows unavailable here - using Vibrant";
-        if ((preset == SHADOWS && shadowsFailed && vibrantFailed) || (preset == VIBRANT && vibrantFailed)) {
-            return "Shaders unavailable here (turned themselves off)";
-        }
+        if (guardTripped) return "Sun rays were turned off to protect the frame rate";
+        if (preset == SUN_RAYS && raysFailed) return "Sun rays unavailable here (turned themselves off)";
         return "";
     }
 
@@ -178,7 +176,7 @@ public final class VBVShaders {
 
     /**
      * Called once per frame from GameRenderer.renderLevel, after the world is drawn and before
-     * the hand. Never throws: any problem switches the preset off instead.
+     * the hand. Never throws: any problem switches the effect off instead.
      */
     public static void apply(Minecraft mc, RenderTarget main, GraphicsResourceAllocator pool,
                              LevelRenderState levelState, boolean supported) {
@@ -186,36 +184,32 @@ public final class VBVShaders {
             skyExposure = -1.0F;
             return;
         }
-        int effective = preset;
-        if (effective == SHADOWS && shadowsFailed) effective = VIBRANT;
-        if (effective == VIBRANT && vibrantFailed) return;
+        if (raysFailed) return;
         try {
             if (mc.level == null) return;
             CameraRenderState camera = levelState.cameraRenderState;
             if (!camera.initialized || camera.isPanoramicMode) return;
             if (!supported) {
-                fail(effective, "this graphics backend cannot run post effects");
+                fail("this graphics backend cannot run post effects");
                 return;
             }
             if (!ensureDataTexture(mc)) return;
-            writeData(mc, camera, levelState.skyRenderState, effective);
-            PostChain chain = mc.getShaderManager().getOptionalPostChain(
-                effective == SHADOWS ? SHADOWS_CHAIN : VIBRANT_CHAIN, LevelTargetBundle.MAIN_TARGETS);
+            writeData(mc, camera, levelState.skyRenderState);
+            PostChain chain = mc.getShaderManager().getOptionalPostChain(RAYS_CHAIN, LevelTargetBundle.MAIN_TARGETS);
             if (chain == null) {
-                fail(effective, "the effect did not compile on this graphics card");
+                fail("the effect did not compile on this graphics card");
                 return;
             }
             chain.process(main, pool);
         } catch (Throwable error) {
-            fail(effective, "renderer error: " + error);
+            fail("renderer error: " + error);
         }
     }
 
-    private static void fail(int which, String reason) {
-        if (which == SHADOWS) shadowsFailed = true;
-        else vibrantFailed = true;
-        lastError = (which == SHADOWS ? "Shadows: " : "Vibrant: ") + reason;
-        System.err.println("[VBV Shaders] " + lastError + "; switched off.");
+    private static void fail(String reason) {
+        raysFailed = true;
+        lastError = reason;
+        System.err.println("[VBV Shaders] Sun Rays: " + lastError + "; switched off.");
     }
 
     private static boolean ensureDataTexture(Minecraft mc) {
@@ -234,7 +228,7 @@ public final class VBVShaders {
         return true;
     }
 
-    private static void writeData(Minecraft mc, CameraRenderState camera, SkyRenderState sky, int effective) {
+    private static void writeData(Minecraft mc, CameraRenderState camera, SkyRenderState sky) {
         boolean overworld = sky.skybox == DimensionType.Skybox.OVERWORLD;
         float[] sunWorld = VBVShaderMath.sunWorld(sky.sunAngle);
         float[] sunView = VBVShaderMath.toView(sunWorld, camera.yRot, camera.xRot);
@@ -242,33 +236,22 @@ public final class VBVShaders {
         float rain = overworld ? VBVShaderMath.clamp01(1.0F - sky.rainBrightness) : 0.0F;
         float daylight = overworld ? VBVShaderMath.smoothstep(-0.02F, 0.25F, sunWorld[1]) : 0.0F;
 
-        // Sun shadows only make sense where the sun reaches: not in caves, not under water.
+        // The rays only make sense where the sky is actually visible: not in caves, not under water.
         float targetExposure = VBVShaderMath.clamp01(mc.level.getBrightness(LightLayer.SKY, camera.blockPos) / 15.0F);
         if (camera.fogType == FogType.WATER) targetExposure = 0.0F;
         skyExposure = skyExposure < 0.0F ? targetExposure : skyExposure + (targetExposure - skyExposure) * 0.06F;
-        float sunStrength = daylight * (1.0F - 0.85F * rain) * skyExposure * skyExposure;
-
-        float k = strength / 100.0F;
-        boolean shadows = effective == SHADOWS;
-        // The cartoon look: more saturation than before, a firm toon band, and a little less
-        // contrast so the bands do not clip. Shadows trades a bit of banding for the occlusion.
-        float saturation = 1.0F + (shadows ? 0.20F : 0.28F) * k;
-        float contrast = (shadows ? 0.20F : 0.24F) * k;
-        float vignette = (shadows ? 0.14F : 0.16F) * k;
-        float toon = (shadows ? 0.60F : 0.75F) * k;
-        float warmth = 0.035F * k;
-        float ao = shadows ? Math.min(0.8F * k, 1.0F) : 0.0F;
-        float shadow = shadows ? Math.min(0.85F * k, 1.0F) : 0.0F;
+        float sunStrength = daylight * (1.0F - 0.85F * rain) * skyExposure;
 
         float projection = camera.projectionMatrix.m11();
         float tanHalfFov = projection > 0.01F ? 1.0F / projection : 0.7F;
-        int far = Math.max(8, Math.min(65535, Math.round(camera.depthFar)));
 
         NativeImage pixels = dataTexture.getPixels();
-        pixels.setPixelABGR(0, 0, VBVShaderMath.packAbgr(sunView[0] * 0.5F + 0.5F, sunView[1] * 0.5F + 0.5F, sunView[2] * 0.5F + 0.5F, sunStrength));
-        pixels.setPixelABGR(1, 0, (VBVShaderMath.toByte(quality / 3.0F) << 24) | ((far & 255) << 16) | (((far >> 8) & 255) << 8));
-        pixels.setPixelABGR(2, 0, VBVShaderMath.packAbgr(saturation / 2.0F, contrast, vignette, toon));
-        pixels.setPixelABGR(3, 0, VBVShaderMath.packAbgr(ao, shadow, shadows ? 1.0F : 0.0F, 0.5F + warmth * 2.0F));
+        // Texel 0: sun direction in view space, remapped to 0..1, with the strength in alpha.
+        pixels.setPixelABGR(0, 0, VBVShaderMath.packAbgr(sunView[0] * 0.5F + 0.5F, sunView[1] * 0.5F + 0.5F,
+            sunView[2] * 0.5F + 0.5F, sunStrength));
+        // Texel 1: quality level as a 0..1 fraction.
+        pixels.setPixelABGR(1, 0, VBVShaderMath.toByte(quality / 3.0F) << 24);
+        // Texel 4: half the field of view's tangent, 16 bits over 0..4.
         int tan16 = Math.max(0, Math.min(65535, Math.round(tanHalfFov / 4.0F * 65535.0F)));
         pixels.setPixelABGR(4, 0, (((tan16 >> 8) & 255)) | ((tan16 & 255) << 8));
         // The last texel's alpha says "this data is real": a never-written texture passes the frame through.
