@@ -234,6 +234,12 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
 
 - After the game finishes loading you land on a "press any button to begin" screen over the panorama
   (once per launch). The bottom-left corner shows how long the resource reload took.
+- The launch countdown and the early-load page that prints "Unpacking assets..." use the same dark
+  VBV screen as the in-game loader: wordmark, accent rule, segmented bar with a travelling highlight,
+  the percentage on the right and the running step on the left, so a cold start is one continuous
+  screen instead of two white pages followed by the real one.
+- The game opens on the main menu. The profile/skin screen that upstream puts in front of the title
+  screen is skipped at start-up (it is still one click away on the title screen and in Extras > Hero).
 - **Loading screen**: while resources reload, the red Mojang screen is replaced by a dark VBV screen
   with the wordmark, a segmented progress bar with a sweeping light (so you can tell the game is
   still working when the percentage sits still), the name of the loading step that is running, the

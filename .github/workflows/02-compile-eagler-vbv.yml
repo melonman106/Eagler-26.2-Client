@@ -255,6 +255,8 @@ jobs:
           grep -q 'VBV_CEM' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/feature/ModelFeatureRenderer.java
           grep -q 'VBV_SHADERS' eaglercraft-u2/game/src/main/java/net/minecraft/client/renderer/GameRenderer.java
           grep -q 'VBV_EPK_YIELD' eaglercraft-u2/platform-teavm/src/main/java/net/lax1dude/eaglercraft/v1_8/internal/teavm/EPKDownloadHelper.java
+          grep -q 'VBV_BOOT_SPLASH' eaglercraft-u2/target_teavm/src/web/index.html
+          grep -q 'VBV_SKIP_PROFILE' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/Gui.java
           for shader_file in post_effect/vbv_sunrays.json shaders/post/vbv_composite.fsh; do
             test -s "eaglercraft-u2/game/src/main/resources/assets/vbvclient/$shader_file" || { echo "::error::VBV shader resource missing from the generated game: $shader_file"; exit 1; }
           done

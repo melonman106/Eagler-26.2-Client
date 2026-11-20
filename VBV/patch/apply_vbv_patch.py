@@ -412,6 +412,18 @@ cem_hooks = PATCH_DIR / "patch_cem_hooks.py"
 if cem_hooks.is_file():
     subprocess.run([sys.executable, str(cem_hooks), *sys.argv[1:]], check=True)
 
+# Boot pages: the launch countdown and the early-load splash that prints "Unpacking assets..." are
+# rebuilt in the same dark VBV style as the in-game loading screen. Markup and CSS only.
+boot_splash = PATCH_DIR / "patch_boot_splash.py"
+if boot_splash.is_file():
+    subprocess.run([sys.executable, str(boot_splash), *sys.argv[1:]], check=True)
+
+# Start-up flow: skip the profile/skin screen that upstream wraps around the title screen, so the
+# game opens on the main menu. The editor is still reachable from the title screen.
+skip_profile = PATCH_DIR / "patch_skip_profile_screen.py"
+if skip_profile.is_file():
+    subprocess.run([sys.executable, str(skip_profile), *sys.argv[1:]], check=True)
+
 # Shaders: Vibrant / Shadows post effects. One hook in GameRenderer.renderLevel, next to the Shine
 # bloom block the upstream patch adds, so it has to run after that stage. Inert while set to Off.
 shaders_hook = PATCH_DIR / "patch_shaders_hook.py"
