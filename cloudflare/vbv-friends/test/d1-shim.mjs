@@ -1,11 +1,15 @@
 // A just-big-enough stand-in for the parts of Cloudflare D1 the Worker uses, on top of node:sqlite,
 // so the real schema and the real queries can be tested without a Cloudflare account.
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 export function createDb() {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(readFileSync(new URL("../migrations/0001_init.sql", import.meta.url), "utf8"));
+  // Every migration, in file-name order, exactly as `wrangler d1 migrations apply` runs them.
+  const dir = new URL("../migrations/", import.meta.url);
+  for (const file of readdirSync(dir).filter((name) => name.endsWith(".sql")).sort()) {
+    sqlite.exec(readFileSync(new URL(file, dir), "utf8"));
+  }
   return {
     sqlite,
     prepare(sql) {
