@@ -66,7 +66,7 @@ public final class VBVFriends {
     public static String api() { return getJS("api"); }
     public static int version() { return versionJS(); }
 
-    /** Friends, one per row: {@code id TAB name TAB online(1/0) TAB server}. */
+    /** Friends, one per row: {@code id TAB name TAB online(1/0) TAB server TAB voiceCount TAB voiceRoom}. */
     public static String[] friendRows() { return rows("friends"); }
     /** Requests other players sent to you: {@code id TAB name}. */
     public static String[] incomingRows() { return rows("incoming"); }
@@ -118,7 +118,7 @@ public final class VBVFriends {
             if (!state.api) throw new Error("No Friends service address is set");
             let response;
             try {
-              response = await fetch(state.api + "/friends/" + path, {
+              response = await fetch(state.api + "/" + (path.indexOf("/") >= 0 ? path : "friends/" + path), {
                 method: "POST", headers: { "content-type": "application/json" },
                 cache: "no-store", body: JSON.stringify(body || {})
               });
@@ -139,6 +139,7 @@ public final class VBVFriends {
             state.session = null; state.friends = []; state.incoming = []; state.outgoing = [];
             store(SESSION_KEY, null);
             state.status = message; bump();
+            try { if (window.VBVVoiceBridge) window.VBVVoiceBridge.reset(); } catch (_) {}
           }
           async function authed(path, extra) {
             if (!state.session) throw new Error("Create a Friends account first");
@@ -248,6 +249,8 @@ public final class VBVFriends {
             initialized: true,
             call: function (name, a, b) { const fn = actions[name]; if (fn) fn(a, b); },
             watch: function (open) { state.watching = !!open; if (open) state.lastList = 0; },
+            authed: authed,
+            session: function () { return state.session; },
             setServer: setServer,
             version: function () { return state.version; },
             get: function (key) {
@@ -256,6 +259,7 @@ public final class VBVFriends {
                 case "busy": return state.busy ? "1" : "0";
                 case "hidden": return state.hidden ? "1" : "0";
                 case "name": return state.session ? state.session.name : "";
+                case "id": return state.session ? state.session.id : "";
                 case "status": return state.status;
                 case "api": return state.api;
                 default: return "";
@@ -265,7 +269,7 @@ public final class VBVFriends {
               const clean = s => String(s == null ? "" : s).replace(/[\\t\\r\\n]/g, " ");
               if (kind === "friends") {
                 return state.friends.map(f => f.id + "\\t" + clean(f.name) + "\\t" + (f.online ? "1" : "0") +
-                  "\\t" + clean(f.server)).join("\\n");
+                  "\\t" + clean(f.server) + "\\t" + (f.voice | 0) + "\\t" + clean(f.voiceRoom)).join("\\n");
               }
               const rows = kind === "incoming" ? state.incoming : state.outgoing;
               return rows.map(r => r.id + "\\t" + clean(r.name)).join("\\n");
