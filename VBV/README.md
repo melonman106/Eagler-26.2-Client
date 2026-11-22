@@ -35,7 +35,7 @@ The intended workflow is to port one small mod feature at a time, add only the A
 
 - Native mod viewer and mod details screens, available from the main menu and the in-game Escape menu.
 - `V` opens the Mods screen; `M` opens the explored-chunk world map.
-- Uku's Armor HUD, Simple HUD Enhanced, AppleSkin-style hunger information, Gamma Utils, Zoomify, Shine lighting/bloom controls, and other native client features.
+- Uku's Armor HUD, Simple HUD Enhanced, AppleSkin-style hunger information, Gamma Utils, Zoomify, and other native client features.
 - Embedded resource-pack assets are copied into Minecraft's actual `assets/<namespace>/...` resource tree.
 - Client-only explored-chunk world map and waypoints, with an Export Backup download and a visible warning if browser storage writes fail.
 - GitHub Actions compile and single-HTML packaging pipeline.
@@ -62,7 +62,6 @@ The client project preserves normal 26.2 textures rather than replacing them wit
 - Jade, AppleSkin, BetterF3, Gamma, Mouse Tweaks, ShulkerBoxTooltip, Simple HUD, first-person animation and Armor HUD settings are persisted through the Eagler runtime storage API. Uku's Armor HUD screen layout is unchanged.
 - Server profiles can be listed, applied and deleted. Their saved render-distance setting is applied when the matching server is joined; the profile editor supports up to 128 chunks.
 - The U2 render-distance option ceiling is raised to 128. Actual server view distance and browser/GPU memory limits can still impose a lower effective distance.
-- Shine now attempts its bundled screen-space bloom post-chain on the supported renderer. It disables itself after a renderer error; other lighting controls remain experimental.
 - Options > Modded Settings > **Entity Culling** skips drawing entities and block entities (chests, signs, banners...) that are fully hidden behind solid blocks. Entities closer than 10 blocks or farther than 96 blocks, beacon beams and end portals are never culled, results are cached for 6 frames, and the ray work is capped per frame. If the culler ever throws it switches itself off for the session.
 - **FPS Meter** (same screen) draws an FPS readout with a frame-time graph and a spike log on the HUD, plus a `Models:` line (how many entities ran their animation formulas this frame, how many were beyond the range, and the milliseconds they cost); **Copy Perf Report** copies average/1%-low FPS and the worst spikes to the clipboard, so lag can be reported with numbers.
 
@@ -77,19 +76,6 @@ Animations: after the vanilla model has posed itself for an entity, the pack's `
 Limits: no `.properties` rules (variants by name, NBT, biome or height), no random entity textures, no per-part `texture`, and only each entity's main model is replaced (armor, saddle, collar, charge and other layer models keep the vanilla look). If a JEM cannot be parsed or baked, that entity falls back to its vanilla model and a line is written to the browser console (`[VBV CEM]`, including a summary of how many parts and animation lines each model got). The placement rules were checked against real Fresh Animations files with an offline test (a creeper, zombie and pig end up where the vanilla bodies are) and every one of the pack's 189 `.jem` files and 16,697 animation lines parse, but the result has not been run in-game: report any entity that looks wrong together with the pack name.
 
 The format handling follows the OptiFine format as implemented by [Entity Model Features](https://github.com/Traben-0/Entity_Model_Features) (LGPL-3.0), which was used as a behavioural reference; VBV's code is its own.
-
-## Shaders (Sun Rays)
-
-Options > Modded Settings > **Shaders** cycles **Off / Sun Rays** (default **Off**). **Shader Options...** (or Mods > VBV Shaders) sets quality (Low 6 / Medium 10 / High 14 ray taps) and strength (50-150%). Settings apply immediately and are saved.
-
-- One effect: **Sun Rays**. Each pixel walks a few taps towards the sun and keeps the taps that land on sky (the game's reversed-Z depth buffer reads exactly 0 at the far plane), then adds a warm, saturated glow: a hot gold core shading into deep orange at the edge, with a soft halo around the sun.
-- Nothing else is done to the image. The toon brightness band, vibrance, contrast curve, warmth, vignette, four-tap outline and the screen-space ambient occlusion / contact shadows of earlier versions have been removed.
-- It only contributes where the sky is visible: strength is zero at night, in rain, in the Nether/End, in caves and under water, and taps that hit terrain stop contributing so rays do not bleed over walls.
-- The sun direction, strength, quality and field of view are passed in a tiny 8x1 data texture each frame, so changing a setting never reloads anything.
-- Safety: if the chain fails to compile or throws, it switches itself off for the session and the settings screen shows a red note. If the data texture is ever missing, the shader passes the frame through unchanged.
-- Files: `VBVShaders.java` and `VBVShaderMath.java` (settings, per-frame data, hook entry), `patch_shaders_hook.py` (one hook in `GameRenderer.renderLevel`, next to the Shine bloom block), and `patch/resources/assets/vbvclient/{post_effect/vbv_sunrays.json,shaders/post/vbv_composite.fsh}`.
-- It is the only post effect left, so it costs less than the old Vibrant pass at Low and Medium quality. It has **not** been run inside the game or in CI. Please report the browser/GPU and any artefacts.
-- Shine's own bloom (Mods > VBV Shaders > Bloom) is independent and can be combined; leave it off if you already use Sun Rays.
 
 ## Actually 3D Stuff Eagler 26.2 U2 port
 

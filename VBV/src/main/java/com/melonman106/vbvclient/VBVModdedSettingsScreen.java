@@ -21,7 +21,6 @@ public final class VBVModdedSettingsScreen extends Screen {
     private Button meterButton;
     private Button cemButton;
     private Button cemAnimButton;
-    private Button shaderButton;
     private int lodDescY;
     private int descMax = 5;
     private int headingY = 14;
@@ -100,16 +99,6 @@ public final class VBVModdedSettingsScreen extends Screen {
         }).bounds(right, y, half, btnH).build();
         addRenderableWidget(cemAnimButton);
         y += btnH + gap;
-        // Shaders: left cycles Off / Sun Rays right away; right opens strength and quality.
-        shaderButton = Button.builder(shaderLabel(), button -> {
-            VBVShaders.cyclePreset();
-            VBVConfigStore.saveAll();
-            button.setMessage(shaderLabel());
-        }).bounds(left, y, half, btnH).build();
-        addRenderableWidget(shaderButton);
-        addRenderableWidget(Button.builder(Component.literal("Shader Options..."),
-            button -> VBVNav.open(new VBVFeatureConfigScreen(this, "shine", "VBV Shaders"))).bounds(right, y, half, btnH).build());
-        y += btnH + gap;
         addRenderableWidget(Button.builder(Component.literal("Keybinds..."),
             button -> VBVNav.open(new VBVKeybindConfigScreen(this))).bounds(left, y, half, btnH).build());
         addRenderableWidget(Button.builder(Component.literal("Performance Preset"), button -> {
@@ -146,10 +135,6 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private static Component cemAnimLabel() {
         return Component.literal("Model Anim: " + VBVCem.animationsLabel());
-    }
-
-    private static Component shaderLabel() {
-        return Component.literal("Shaders: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"));
     }
 
     private static Component autoQualityLabel() {

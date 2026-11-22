@@ -218,7 +218,6 @@ public final class VBVBetterF3 {
         section.add("Entities", Integer.toString(entities));
         section.add("Frame", VBVPerf.phaseLine(), ACCENT);
         section.add("LOD", VBVLod.name() + (VBVLod.isActive() ? " (" + VBVLod.rangeChunks() + " chunks)" : ""));
-        section.add("Shaders", VBVShaders.presetName());
         String connection = mc.getCurrentServer() == null ? "Singleplayer" : mc.getCurrentServer().ip;
         section.add("Connection", connection);
         return section;

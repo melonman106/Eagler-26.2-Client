@@ -55,20 +55,6 @@ public final class VBVFeatureConfigScreen extends Screen {
             link("Edit Jade position", () -> VBVNav.open(new VBVHudEditorScreen(this, 0)));
         } else if ("shulkerboxtooltip".equals(modId)) {
             option(() -> "Shulker preview: " + onOff(VBVShulkerViewer.enabled), VBVShulkerViewer::toggle);
-        } else if ("shine".equals(modId)) {
-            option(() -> "Shader preset: " + VBVShaders.presetName() + (VBVShaders.statusNote().isEmpty() ? "" : " (!)"), VBVShaders::cyclePreset);
-            option(() -> "Shader quality: " + VBVShaders.qualityName(), VBVShaders::cycleQuality);
-            option(() -> "Shader strength: " + VBVShaders.getStrength() + "%", VBVShaders::cycleStrength);
-            option(() -> "FPS guard: " + onOff(VBVShaders.isGuardEnabled()), VBVShaders::toggleGuard);
-            option(() -> "VBV shader effects: " + onOff(ShineConfig.enabled()), ShineConfig::toggleEnabled);
-            option(() -> "Bloom (optional): " + onOff(ShineConfig.bloom()), ShineConfig::toggleBloom);
-            option(() -> "Colored lighting (optional): " + onOff(ShineConfig.coloredLighting()), ShineConfig::toggleColoredLighting);
-            option(() -> "Rim lighting (optional): " + onOff(ShineConfig.rimLighting()), ShineConfig::toggleRimLighting);
-            option(() -> "Disable vanilla shading: " + onOff(ShineConfig.disabledShading()), ShineConfig::toggleDisabledShading);
-            option(() -> "Quality: " + ShineConfig.qualityLabel(), ShineConfig::cycleQuality);
-            option(() -> "Light radius: " + ShineConfig.lightRadius(), ShineConfig::cycleLightRadius);
-            option(() -> "Bloom strength: " + ShineConfig.bloomStrength(), ShineConfig::cycleBloomStrength);
-            option(() -> "Rim strength: " + ShineConfig.rimStrength(), ShineConfig::cycleRimStrength);
         }
         layoutEntries();
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());
@@ -113,8 +99,6 @@ public final class VBVFeatureConfigScreen extends Screen {
         graphics.fill(width / 2 - 20, 24, width / 2 + 20, 25, VBVTheme.accent());
         String note = "Changes apply immediately. Client hotkeys: Options > Modded Settings > Keybinds.";
         if (height >= 200) graphics.text(font, note, width / 2 - font.width(note) / 2, height - 44, 0xFFAAAAAA, true);
-        String shaderNote = "shine".equals(modId) ? VBVShaders.statusNote() : "";
-        if (!shaderNote.isEmpty() && height >= 200) graphics.text(font, shaderNote, width / 2 - font.width(shaderNote) / 2, height - 54, 0xFFFF6B6B, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 }

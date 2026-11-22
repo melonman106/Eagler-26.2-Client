@@ -36,7 +36,6 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
     "patch_cem_hooks.py",
-    "patch_shaders_hook.py",
     "patch_boot_hooks.py",
     "patch_perf_hooks.py",
     "pack_json_merge.py",
@@ -75,7 +74,6 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(lod_hooks)",
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
     "subprocess.run([sys.executable, str(cem_hooks)",
-    "subprocess.run([sys.executable, str(shaders_hook)",
     "subprocess.run([sys.executable, str(boot_hooks)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
@@ -414,12 +412,6 @@ if boot_splash.is_file():
 skip_profile = PATCH_DIR / "patch_skip_profile_screen.py"
 if skip_profile.is_file():
     subprocess.run([sys.executable, str(skip_profile), *sys.argv[1:]], check=True)
-
-# Shaders: Vibrant / Shadows post effects. One hook in GameRenderer.renderLevel, next to the Shine
-# bloom block the upstream patch adds, so it has to run after that stage. Inert while set to Off.
-shaders_hook = PATCH_DIR / "patch_shaders_hook.py"
-if shaders_hook.is_file():
-    subprocess.run([sys.executable, str(shaders_hook), *sys.argv[1:]], check=True)
 
 # Asset pack unpack: the whole pack is one compressed stream that used to inflate in a single
 # blocking call, which is what froze the tab on a slow machine. This slices it and drives the boot

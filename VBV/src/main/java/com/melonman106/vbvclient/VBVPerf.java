@@ -134,7 +134,6 @@ public final class VBVPerf {
         if (VBVLod.getLevel() < VBVLod.LOW) VBVLod.setLevel(VBVLod.LOW);
         VBVAdaptive.setEnabled(true);
         VBVEntityCulling.setEnabled(true);
-        VBVShaders.setPreset(VBVShaders.OFF);
         if (VBVCem.isEnabled()) VBVCem.setAnimationRange(16);
         // Painting explored chunks into the world map is a per-chunk cost with no frame-rate payoff.
         VBVWorldMap.setTerrainCaptureEnabled(false);
@@ -165,9 +164,8 @@ public final class VBVPerf {
         // summary they use has to be refreshed here rather than inside draw().
         refreshSummary(System.currentTimeMillis());
         VBVAdaptive.tick(fps);
-        // Both of these use the same smoothed FPS: the shader guard switches a preset off rather
-        // than let it cost frames, and the LOD mesh budget shrinks before the far terrain does.
-        VBVShaders.tickGuard(fps);
+        // The LOD mesh budget shrinks from the same smoothed FPS, so the far terrain gives way
+        // before the real chunks do.
         VBVLodRenderer.updateBudget(fps);
         VBVMemory.tick();
         if (meter) {

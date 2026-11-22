@@ -130,13 +130,9 @@ public final class VBVConfigStore {
         VBVCem.setEnabled(bool("cem.enabled", true));
         VBVCem.setAnimationsEnabled(bool("cem.animations", true));
         VBVCem.setAnimationRange(integer("cem.animRange", 48, 0, 512));
-        VBVShaders.setPreset(integer("shaders.preset", 0, 0, 1));
-        VBVShaders.setGuard(bool("shaders.guard", true));
         VBVPanoramaOverlay.selectById(read("panorama.selected", VBVPanoramaOverlay.DEFAULT_ID));
         VBVPanoramaOverlay.setMotion(bool("panorama.motion", true));
         VBVWorldMap.setTerrainCaptureEnabled(bool("worldmap.terrain", false));
-        VBVShaders.setQuality(integer("shaders.quality", 2, 1, 3));
-        VBVShaders.setStrength(integer("shaders.strength", 100, 50, 150));
 
         VBVExtraFeatures.loadSettings(
             bool("gamma.enabled", true), decimal("gamma.strength", 4.0D, 1.0D, 8.0D),
@@ -214,13 +210,9 @@ public final class VBVConfigStore {
         write("cem.enabled", VBVCem.isEnabled());
         write("cem.animations", VBVCem.isAnimationsEnabled());
         write("cem.animRange", VBVCem.animationRange());
-        write("shaders.preset", VBVShaders.getPreset());
         write("panorama.selected", VBVPanoramaOverlay.selectedId());
         write("panorama.motion", VBVPanoramaOverlay.isMotion());
         write("worldmap.terrain", VBVWorldMap.isTerrainCaptureEnabled());
-        write("shaders.quality", VBVShaders.getQuality());
-        write("shaders.strength", VBVShaders.getStrength());
-        write("shaders.guard", VBVShaders.isGuardEnabled());
 
         write("gamma.enabled", VBVExtraFeatures.isGammaFeatureEnabled());
         write("gamma.strength", VBVExtraFeatures.gammaLevel());

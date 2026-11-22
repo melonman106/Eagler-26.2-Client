@@ -327,15 +327,9 @@ walk, which catches the near range the block test skips.
 frames in between, so distant animated mobs cost less without snapping to the vanilla pose.
 - **FPS meter** adds the chunk build / upload / terrain draw phases, the LOD mesh size and rebuild
 time, the auto-quality line and a low-memory warning.
-- **Shaders** are sun rays only: a screen-space pass that samples the sky along the line to the sun
-  and adds a warm, saturated glow with a bright gold core (6 / 10 / 14 taps at Low / Medium / High).
-  The toon band, vibrance, contrast, warmth, vignette, outline and the screen-space shadows are gone.
-  It only contributes where the sky is visible, so it is off at night, in rain, in caves, under water
-  and in the Nether/End. An FPS guard switches it off after four seconds below 40 FPS instead of
-  letting it cost frames; picking it again re-arms the guard.
 - **BetterF3** (F3) is a native port of the mod's layout: gold section titles, dim `Label:` with a
 bright value, a left/right split, and sections for the player, the world, the targeted block or
-entity, the system and rendering (with the frame breakdown, LOD and shader state).
+entity, the system and rendering (with the frame breakdown and LOD state).
 Each section can be switched off in Mods > BetterF3; the compact layout tightens the spacing.
 - **Shields**: a pack written for 1.20 that ships `models/item/shield.json` parented to
 `builtin/entity` has that file skipped at build time. The parent was removed in this version, and its
