@@ -116,13 +116,6 @@ public final class VBVBetterF3 {
         if (showPerformance) {
             right.add(performanceSection(mc));
         }
-        String freecam = VBVFreecam.hudLine();
-        if (freecam != null) {
-            Section camera = new Section("Freecam");
-            camera.add("Camera", freecam.substring("Freecam: ".length()), ACCENT);
-            right.add(camera);
-        }
-
         Font font = mc.font;
         int lineHeight = font.lineHeight + (compact ? 0 : 1);
         int columnWidth = Math.max(120, graphics.guiWidth() / 2 - 8);

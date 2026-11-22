@@ -29,9 +29,6 @@ public final class VBVExtraFeatures {
     static int debugHudY = 6;
     private static boolean betterF3Enabled = true;
     private static boolean fKeyHeld;
-    /** Free camera hotkey; the camera itself lives in {@link VBVFreecam}. */
-    private static final KeyMapping FREECAM_KEY = KeyBindingHelper.registerKeyBinding(
-        new KeyMapping("key.vbv.freecam", InputConstants.Type.KEYSYM, 66, KeyMapping.Category.MISC));
     private VBVExtraFeatures() {}
     /** Force key mappings to register during client bootstrap, before the first key event. */
     public static void initializeKeyBindings() {
@@ -46,7 +43,6 @@ public final class VBVExtraFeatures {
     public static void applyConfiguredBindings() {
         ZOOM_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.ZOOM)));
         GAMMA_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.GAMMA)));
-        FREECAM_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.FREECAM)));
         KeyMapping.resetMapping();
     }
 
@@ -57,7 +53,6 @@ public final class VBVExtraFeatures {
         ZOOM_KEY.setDown(false);
         while (ZOOM_KEY.consumeClick()) { }
         while (GAMMA_KEY.consumeClick()) { }
-        while (FREECAM_KEY.consumeClick()) { }
     }
 
     /** Poll registered mappings from the shared Fabric client-tick event. */
@@ -66,13 +61,9 @@ public final class VBVExtraFeatures {
         if (minecraft.gui.screen() != null) {
             while (GAMMA_KEY.consumeClick()) { }
             while (ZOOM_KEY.consumeClick()) { }
-            while (FREECAM_KEY.consumeClick()) { }
             if (zooming) stopZoom(minecraft);
             return;
         }
-
-        // Handled before the zoom branch, which returns early when zoom is switched off.
-        if (FREECAM_KEY.consumeClick()) VBVFreecam.toggle(minecraft);
 
         if (GAMMA_KEY.consumeClick() && gammaFeatureEnabled) toggleGamma(minecraft);
 

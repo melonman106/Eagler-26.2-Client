@@ -80,7 +80,6 @@ public final class VBVClient {
         // The explored map records the local player's current chunk at end tick.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             VBVExtraFeatures.tick(client);
-            VBVFreecam.tick(client);
             VBVFriends.tick(client);
             VBVWorldMap.tick();
         });

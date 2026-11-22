@@ -188,12 +188,7 @@ public final class VBVLodRenderer {
         double viewX = 0.0;
         double viewZ = 0.0;
         boolean cull = false;
-        if (VBVFreecam.isActive()) {
-            // The free camera is the one being rendered, so its facing decides what is behind it.
-            viewX = VBVFreecam.forwardX();
-            viewZ = VBVFreecam.forwardZ();
-            cull = true;
-        } else if (mc.player != null) {
+        if (mc.player != null) {
             Vec3 look = mc.player.getViewVector(1.0F);
             double length = Math.sqrt(look.x * look.x + look.z * look.z);
             if (length > 0.1) {

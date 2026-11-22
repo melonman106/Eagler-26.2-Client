@@ -333,17 +333,9 @@ time, the auto-quality line and a low-memory warning.
   It only contributes where the sky is visible, so it is off at night, in rain, in caves, under water
   and in the Nether/End. An FPS guard switches it off after four seconds below 40 FPS instead of
   letting it cost frames; picking it again re-arms the guard.
-- **Free camera** (default **B**, rebindable in Modded Settings > Keybinds) detaches the camera and
-flies it with the normal movement keys (sprint for 4x speed, jump/sneak for up/down). The player
-stands still where the camera left: movement input is cleared, the mouse turns the camera rather
-than the player, and attacking, using items or blocks and mining are all suppressed, so nothing is
-placed, hit or opened. It flies only through chunks that are already loaded - at the edge of the
-loaded area it stops and slides along the edge, so it never makes the game load terrain while you
-fly. Turning it off (or leaving the world) puts the camera straight back on the player, who never
-moved.
 - **BetterF3** (F3) is a native port of the mod's layout: gold section titles, dim `Label:` with a
 bright value, a left/right split, and sections for the player, the world, the targeted block or
-entity, the system, rendering (with the frame breakdown, LOD and shader state) and the free camera.
+entity, the system and rendering (with the frame breakdown, LOD and shader state).
 Each section can be switched off in Mods > BetterF3; the compact layout tightens the spacing.
 - **Shields**: a pack written for 1.20 that ships `models/item/shield.json` parented to
 `builtin/entity` has that file skipped at build time. The parent was removed in this version, and its

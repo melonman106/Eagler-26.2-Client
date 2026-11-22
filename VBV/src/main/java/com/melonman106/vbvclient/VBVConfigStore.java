@@ -151,8 +151,7 @@ public final class VBVConfigStore {
             integer("keys.mods", VBVKeybinds.DEFAULT_MODS, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.map", VBVKeybinds.DEFAULT_MAP, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.zoom", VBVKeybinds.DEFAULT_ZOOM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
-            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
-            integer("keys.freecam", VBVKeybinds.DEFAULT_FREECAM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
+            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
     }
 
     public static void saveAll() {
@@ -241,7 +240,6 @@ public final class VBVConfigStore {
         write("keys.map", VBVKeybinds.code(VBVKeybinds.MAP));
         write("keys.zoom", VBVKeybinds.code(VBVKeybinds.ZOOM));
         write("keys.gamma", VBVKeybinds.code(VBVKeybinds.GAMMA));
-        write("keys.freecam", VBVKeybinds.code(VBVKeybinds.FREECAM));
         flush();
     }
 }

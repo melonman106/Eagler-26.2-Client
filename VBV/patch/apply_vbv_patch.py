@@ -34,7 +34,6 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_pack_modrinth_button.py",
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
-    "patch_freecam_hooks.py",
     "patch_entity_culling_hooks.py",
     "patch_cem_hooks.py",
     "patch_shaders_hook.py",
@@ -74,7 +73,6 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(pack_installer_hook)",
     "subprocess.run([sys.executable, str(screen_resize_guard)",
     "subprocess.run([sys.executable, str(lod_hooks)",
-    "subprocess.run([sys.executable, str(freecam_hooks)",
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
     "subprocess.run([sys.executable, str(cem_hooks)",
     "subprocess.run([sys.executable, str(shaders_hook)",
@@ -392,13 +390,6 @@ if screen_resize_guard.is_file():
 lod_hooks = PATCH_DIR / "patch_lod_hooks.py"
 if lod_hooks.is_file():
     subprocess.run([sys.executable, str(lod_hooks), *sys.argv[1:]], check=True)
-
-# Free camera: a spectator-style detached camera that leaves the player standing where they were.
-# Six small hooks in Camera, MouseHandler, KeyboardInput, Minecraft and ItemInHandRenderer; inert
-# while the free camera is off.
-freecam_hooks = PATCH_DIR / "patch_freecam_hooks.py"
-if freecam_hooks.is_file():
-    subprocess.run([sys.executable, str(freecam_hooks), *sys.argv[1:]], check=True)
 
 # Entity Culling: skip drawing entities and block entities hidden behind solid blocks. Three
 # small hooks in LevelExtractor; inert when the Entity Culling setting is switched off.
