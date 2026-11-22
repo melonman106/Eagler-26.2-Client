@@ -196,6 +196,51 @@ if old_map_icon in upstream:
     upstream = upstream.replace(old_map_icon, new_map_icon, 1)
 elif new_map_icon not in upstream:
     raise SystemExit("::error::Could not locate the native map icon mapping in the pinned upstream patch")
+
+
+# The pinned injector predates the shader removal. It still declares a Shine ("VBV Shaders") mod
+# entry, requires its icon and post-chain assets, and injects lightmap/bloom hooks that call
+# ShineConfig. That class is gone from VBV/src, so leaving those parts in means either a hard stop
+# (the deleted Shine.png) or Java that references a missing class. Cut them out of the downloaded
+# script; every anchor has to match exactly once so a future pin bump fails loudly instead of
+# silently bringing the shaders back.
+def strip_removed_shaders(script: bytes) -> bytes:
+    icon_entry = b'    "shine": "Shine.png",\n'
+    if script.count(icon_entry) != 1:
+        raise SystemExit("::error::Could not locate the Shine mod icon entry in the pinned upstream patch")
+    script = script.replace(icon_entry, b"", 1)
+
+    def cut(blob, start, end, label):
+        try:
+            begin = blob.index(start)
+            finish = blob.index(end, begin) + len(end)
+        except ValueError:
+            raise SystemExit(f"::error::Could not locate the {label} block in the pinned upstream patch") from None
+        return blob[:begin] + blob[finish:]
+
+    script = cut(
+        script,
+        b"# Install the clean-room Shine post-processing assets into the generated game.\n",
+        b'print("Installed Shine screen-space bloom post-chain and shader assets.")\n',
+        "Shine asset install",
+    )
+    script = cut(
+        script,
+        b"# Apply the supported part of Shine to the actual Eagler lightmap.",
+        b'    print("Shine lightmap settings already connected.")\n',
+        "Shine lightmap",
+    )
+    script = cut(
+        script,
+        b"# Run a real screen-space highlight/bloom pass after the world and optional\n",
+        b'    print("Shine screen-space bloom hook already present.")\n',
+        "Shine bloom",
+    )
+    return script
+
+
+upstream = strip_removed_shaders(upstream)
+print("[VBV shaders] Shine icon, assets and injected hooks removed from the pinned upstream patch")
 # Keep the custom bitmap font atlases (Qrafty replaces ascii/accented/nonlatin textures) and
 # MERGE pack font definitions (Enchant Icons, Boss Bar) into the native ones. Copying a pack's
 # font JSON over the native file deleted every native provider and turned all text into tofu;
