@@ -238,6 +238,13 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
   VBV screen as the in-game loader: wordmark, accent rule, segmented bar with a travelling highlight,
   the percentage on the right and the running step on the left, so a cold start is one continuous
   screen instead of two white pages followed by the real one.
+- The world-loading screens use the same look as the menu: while the integrated server starts
+  ("Starting up integrated server", "Preparing spawn area") and while the single-thread path builds
+  terrain, you get the dark backdrop, the VBV wordmark and the segmented bar instead of the tiled
+  dirt screen and the thin green vanilla bar. The highlight keeps travelling along the bar and the
+  elapsed timer keeps counting while a step runs, so a slow world never looks frozen. The first
+  worldgen bursts are also shorter (48 ms instead of 128 ms), so the page repaints more often while
+  the spawn area is generated.
 - The game opens on the main menu. The profile/skin screen that upstream puts in front of the title
   screen is skipped at start-up (it is still one click away on the title screen and in Extras > Hero).
 - **Loading screen**: while resources reload, the red Mojang screen is replaced by a dark VBV screen

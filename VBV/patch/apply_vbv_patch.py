@@ -37,6 +37,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_entity_culling_hooks.py",
     "patch_cem_hooks.py",
     "patch_boot_hooks.py",
+    "patch_loading_theme.py",
     "patch_perf_hooks.py",
     "pack_json_merge.py",
     "patch_keybind_dispatch.py",
@@ -74,6 +75,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(lod_hooks)",
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
     "subprocess.run([sys.executable, str(cem_hooks)",
+    "subprocess.run([sys.executable, str(loading_theme)",
     "subprocess.run([sys.executable, str(boot_hooks)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
@@ -412,6 +414,12 @@ if boot_splash.is_file():
 skip_profile = PATCH_DIR / "patch_skip_profile_screen.py"
 if skip_profile.is_file():
     subprocess.run([sys.executable, str(skip_profile), *sys.argv[1:]], check=True)
+
+# World loading: the integrated-server busy screen and the single-thread terrain screen get the VBV
+# look, and the first worldgen bursts are shortened so the page repaints while the spawn builds.
+loading_theme = PATCH_DIR / "patch_loading_theme.py"
+if loading_theme.is_file():
+    subprocess.run([sys.executable, str(loading_theme), *sys.argv[1:]], check=True)
 
 # Asset pack unpack: the whole pack is one compressed stream that used to inflate in a single
 # blocking call, which is what froze the tab on a slow machine. This slices it and drives the boot
