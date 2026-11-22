@@ -218,12 +218,28 @@ def strip_removed_shaders(script: bytes) -> bytes:
             raise SystemExit(f"::error::Could not locate the {label} block in the pinned upstream patch") from None
         return blob[:begin] + blob[finish:]
 
-    script = cut(
-        script,
-        b"# Install the clean-room Shine post-processing assets into the generated game.\n",
-        b'print("Installed Shine screen-space bloom post-chain and shader assets.")\n',
-        "Shine asset install",
+    # This block also installs VBV/patch/resources, which still holds the language file and the HUD
+    # textures, so the copy stays and only the two removed Shine asset checks go.
+    assets_old = (
+        b"# Install the clean-room Shine post-processing assets into the generated game.\n"
+        b'SHINE_RESOURCE_SOURCE = CLIENT_SIDE / "patch" / "resources"\n'
+        b'if not (SHINE_RESOURCE_SOURCE / "assets" / "vbvclient" / "post_effect" / "shine_bloom.json").is_file():\n'
+        b'    raise SystemExit("Shine bloom post-chain JSON is missing from VBV/patch/resources")\n'
+        b'if not (SHINE_RESOURCE_SOURCE / "assets" / "vbvclient" / "shaders" / "post" / "shine_bloom.fsh").is_file():\n'
+        b'    raise SystemExit("Shine bloom fragment shader is missing from VBV/patch/resources")\n'
+        b'shutil.copytree(SHINE_RESOURCE_SOURCE, RESOURCE_ROOT, dirs_exist_ok=True)\n'
+        b'print("Installed Shine screen-space bloom post-chain and shader assets.")\n'
     )
+    assets_new = (
+        b"# Install the VBV resource overlay (language strings, icons, HUD textures). The Shine\n"
+        b"# post-chain JSON and fragment shader that used to sit beside it were removed.\n"
+        b'VBV_RESOURCE_SOURCE = CLIENT_SIDE / "patch" / "resources"\n'
+        b"shutil.copytree(VBV_RESOURCE_SOURCE, RESOURCE_ROOT, dirs_exist_ok=True)\n"
+        b'print("Installed the VBV resource overlay.")\n'
+    )
+    if script.count(assets_old) != 1:
+        raise SystemExit("::error::Could not locate the resource-overlay install block in the pinned upstream patch")
+    script = script.replace(assets_old, assets_new, 1)
     script = cut(
         script,
         b"# Apply the supported part of Shine to the actual Eagler lightmap.",
