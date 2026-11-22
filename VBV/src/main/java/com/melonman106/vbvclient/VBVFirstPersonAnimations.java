@@ -18,7 +18,8 @@ public final class VBVFirstPersonAnimations {
     public static final int DEFAULT_Y = 6;
     public static final int DEFAULT_Z = 8;
 
-    private static boolean enabled = true;
+    /** Off by default: the extra arm layer is opt-in from the mod's config screen. */
+    private static boolean enabled = false;
     private static int offsetX = DEFAULT_X;
     private static int offsetY = DEFAULT_Y;
     private static int offsetZ = DEFAULT_Z;

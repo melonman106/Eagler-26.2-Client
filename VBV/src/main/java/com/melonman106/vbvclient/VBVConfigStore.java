@@ -111,7 +111,14 @@ public final class VBVConfigStore {
             bool("crosshair.enabled", false), integer("crosshair.size", 2, 1, 4),
             integer("crosshair.color", 0xFFFFFFFF, Integer.MIN_VALUE, Integer.MAX_VALUE), crosshairPattern);
 
-        VBVFirstPersonAnimations.setEnabled(bool("firstPerson.enabled", true));
+        // The arm layer is opt-in now, but older builds saved the old default ("true") on every
+        // launch, so a one-time flag ignores that stored value. Toggling it from here on is kept.
+        boolean armDefaultApplied = bool("firstPerson.defaultOff", false);
+        VBVFirstPersonAnimations.setEnabled(armDefaultApplied && bool("firstPerson.enabled", false));
+        if (!armDefaultApplied) {
+            write("firstPerson.defaultOff", true);
+            flush();
+        }
         VBVFirstPersonAnimations.setOffsets(
             integer("firstPerson.x", VBVFirstPersonAnimations.DEFAULT_X, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),
             integer("firstPerson.y", VBVFirstPersonAnimations.DEFAULT_Y, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),

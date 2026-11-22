@@ -57,7 +57,7 @@ The client project preserves normal 26.2 textures rather than replacing them wit
 - The animated panorama is attached only to the custom title screen; it is not installed on the base `Screen` class, so inventory, chat, pause, HUD editor, crafting and furnace screens remain unaffected.
 - The title screen no longer draws the temporary black menu panels, profile footer label, VBV/Eaglercraft footer or upstream `o_xer` credit.
 - The native crosshair editor has a dedicated Mod Menu entry and now supports pattern editing, 1x–4x scale, color presets and persistent settings.
-- First-person arms use the vanilla attack swing transform, receive the eating/drinking use transform, and share a small forward alignment offset with the held item.
+- First-person arms use the vanilla attack swing transform, receive the eating/drinking use transform, and share a small forward alignment offset with the held item. The arm layer is **off by default** and switched on in Mods > First-Person Animations.
 - The minimap scans one nearby chunk per tick rather than sampling the whole area in a single frame. Its map size, scan radius, frame, player marker and north indicator are configurable. Explored-chunk saves are batched every 100 ticks and flushed when leaving a world to avoid a full-map storage write on every chunk entry.
 - Jade, AppleSkin, BetterF3, Gamma, Mouse Tweaks, ShulkerBoxTooltip, Simple HUD, first-person animation and Armor HUD settings are persisted through the Eagler runtime storage API. Uku's Armor HUD screen layout is unchanged.
 - Server profiles can be listed, applied and deleted. Their saved render-distance setting is applied when the matching server is joined; the profile editor supports up to 128 chunks.
