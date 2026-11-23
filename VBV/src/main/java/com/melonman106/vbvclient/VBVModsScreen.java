@@ -2,12 +2,15 @@ package com.melonman106.vbvclient;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -37,6 +40,9 @@ public final class VBVModsScreen extends Screen {
     private EditBox searchBox;
     private Button sortButton;
     private Button configButton;
+    private Button favoriteButton;
+    private final Set<String> favorites = new HashSet<>();
+    private String rememberedId = "";
     private int paneWidth;
     private int rightPaneX;
     private int searchBoxX;
@@ -59,6 +65,13 @@ public final class VBVModsScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        favorites.clear();
+        for (String id : VBVConfigStore.modsFavorites().split(",")) {
+            String trimmed = id.trim();
+            if (!trimmed.isEmpty()) favorites.add(trimmed);
+        }
+        rememberedId = VBVConfigStore.modsSelected();
+        listScroll = VBVConfigStore.modsScroll();
         paneWidth = width / 2 - 8;
         rightPaneX = width - paneWidth;
         int searchWidth = paneWidth - 32 - 22;
@@ -86,6 +99,9 @@ public final class VBVModsScreen extends Screen {
                 VBVNav.open(new VBVFeatureConfigScreen(this, selected.id(), selected.name()));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
         addRenderableWidget(configButton);
+        favoriteButton = Button.builder(Component.literal("*"), button -> toggleFavorite())
+            .bounds(width - 82, RIGHT_PANE_Y, 24, 20).build();
+        addRenderableWidget(favoriteButton);
         addRenderableWidget(Button.builder(Component.literal("World Map"), button -> VBVNav.open(new VBVWorldMapScreen(this)))
             .bounds(width / 2 - 158, height - 28, 98, 20).build());
         addRenderableWidget(Button.builder(Component.literal("HUD Editor"), button -> VBVNav.open(new VBVHudEditorScreen(this)))
@@ -94,6 +110,12 @@ public final class VBVModsScreen extends Screen {
             .bounds(width / 2 + 60, height - 28, 98, 20).build());
         applyFilterVisibility();
         refilter();
+        int selectedIndex = selected == null ? -1 : shown.indexOf(selected);
+        if (selectedIndex >= 0) {
+            if (selectedIndex < listScroll) listScroll = selectedIndex;
+            else if (selectedIndex >= listScroll + visibleRows()) listScroll = selectedIndex - visibleRows() + 1;
+            listScroll = Math.max(0, Math.min(listScroll, maxListScroll()));
+        }
     }
 
     private void applyFilterVisibility() { sortButton.visible = filtersShown; }
@@ -109,8 +131,16 @@ public final class VBVModsScreen extends Screen {
             shown.add(info);
         }
         Comparator<VBVModInfo> byName = Comparator.comparing(VBVModInfo::name, String.CASE_INSENSITIVE_ORDER);
-        shown.sort(ascending ? byName : byName.reversed());
-        if (selected == null || !shown.contains(selected)) select(shown.isEmpty() ? null : shown.get(0));
+        if (!ascending) byName = byName.reversed();
+        // Favourites stay pinned above the rest of the list, then the chosen name order applies.
+        shown.sort(Comparator.comparing((VBVModInfo info) -> !favorites.contains(info.id())).thenComparing(byName));
+        if (selected == null || !shown.contains(selected)) {
+            VBVModInfo remembered = null;
+            for (VBVModInfo info : shown) {
+                if (info.id().equals(rememberedId)) { remembered = info; break; }
+            }
+            select(remembered != null ? remembered : (shown.isEmpty() ? null : shown.get(0)));
+        }
         listScroll = Math.max(0, Math.min(listScroll, maxListScroll()));
     }
 
@@ -128,8 +158,38 @@ public final class VBVModsScreen extends Screen {
             || "ukus-armor-hud".equals(info.id())
             || "vbv-first-person-animations".equals(info.id())
             || "vbv-screenshot-manager".equals(info.id())
+            || "custom-crosshair".equals(info.id())
             || java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "jade", "vbv-potion-hud", "vbv-inventory-sorter").contains(info.id()));
+        if (info != null) {
+            rememberedId = info.id();
+            VBVConfigStore.setModsSelected(info.id());
+        }
+        updateFavoriteButton();
         rebuildDescription();
+    }
+
+    private void toggleFavorite() {
+        if (selected == null) return;
+        if (!favorites.remove(selected.id())) favorites.add(selected.id());
+        StringBuilder ids = new StringBuilder();
+        for (String id : favorites) {
+            if (ids.length() > 0) ids.append(',');
+            ids.append(id);
+        }
+        VBVConfigStore.setModsFavorites(ids.toString());
+        refilter();
+        updateFavoriteButton();
+    }
+
+    private void updateFavoriteButton() {
+        if (favoriteButton == null) return;
+        boolean visible = selected != null && !selected.resourcePackMod();
+        favoriteButton.visible = visible;
+        if (!visible) return;
+        boolean favorite = favorites.contains(selected.id());
+        favoriteButton.setMessage(Component.literal(favorite ? "*" : "+"));
+        favoriteButton.setTooltip(Tooltip.create(Component.literal(
+            favorite ? "Remove from favourites" : "Add to favourites")));
     }
 
     private void rebuildDescription() {
@@ -137,6 +197,10 @@ public final class VBVModsScreen extends Screen {
         if (selected == null || font == null) return;
         int wrapWidth = paneWidth - 6 - 18;
         addWrapped(String.valueOf(selected.description()), wrapWidth, 0xFFAAAAAA);
+        if (favorites.contains(selected.id())) {
+            addLine("", 0xFFAAAAAA);
+            addLine("Favourite", VBVTheme.accent());
+        }
         addLine("", 0xFFAAAAAA); addLine("Type", 0xFFFFFFFF);
         addWrapped(selected.resourcePackMod() ? "Resource-pack client mod" : "Native client mod", wrapWidth, 0xFFAAAAAA);
         addLine("", 0xFFAAAAAA); addLine("Mod ID", 0xFFFFFFFF);
@@ -204,11 +268,18 @@ public final class VBVModsScreen extends Screen {
     }
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         int step = scrollY > 0 ? -1 : scrollY < 0 ? 1 : 0; if (step == 0) return false;
-        if (mouseX < paneWidth) listScroll = Math.max(0, Math.min(maxListScroll(), listScroll + step));
+        if (mouseX < paneWidth) {
+            listScroll = Math.max(0, Math.min(maxListScroll(), listScroll + step));
+            VBVConfigStore.setModsScroll(listScroll);
+        }
         else { int max = Math.max(0, descLines.size() - descVisibleLines()); descScroll = Math.max(0, Math.min(max, descScroll + step)); }
         return true;
     }
-    @Override public void onClose() { VBVNav.open(parent); }
+    @Override public void onClose() {
+        VBVConfigStore.setModsScroll(listScroll);
+        if (selected != null) VBVConfigStore.setModsSelected(selected.id());
+        VBVNav.open(parent);
+    }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
@@ -231,6 +302,7 @@ public final class VBVModsScreen extends Screen {
         for (int k = 0; k < visibleRows(); k++) {
             int index = listScroll + k; if (index >= shown.size()) break; VBVModInfo info = shown.get(index); int y = LIST_TOP + 4 + k * ROW_HEIGHT;
             if (info == selected) { graphics.fill(rowLeft - 2, y - 2, rowLeft + rowWidth + 2, y + ICON + 2, 0xFFFFFFFF); graphics.fill(rowLeft - 1, y - 1, rowLeft + rowWidth + 1, y + ICON + 1, 0xFF000000); }
+            if (favorites.contains(info.id())) graphics.fill(rowLeft - 4, y, rowLeft - 2, y + ICON, VBVTheme.accent());
             drawIcon(graphics, info, rowLeft, y, ICON);
             int textX = rowLeft + ICON + 3, maxNameWidth = rowWidth - ICON - 3;
             String name = ellipsize(String.valueOf(info.name()), maxNameWidth); graphics.text(font, name, textX, y + 4, 0xFFFFFFFF, true);
@@ -244,9 +316,13 @@ public final class VBVModsScreen extends Screen {
         if (selected == null) return; int x = rightPaneX;
         drawIcon(graphics, selected, x + 2, RIGHT_PANE_Y, ICON);
         int imageOffset = ICON + 8;
-        int maxNameWidth = width - (x + imageOffset) - (configButton != null && configButton.visible ? 58 : 4);
+        int reservedRight = (configButton != null && configButton.visible ? 58 : 4)
+            + (favoriteButton != null && favoriteButton.visible ? 28 : 0);
+        int maxNameWidth = width - (x + imageOffset) - reservedRight;
         String name = ellipsize(String.valueOf(selected.name()), maxNameWidth); graphics.text(font, name, x + imageOffset, RIGHT_PANE_Y + 4, 0xFFFFFFFF, true);
-        drawBadges(graphics, selected, x + imageOffset + font.width(name) + 2, RIGHT_PANE_Y + 8, width - (configButton != null && configButton.visible ? 58 : 28));
+        int badgeMaxX = width - (configButton != null && configButton.visible ? 58 : 28)
+            - (favoriteButton != null && favoriteButton.visible ? 28 : 0);
+        drawBadges(graphics, selected, x + imageOffset + font.width(name) + 2, RIGHT_PANE_Y + 8, badgeMaxX);
         int lineSpacing = font.lineHeight + 1;
         graphics.text(font, String.valueOf(selected.version()), x + imageOffset, RIGHT_PANE_Y + 8 + lineSpacing, 0xFFAAAAAA, true);
         List<String> authors = wrap("By " + selected.authors(), paneWidth - imageOffset - 4, 1);

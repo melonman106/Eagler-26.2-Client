@@ -40,13 +40,16 @@ try:
  from PIL import Image
 except ImportError:
  raise SystemExit("::error::Pillow is required to convert the JPEG ShulkerBoxTooltip icon")
-for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.png"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png")):
+for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.png"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png"),("crosshair.png","crosshair.png")):
  src=icon_root/a
  if not src.is_file():continue
  if src.suffix.lower() in (".jpg",".jpeg"):
   # The ShulkerBoxTooltip icon is a JPEG; the client's texture path is a PNG. Decode it and
   # write a real PNG so the mod button shows the uploaded image instead of a missing texture.
   Image.open(src).convert("RGBA").save(icon_dst/b,"PNG")
+ elif a=="crosshair.png":
+  # The uploaded crosshair icon is 256x256; mod buttons sample a 64x64 region.
+  Image.open(src).convert("RGBA").resize((64,64),Image.LANCZOS).save(icon_dst/b,"PNG")
  else:
   shutil.copy2(src,icon_dst/b)
  if b.lower().endswith(".png"):

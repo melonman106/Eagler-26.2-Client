@@ -219,6 +219,34 @@ public final class VBVConfigStore {
         }
     }
 
+    /** Comma-separated mod ids the player starred in the Mods screen. */
+    public static String modsFavorites() {
+        return read("mods.favorites", "");
+    }
+
+    public static void setModsFavorites(String ids) {
+        write("mods.favorites", ids == null ? "" : ids);
+        flush();
+    }
+
+    public static String modsSelected() {
+        return read("mods.selected", "");
+    }
+
+    public static void setModsSelected(String id) {
+        write("mods.selected", id == null ? "" : id);
+        flush();
+    }
+
+    public static int modsScroll() {
+        return integer("mods.scroll", 0, 0, 100000);
+    }
+
+    public static void setModsScroll(int value) {
+        write("mods.scroll", Math.max(0, value));
+        flush();
+    }
+
     public static void saveAll() {
         // A safe-mode session is for getting back to a working client, not for
         // rewriting the settings the previous session had.
