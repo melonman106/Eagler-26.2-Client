@@ -45,7 +45,7 @@ public final class VBVClient {
         reg("jade", "Jade", "1.5.3", "Snownee",
             "Shows contextual information about the block or entity under the crosshair, including optional coordinates.", "vbvclient:textures/mods/jade.png");
         reg("shulkerboxtooltip", "ShulkerBoxTooltip", "1.5.3", "MisterPeModder",
-            "Previews the contents of shulker boxes in a 9×3 inventory grid when Shift-hovering a box in a container.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
+            "Previews the contents of shulker boxes in a 9×3 inventory grid when Shift-hovering a box in a container.", "vbvclient:textures/mods/shulkerboxtooltip.png");
         reg("custom-crosshair", "Custom Crosshair", "1.5.3", "melonman106",
             "Edit a 15×15 pixel crosshair with configurable scale, color, presets and locally saved patterns.", "vbvclient:textures/mods/viabackportvisuals-client.png");
         reg("vbv-potion-hud", "Potion HUD", "1.5.3", "melonman106",

@@ -36,9 +36,23 @@ for source in SRC.rglob("*.java"):
   continue
  target=dest/source.relative_to(SRC);target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
 icon_root=CLIENT/"PackIcons";icon_dst=RES/"assets/vbvclient/textures/mods";icon_dst.mkdir(parents=True,exist_ok=True)
-for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.jpeg"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png")):
+try:
+ from PIL import Image
+except ImportError:
+ raise SystemExit("::error::Pillow is required to convert the JPEG ShulkerBoxTooltip icon")
+for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.png"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png")):
  src=icon_root/a
- if src.is_file():shutil.copy2(src,icon_dst/b)
+ if not src.is_file():continue
+ if src.suffix.lower() in (".jpg",".jpeg"):
+  # The ShulkerBoxTooltip icon is a JPEG; the client's texture path is a PNG. Decode it and
+  # write a real PNG so the mod button shows the uploaded image instead of a missing texture.
+  Image.open(src).convert("RGBA").save(icon_dst/b,"PNG")
+ else:
+  shutil.copy2(src,icon_dst/b)
+ if b.lower().endswith(".png"):
+  with open(icon_dst/b,"rb") as check:
+   if check.read(8)!=b"\x89PNG\r\n\x1a\n":raise RuntimeError(f"Mod icon {b} is not a valid PNG")
+print("[VBV icons] ShulkerBoxTooltips.jpeg is written as shulkerboxtooltip.png")
 mc_candidates=java_files_named("Minecraft.java")
 if not mc_candidates:raise RuntimeError("Minecraft.java not found")
 minecraft=next((p for p in mc_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")),mc_candidates[0]);mc=minecraft.read_text(encoding="utf-8")
