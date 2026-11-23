@@ -40,22 +40,26 @@ try:
  from PIL import Image
 except ImportError:
  raise SystemExit("::error::Pillow is required to convert the JPEG ShulkerBoxTooltip icon")
+PNG_SIGNATURE=b"\x89PNG\r\n\x1a\n"
+def install_icon(src,dst):
+ # Some uploaded icons are JPEG data saved with a .png name, and larger images
+ # are cropped because the mod list always samples a 64x64 region. Decode every
+ # icon and write a real 64x64 RGBA PNG so the buttons show the whole image.
+ with Image.open(src) as image:
+  icon=image.convert("RGBA")
+ if icon.size!=(64,64):
+  icon.thumbnail((64,64),Image.Resampling.LANCZOS)
+  canvas=Image.new("RGBA",(64,64),(0,0,0,0))
+  canvas.alpha_composite(icon,((64-icon.width)//2,(64-icon.height)//2))
+  icon=canvas
+ icon.save(dst,"PNG")
 for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.png"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png"),("crosshair.png","crosshair.png")):
  src=icon_root/a
  if not src.is_file():continue
- if src.suffix.lower() in (".jpg",".jpeg"):
-  # The ShulkerBoxTooltip icon is a JPEG; the client's texture path is a PNG. Decode it and
-  # write a real PNG so the mod button shows the uploaded image instead of a missing texture.
-  Image.open(src).convert("RGBA").save(icon_dst/b,"PNG")
- elif a=="crosshair.png":
-  # The uploaded crosshair icon is 256x256; mod buttons sample a 64x64 region.
-  Image.open(src).convert("RGBA").resize((64,64),Image.LANCZOS).save(icon_dst/b,"PNG")
- else:
-  shutil.copy2(src,icon_dst/b)
- if b.lower().endswith(".png"):
-  with open(icon_dst/b,"rb") as check:
-   if check.read(8)!=b"\x89PNG\r\n\x1a\n":raise RuntimeError(f"Mod icon {b} is not a valid PNG")
-print("[VBV icons] ShulkerBoxTooltips.jpeg is written as shulkerboxtooltip.png")
+ install_icon(src,icon_dst/b)
+ with open(icon_dst/b,"rb") as check:
+  if check.read(8)!=PNG_SIGNATURE:raise RuntimeError(f"Mod icon {b} is not a valid PNG")
+print("[VBV icons] Mod icons are normalized to real 64x64 PNG files, including JPEG uploads.")
 mc_candidates=java_files_named("Minecraft.java")
 if not mc_candidates:raise RuntimeError("Minecraft.java not found")
 minecraft=next((p for p in mc_candidates if p.as_posix().endswith("/net/minecraft/client/Minecraft.java")),mc_candidates[0]);mc=minecraft.read_text(encoding="utf-8")
