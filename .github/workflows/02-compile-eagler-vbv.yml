@@ -177,6 +177,33 @@ jobs:
                       "its 1.20 display transforms turn the shield the wrong way round"
                   )
               print("Verified the shield keeps the game's own base model and display transforms.")
+          def shield_specials(node):
+              if isinstance(node, list):
+                  for entry in node:
+                      yield from shield_specials(entry)
+              elif isinstance(node, dict):
+                  special = node.get("model")
+                  if (
+                      node.get("type") == "minecraft:special"
+                      and isinstance(special, dict)
+                      and special.get("type") == "minecraft:shield"
+                  ):
+                      yield node
+                  for value in node.values():
+                      yield from shield_specials(value)
+          item_path = pathlib.Path("eaglercraft-u2/game/src/main/resources/assets/minecraft/items/shield.json")
+          if item_path.is_file():
+              try:
+                  definition = json.loads(item_path.read_text(encoding="utf-8-sig"))
+              except ValueError as exc:
+                  sys.exit(f"::error::the shield item definition is unreadable: {exc}")
+              specials = list(shield_specials(definition))
+              if any(not node.get("transformation") for node in specials):
+                  sys.exit(
+                      "::error::a shield special model in the item definition has no transformation, "
+                      "so the shield faces the wrong way"
+                  )
+              print(f"Verified {len(specials)} shield special model(s) keep the 180 degree rotation.")
           PYMODEL
           for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVKeybinds.java VBVKeybindConfigScreen.java VBVMapPainter.java VBVWorldMapScreen.java VBVEntityCulling.java VBVPerf.java VBVAdaptive.java VBVMemory.java VBVDiagnosticsScreen.java VBVCem.java VBVCemJem.java VBVCemExpr.java VBVCemRig.java VBVCemNames.java VBVCemNbt.java VBVFriends.java VBVFriendsScreen.java VBVBetterF3.java VBVBoot.java VBVLoadingTheme.java VBVPanoramaOverlay.java VBVSplashScreen.java VBVModrinthScreen.java VBVBootScreen.java VBVDungeonsTitleScreen.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }

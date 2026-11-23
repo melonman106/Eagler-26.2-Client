@@ -162,6 +162,68 @@ def vbv_clean_model_definition(incoming_bytes, source_label):
     return b""
 
 
+def vbv_orient_shield_item_definition(incoming_bytes, source_label):
+    """Turn a pack's shield 180 degrees back to the orientation the game draws it in.
+
+    The shield's orientation lives in its item definition now: the game's
+    ``items/shield.json`` wraps the ``minecraft:special`` shield model in
+    ``"transformation": {"scale": [1, -1, -1]}``. That is a 180 degree rotation about X, which
+    turns the model-space shield round so it faces out of the hand instead of back at the player.
+
+    A pack that replaces the item definition (the Enchantment Outlines pack does, to add its glowing
+    overlay) ships it without that transformation, so the shield renders backwards. The rotation is
+    put back on each shield special model; every other entry, including the pack's own overlay
+    models, is left exactly as the pack wrote it.
+
+    Returns the replacement bytes, or None to copy the file unchanged.
+    """
+    import json
+
+    try:
+        definition = json.loads(incoming_bytes.decode("utf-8-sig"))
+    except (UnicodeDecodeError, ValueError):
+        return None
+    if not isinstance(definition, dict):
+        return None
+    if vbv_orient_special_shields(definition) == 0:
+        return None
+    print(
+        "[VBV model fix] "
+        + source_label
+        + ": rotated the shield 180 degrees into the orientation the game's own item definition uses"
+    )
+    return (json.dumps(definition, ensure_ascii=True, indent=2) + "\n").encode("utf-8")
+
+
+def vbv_orient_special_shields(node):
+    """Add the game's 180 degree shield rotation to every shield special model in ``node``.
+
+    Returns how many models were oriented, so the caller only rewrites a file that changed. A model
+    that already has a ``transformation`` is left alone: the pack has positioned it itself.
+    """
+    if isinstance(node, list):
+        return sum(vbv_orient_special_shields(entry) for entry in node)
+    if not isinstance(node, dict):
+        return 0
+    count = sum(vbv_orient_special_shields(value) for value in node.values())
+    special_model = node.get("model")
+    if (
+        node.get("type") == "minecraft:special"
+        and isinstance(special_model, dict)
+        and special_model.get("type") == "minecraft:shield"
+        and "transformation" not in node
+    ):
+        # x, y, z scaled by 1, -1, -1 is a 180 degree rotation about X, the game's own shield flip.
+        node["transformation"] = {
+            "left_rotation": [0.0, 0.0, 0.0, 1.0],
+            "right_rotation": [0.0, 0.0, 0.0, 1.0],
+            "scale": [1.0, -1.0, -1.0],
+            "translation": [0.0, 0.0, 0.0],
+        }
+        count += 1
+    return count
+
+
 def vbv_valid_atlas_source(source):
     """Return (ok, reason). Mirrors what Minecraft's atlas source codecs require, because one
     malformed source makes the whole atlas fail to load."""

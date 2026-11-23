@@ -301,6 +301,26 @@ font_branch_fixed = """            elif relative.startswith("assets/"):
                     ))
                     continue
                 if (
+                    relative.split("/")[2:3] == ["items"]
+                    and relative.lower().endswith(".json")
+                ):
+                    # The shield's orientation lives in its item definition: the game's own
+                    # items/shield.json rotates the special shield model 180 degrees, and a pack
+                    # that replaces that file (Enchantment Outlines) drops the rotation, which
+                    # draws the shield backwards. It is put back here.
+                    try:
+                        vbv_item_bytes = zf.read(raw_name)
+                    except KeyError:
+                        continue
+                    vbv_clean_item_bytes = vbv_orient_shield_item_definition(
+                        vbv_item_bytes, mod_id + " " + relative
+                    )
+                    if vbv_clean_item_bytes is not None:
+                        target = RESOURCE_ROOT / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(vbv_clean_item_bytes)
+                        continue
+                if (
                     relative.split("/")[2:3] == ["models"]
                     and relative.lower().endswith(".json")
                 ):

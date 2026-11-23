@@ -342,7 +342,9 @@ Each section can be switched off in Mods > BetterF3; the compact layout tightens
 `builtin/entity` has that file skipped at build time. The parent was removed in this version, and its
 old display transforms turn the shield the wrong way round, so the game's own special shield renderer
 draws it (with the pack's textures) in the vanilla orientation. The build fails if such a file is ever
-copied again.
+copied again. A pack that replaces the shield's item definition (`items/shield.json`, as Enchantment
+Outlines does for its glowing overlay) also gets the game's own 180 degree shield rotation put back on
+every special shield model, because without it the shield faces the player instead of the world.
 
 ## Herz Client API
 
