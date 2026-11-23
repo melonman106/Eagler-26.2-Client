@@ -45,6 +45,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_perf_hooks.py",
     "pack_json_merge.py",
     "patch_keybind_dispatch.py",
+    "patch_mods_hooks.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -84,6 +85,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(boot_hooks)",
     "subprocess.run([sys.executable, str(screenshot_storage)",
     "subprocess.run([sys.executable, str(inventory_sorter)",
+    "subprocess.run([sys.executable, str(mods_hooks)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -552,6 +554,12 @@ if screenshot_storage.is_file():
 inventory_sorter = PATCH_DIR / "patch_inventory_sorter.py"
 if inventory_sorter.is_file():
     subprocess.run([sys.executable, str(inventory_sorter), *sys.argv[1:]], check=True)
+
+# Importable mods: three hooks (item registration before the registries freeze, the mods' resource packs,
+# and their creative-tab entries). With no mods imported they change nothing about the game.
+mods_hooks = PATCH_DIR / "patch_mods_hooks.py"
+if mods_hooks.is_file():
+    subprocess.run([sys.executable, str(mods_hooks), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.

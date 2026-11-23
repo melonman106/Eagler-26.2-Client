@@ -219,6 +219,131 @@ public final class ModStore {
         state.add("disabled", array);
     }
 
+    // ---- applied snapshot ----
+    //
+    // The client registers mods once, at start-up. The integrated-server worker starts later, possibly after the
+    // player imported or changed a mod in the meantime. If the worker simply planned again it could register
+    // different items, and the two sides would then disagree about item ids. So the client publishes exactly what it
+    // registered: copies of those zips named by content (applied/<id>-<crc>.zip) and a list (applied.json). The
+    // worker only ever reads that list, so both sides always see the very same mods.
+
+    public static final String APPLIED_JSON = FOLDER + "/applied.json";
+    public static final String APPLIED_FOLDER = FOLDER + "/applied";
+
+    /** The mods a realm registers. {@code problems} is not empty when the snapshot could not be reproduced exactly. */
+    public record Applied(List<ModPackage> mods, List<String> problems, boolean safeMode) {}
+
+    private static String hex(long crc) { return String.format("%08x", crc & 0xFFFFFFFFL); }
+
+    private static String appliedName(String id, long crc) { return id + "-" + hex(crc) + ".zip"; }
+
+    /**
+     * Client start-up: publish the plan and return the mods to register. A mod whose copy cannot be saved is left
+     * out (so the worker, which reads the copies, stays in step); if the list itself cannot be saved nothing is
+     * registered.
+     */
+    public Applied apply(Plan plan) {
+        List<String> problems = new ArrayList<>();
+        List<ModPackage> loaded = new ArrayList<>();
+        JsonArray list = new JsonArray();
+        Set<String> keep = new HashSet<>();
+        for (ModPackage pkg : plan.active()) {
+            String name = appliedName(pkg.manifest.id, pkg.crc);
+            byte[] existing = files.read(APPLIED_FOLDER + "/" + name);
+            if (existing == null || ModPackage.crc32(existing) != pkg.crc) {
+                if (!files.write(APPLIED_FOLDER + "/" + name, pkg.source)) {
+                    problems.add(pkg.manifest.id + " was left out: its copy could not be saved (browser storage may be full).");
+                    continue;
+                }
+            }
+            keep.add(name);
+            JsonObject entry = new JsonObject();
+            entry.addProperty("id", pkg.manifest.id);
+            entry.addProperty("version", pkg.manifest.version);
+            entry.addProperty("crc", hex(pkg.crc));
+            list.add(entry);
+            loaded.add(pkg);
+        }
+        JsonObject root = new JsonObject();
+        root.addProperty("safe", plan.safeMode());
+        root.add("mods", list);
+        if (!files.write(APPLIED_JSON, root.toString().getBytes(StandardCharsets.UTF_8))) {
+            files.delete(APPLIED_JSON);
+            problems.add("The list of loaded mods could not be saved, so no mods were loaded this time.");
+            return new Applied(new ArrayList<>(), problems, plan.safeMode());
+        }
+        for (String name : files.list(APPLIED_FOLDER)) {
+            if (!keep.contains(name)) files.delete(APPLIED_FOLDER + "/" + name);
+        }
+        return new Applied(loaded, problems, plan.safeMode());
+    }
+
+    /** Integrated-server worker start-up: load exactly what the client registered. */
+    public Applied readApplied() {
+        List<String> problems = new ArrayList<>();
+        List<ModPackage> mods = new ArrayList<>();
+        byte[] raw = files.read(APPLIED_JSON);
+        if (raw == null) return new Applied(mods, problems, false);
+        JsonObject root;
+        try {
+            JsonElement parsed = JsonParser.parseString(new String(raw, StandardCharsets.UTF_8));
+            if (!parsed.isJsonObject()) throw new JsonParseException("not an object");
+            root = parsed.getAsJsonObject();
+        } catch (JsonParseException | IllegalStateException ex) {
+            problems.add("The list of loaded mods is damaged.");
+            return new Applied(mods, problems, false);
+        }
+        boolean safe = root.has("safe") && root.get("safe").isJsonPrimitive() && root.get("safe").getAsJsonPrimitive().isBoolean() && root.get("safe").getAsBoolean();
+        JsonElement list = root.get("mods");
+        if (list == null || !list.isJsonArray()) return new Applied(mods, problems, safe);
+        for (JsonElement element : list.getAsJsonArray()) {
+            if (!element.isJsonObject()) continue;
+            JsonObject entry = element.getAsJsonObject();
+            String id = entry.has("id") && entry.get("id").isJsonPrimitive() ? entry.get("id").getAsString() : "";
+            String crcText = entry.has("crc") && entry.get("crc").isJsonPrimitive() ? entry.get("crc").getAsString() : "";
+            if (!ModManifest.ID.matcher(id).matches() || !crcText.matches("[0-9a-f]{8}")) {
+                problems.add("An entry in the list of loaded mods is damaged.");
+                continue;
+            }
+            long crc = Long.parseLong(crcText, 16);
+            byte[] bytes = files.read(APPLIED_FOLDER + "/" + appliedName(id, crc));
+            if (bytes == null || ModPackage.crc32(bytes) != crc) {
+                problems.add(id + ": the copy the game loaded at start-up is missing or damaged.");
+                continue;
+            }
+            ModPackage pkg = ModPackage.read(bytes);
+            if (pkg.manifest == null || !pkg.manifest.id.equals(id) || !pkg.problems.isEmpty()) {
+                problems.add(id + ": the copy the game loaded at start-up can no longer be read.");
+                continue;
+            }
+            mods.add(pkg);
+        }
+        return new Applied(mods, problems, safe);
+    }
+
+    /** True when what the plan would load now differs from what the game loaded at start-up (so a restart is needed). */
+    public boolean restartNeeded(Plan plan) {
+        Set<String> now = new HashSet<>();
+        for (ModPackage pkg : plan.active()) now.add(pkg.manifest.id + ":" + hex(pkg.crc));
+        Set<String> then = new HashSet<>();
+        byte[] raw = files.read(APPLIED_JSON);
+        if (raw != null) {
+            try {
+                JsonElement parsed = JsonParser.parseString(new String(raw, StandardCharsets.UTF_8));
+                if (parsed.isJsonObject() && parsed.getAsJsonObject().has("mods") && parsed.getAsJsonObject().get("mods").isJsonArray()) {
+                    for (JsonElement element : parsed.getAsJsonObject().getAsJsonArray("mods")) {
+                        if (!element.isJsonObject()) continue;
+                        JsonObject entry = element.getAsJsonObject();
+                        if (entry.has("id") && entry.has("crc")) then.add(entry.get("id").getAsString() + ":" + entry.get("crc").getAsString());
+                    }
+                }
+            } catch (JsonParseException | IllegalStateException | UnsupportedOperationException ignored) {
+                return true;
+            }
+        }
+        return !now.equals(then);
+    }
+
     // ---- planning ----
 
     /**

@@ -26,6 +26,7 @@ final class PackageAndStoreTests {
         store();
         planning();
         guard();
+        snapshot();
     }
 
     static void packages() {
@@ -235,6 +236,17 @@ final class PackageAndStoreTests {
         check(new String(twoBuilt.get("ruby_tools/models/item/a.json"), StandardCharsets.UTF_8).contains("item/generated"), "generated parent by default");
         check(new String(twoBuilt.get("ruby_tools/models/item/b.json"), StandardCharsets.UTF_8).contains("item/handheld"), "handheld when asked");
 
+        // pack.mcmeta: the game refuses supported_formats for formats above 64 and wants min/max, so write exactly that
+        JsonObject meta = JsonParser.parseString(new String(ModAssets.packMeta(pkg, 88), StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("pack");
+        check(meta.get("description").getAsString().contains(pkg.manifest.name)
+            && meta.get("description").getAsString().contains(pkg.manifest.version)
+            && meta.get("description").getAsString().contains("imported mod"), "pack description names the mod and its version");
+        check(meta.get("min_format").getAsInt() == ModAssets.FIRST_RANGE_FORMAT && meta.get("max_format").getAsInt() == 88, "pack format range runs from the first ranged format to the game's");
+        check(ModAssets.FIRST_RANGE_FORMAT == 65, "formats above 64 are the first that use min_format/max_format");
+        check(!meta.has("supported_formats") && !meta.has("pack_format"), "no legacy format fields (the game rejects them above format 64)");
+        JsonObject oldGame = JsonParser.parseString(new String(ModAssets.packMeta(pkg, 40), StandardCharsets.UTF_8)).getAsJsonObject().getAsJsonObject("pack");
+        check(oldGame.get("max_format").getAsInt() == ModAssets.FIRST_RANGE_FORMAT, "the range never ends before it starts");
+
         ModPackage onlyAssets = read(Map.of("info.json", bytes("{\"id\":\"pretty_pack\",\"name\":\"P\",\"version\":\"1\"}")));
         check(ModAssets.build(onlyAssets).isEmpty(), "an empty mod builds an empty pack (no language file invented)");
     }
@@ -415,5 +427,79 @@ final class PackageAndStoreTests {
         second.setSafeMode(false);
         check(!second.safeMode() && !second.beginRegistration(), "turning safe mode off re-arms the guard cleanly");
         check(second.plan().isActive("alpha"), "mods load again");
+    }
+
+    static void snapshot() {
+        TestKit.MemoryFiles files = memory();
+        ModStore client = store(files);
+        ModStore worker = store(files); // the integrated-server worker shares the same storage
+        client.install(zip(goodMod("ruby_tools")));
+        put(client, "alpha", null);
+
+        check(worker.readApplied().mods().isEmpty() && worker.readApplied().problems().isEmpty(), "before the client has started, the worker loads nothing and reports nothing");
+        check(client.restartNeeded(client.plan()), "mods exist but nothing is applied yet: restart needed");
+
+        ModStore.Applied applied = client.apply(client.plan());
+        check(applied.problems().isEmpty() && applied.mods().size() == 2 && !applied.safeMode(), "apply: " + applied.problems());
+        check(applied.mods().get(0).manifest.id.equals("alpha") && applied.mods().get(1).manifest.id.equals("ruby_tools"), "applied in id order");
+        check(!client.restartNeeded(client.plan()), "after apply nothing is pending");
+        check(files.map.keySet().stream().filter(k -> k.startsWith("mods/applied/")).count() == 2, "one immutable copy per mod");
+
+        ModStore.Applied seen = worker.readApplied();
+        check(seen.problems().isEmpty() && seen.mods().size() == 2, "worker reads the same set: " + seen.problems());
+        check(seen.mods().get(0).manifest.id.equals("alpha") && seen.mods().get(1).manifest.id.equals("ruby_tools"), "in the same order");
+        check(seen.mods().get(1).items.size() == 1 && seen.mods().get(1).crc == applied.mods().get(1).crc, "with identical content");
+
+        // The player imports a new version and turns another mod off while the game is running.
+        Map<String, byte[]> v2 = goodMod("ruby_tools");
+        v2.put("items.json", bytes("[{\"id\":\"ruby_sword\"},{\"id\":\"ruby_pickaxe\",\"texture\":\"minecraft:item/stick\"}]"));
+        check(client.install(zip(v2)).ok(), "new version imported");
+        client.setEnabled("alpha", false);
+        check(client.restartNeeded(client.plan()), "restart is now needed");
+        ModStore.Applied still = worker.readApplied();
+        check(still.problems().isEmpty() && still.mods().size() == 2 && still.mods().get(1).items.size() == 1, "the worker still sees what the client registered, not the new files");
+        check(still.mods().get(0).manifest.id.equals("alpha"), "including the mod that is now turned off");
+
+        // Next start: the client applies the new plan, old copies are removed.
+        ModStore.Applied next = client.apply(client.plan());
+        check(next.mods().size() == 1 && next.mods().get(0).items.size() == 2, "next start applies the new set");
+        check(files.map.keySet().stream().filter(k -> k.startsWith("mods/applied/")).count() == 1, "old copies are removed");
+        check(!client.restartNeeded(client.plan()), "and nothing is pending again");
+        check(worker.readApplied().mods().size() == 1, "worker follows");
+
+        // Damage.
+        String copy = files.map.keySet().stream().filter(k -> k.startsWith("mods/applied/")).findFirst().get();
+        byte[] original = files.map.get(copy);
+        files.map.put(copy, bytes("tampered"));
+        ModStore.Applied damaged = worker.readApplied();
+        check(damaged.mods().isEmpty() && any(damaged.problems(), "missing or damaged"), "a damaged copy is reported, not loaded: " + damaged.problems());
+        files.map.remove(copy);
+        check(any(worker.readApplied().problems(), "missing or damaged"), "a missing copy is reported");
+        files.map.put(copy, original);
+        check(worker.readApplied().problems().isEmpty(), "restored copy works again");
+        files.map.put(copy, bytes("tampered"));
+        ModStore.Applied repaired = client.apply(client.plan());
+        check(repaired.problems().isEmpty() && worker.readApplied().problems().isEmpty() && worker.readApplied().mods().size() == 1, "the next start repairs a damaged copy: " + worker.readApplied().problems());
+        files.map.put("mods/applied.json", bytes("{{{"));
+        check(any(worker.readApplied().problems(), "damaged") && worker.readApplied().mods().isEmpty(), "damaged list reported");
+        check(client.restartNeeded(client.plan()), "a damaged list means a restart is needed");
+        files.map.put("mods/applied.json", bytes("{\"mods\":[{\"id\":\"../x\",\"crc\":\"zz\"},5]}"));
+        check(any(worker.readApplied().problems(), "damaged") && worker.readApplied().mods().isEmpty(), "bad entries reported and skipped");
+
+        // Safe mode applies nothing and the worker agrees.
+        client.setSafeMode(true);
+        ModStore.Applied safe = client.apply(client.plan());
+        check(safe.mods().isEmpty() && safe.safeMode(), "safe mode applies nothing");
+        check(worker.readApplied().mods().isEmpty() && worker.readApplied().safeMode(), "the worker sees safe mode");
+        check(files.map.keySet().stream().noneMatch(k -> k.startsWith("mods/applied/")), "safe mode removes the copies");
+
+        // Storage that refuses writes.
+        client.setSafeMode(false);
+        files.failWrites = true;
+        ModStore.Applied full = client.apply(client.plan());
+        check(full.mods().isEmpty() && !full.problems().isEmpty(), "when nothing can be saved nothing is registered: " + full.problems());
+        files.failWrites = false;
+        check(!files.map.containsKey("mods/applied.json"), "and a stale list is not left behind");
+        check(worker.readApplied().mods().isEmpty(), "so the worker also loads nothing");
     }
 }

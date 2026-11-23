@@ -235,6 +235,12 @@ jobs:
           done
           grep -q 'FabricCompatClient.initialize' "$vbv_src/HerzClient.java"
           grep -q 'FabricCompatClient.tick' "$vbv_src/HerzClient.java"
+          for source in ModBootstrap.java ModPlatform.java ModItemGroups.java ModPackSource.java ModPackResources.java ModStore.java ModPackage.java FabricFaker.java; do
+            test -s "$vbv_src/mods/$source" || { echo "::error::Importable-mods source is missing: $vbv_src/mods/$source"; exit 1; }
+          done
+          grep -q 'ModBootstrap.registerAll' eaglercraft-u2/game/src/main/java/net/minecraft/core/registries/BuiltInRegistries.java
+          grep -q 'ModPackSource' eaglercraft-u2/game/src/main/java/net/minecraft/client/Minecraft.java
+          grep -q 'ModItemGroups.append' eaglercraft-u2/game/src/main/java/net/minecraft/world/item/CreativeModeTab.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/ModInitializer.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/api/EnvType.java
           test -s eaglercraft-u2/game/src/main/java/net/fabricmc/loader/api/FabricLoader.java

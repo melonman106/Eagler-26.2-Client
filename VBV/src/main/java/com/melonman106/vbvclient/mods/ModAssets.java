@@ -53,6 +53,24 @@ public final class ModAssets {
         return out;
     }
 
+    /** The first resource-pack format that uses {@code min_format}/{@code max_format} (formats up to 64 need the legacy fields). */
+    public static final int FIRST_RANGE_FORMAT = 65;
+
+    /**
+     * The {@code pack.mcmeta} the game reads to decide whether the mod's pack fits this version. The range runs from the
+     * first ranged format to the running game's format, so it stays compatible when the game's own format moves on.
+     */
+    public static byte[] packMeta(ModPackage pkg, int gameFormatMajor) {
+        JsonObject pack = new JsonObject();
+        String name = pkg.manifest.name;
+        pack.addProperty("description", name + " " + pkg.manifest.version + " (imported mod)");
+        pack.addProperty("min_format", FIRST_RANGE_FORMAT);
+        pack.addProperty("max_format", Math.max(FIRST_RANGE_FORMAT, gameFormatMajor));
+        JsonObject root = new JsonObject();
+        root.add("pack", pack);
+        return root.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
     static byte[] itemDefinition(String modId, ModItems.ItemDef item) {
         JsonObject model = new JsonObject();
         model.addProperty("type", "minecraft:model");

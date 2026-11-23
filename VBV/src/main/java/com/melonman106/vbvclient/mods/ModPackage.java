@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -52,9 +53,12 @@ public final class ModPackage {
     /** Content lists found that this version ignores (for example "blocks.json"). */
     public final List<String> ignoredLists;
     public final int totalBytes;
+    /** The zip exactly as it was read (not copied), and its CRC-32. Two realms that load the same zip see the same crc. */
+    public final byte[] source;
+    public final long crc;
 
     private ModPackage(ModManifest manifest, List<ModItems.ItemDef> items, Map<String, byte[]> files, byte[] icon,
-                       List<String> problems, List<String> warnings, List<String> kinds, List<String> ignoredLists, int totalBytes) {
+                       List<String> problems, List<String> warnings, List<String> kinds, List<String> ignoredLists, int totalBytes, byte[] source) {
         this.manifest = manifest;
         this.items = Collections.unmodifiableList(items);
         this.files = Collections.unmodifiableMap(files);
@@ -64,6 +68,8 @@ public final class ModPackage {
         this.kinds = Collections.unmodifiableList(kinds);
         this.ignoredLists = Collections.unmodifiableList(ignoredLists);
         this.totalBytes = totalBytes;
+        this.source = source;
+        this.crc = crc32(source);
     }
 
     public boolean ok() { return manifest != null && problems.isEmpty(); }
@@ -77,8 +83,16 @@ public final class ModPackage {
         return out;
     }
 
-    private static ModPackage failed(List<String> problems, List<String> warnings, int total) {
-        return new ModPackage(null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), new ArrayList<>(), total);
+    private static ModPackage failed(List<String> problems, List<String> warnings, int total, byte[] source) {
+        return new ModPackage(null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), new ArrayList<>(), total, source);
+    }
+
+    /** CRC-32 of a byte array (0 for null). */
+    public static long crc32(byte[] data) {
+        if (data == null) return 0L;
+        CRC32 crc = new CRC32();
+        crc.update(data, 0, data.length);
+        return crc.getValue();
     }
 
     public static ModPackage read(byte[] zip) {
@@ -86,11 +100,11 @@ public final class ModPackage {
         List<String> warnings = new ArrayList<>();
         if (zip == null || zip.length == 0) {
             problems.add("The file is empty.");
-            return failed(problems, warnings, 0);
+            return failed(problems, warnings, 0, zip);
         }
         if (zip.length > MAX_ZIP_BYTES) {
             problems.add("The zip is " + (zip.length / 1024 / 1024) + " MB; the limit is " + (MAX_ZIP_BYTES / 1024 / 1024) + " MB.");
-            return failed(problems, warnings, 0);
+            return failed(problems, warnings, 0, zip);
         }
 
         Map<String, byte[]> raw = new LinkedHashMap<>();
@@ -101,7 +115,7 @@ public final class ModPackage {
             while ((entry = in.getNextEntry()) != null) {
                 if (++entries > MAX_ENTRIES) {
                     problems.add("The zip has more than " + MAX_ENTRIES + " files.");
-                    return failed(problems, warnings, total);
+                    return failed(problems, warnings, total, zip);
                 }
                 if (entry.isDirectory()) continue;
                 String path = cleanPath(entry.getName());
@@ -114,20 +128,20 @@ public final class ModPackage {
                 if (data == null) {
                     problems.add("\"" + shorten(path) + "\" is too large when unpacked (limit " + (MAX_ENTRY_BYTES / 1024 / 1024) + " MB per file, "
                         + (MAX_TOTAL_BYTES / 1024 / 1024) + " MB in total).");
-                    return failed(problems, warnings, total);
+                    return failed(problems, warnings, total, zip);
                 }
                 total += data.length;
                 if (raw.put(path, data) != null) warnings.add("\"" + shorten(path) + "\" appears twice in the zip; the last copy is used.");
             }
         } catch (IOException | RuntimeException ex) {
             problems.add("This is not a readable .zip file (" + shorten(String.valueOf(ex.getMessage())) + ").");
-            return failed(problems, warnings, total);
+            return failed(problems, warnings, total, zip);
         }
         if (raw.isEmpty()) {
             problems.add("The zip has no files in it.");
-            return failed(problems, warnings, total);
+            return failed(problems, warnings, total, zip);
         }
-        if (!problems.isEmpty()) return failed(problems, warnings, total);
+        if (!problems.isEmpty()) return failed(problems, warnings, total, zip);
 
         // A zip made by zipping a folder keeps everything inside one top-level folder: look inside it.
         String prefix = wrapperPrefix(raw);
@@ -164,12 +178,12 @@ public final class ModPackage {
             read = ModManifest.parse(ModManifest.Format.FABRIC, text(files.get("fabric.mod.json")));
         } else {
             problems.add("There is no info.json (or fabric.mod.json) at the top of the zip.");
-            return failed(problems, warnings, total);
+            return failed(problems, warnings, total, zip);
         }
         warnings.addAll(read.warnings());
         if (!read.ok()) {
             problems.addAll(read.problems());
-            return failed(problems, warnings, total);
+            return failed(problems, warnings, total, zip);
         }
         ModManifest manifest = read.manifest();
 
@@ -232,8 +246,8 @@ public final class ModPackage {
             }
         }
 
-        if (!problems.isEmpty()) return new ModPackage(null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), ignored, total);
-        return new ModPackage(manifest, items, files, icon, problems, warnings, kinds, ignored, total);
+        if (!problems.isEmpty()) return new ModPackage(null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), ignored, total, zip);
+        return new ModPackage(manifest, items, files, icon, problems, warnings, kinds, ignored, total, zip);
     }
 
     // ---- textures ----
