@@ -250,8 +250,8 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
   `melonman106/Eagler-26.2-Client`, and when a newer release exists the bell shows an unread badge.
   Clicking the bell opens the notification list (client updates, saved screenshots and Modrinth
   updates); an announcement that was already shown is remembered, so it is not repeated every
-  launch. Hovering the bell shows its tooltip. The panel is drawn above the menu and closes when you
-  click outside it.
+  launch. Each row has a small **X** on its right edge that dismisses that notification. Hovering the
+  bell shows its tooltip. The panel is drawn above the menu and closes when you click outside it.
 - The launch countdown and the early-load page that prints "Unpacking assets..." use the same dark
   VBV screen as the in-game loader: wordmark, accent rule, segmented bar with a travelling highlight,
   the percentage on the right and the running step on the left, so a cold start is one continuous
@@ -479,7 +479,11 @@ It is manually triggered and builds the branch it is started from (select
 1. Open the repository's **Actions** tab.
 2. Select `02 - Build Eaglercraft 26.2 u2 (VBV + Herz)`.
 3. Select **Run workflow**.
-4. Wait for the build to finish successfully.
+4. Type the **Client version** the build should report (for example `2.5.0`; default `2.0.0`).
+   It is stamped into `VBVClient.VERSION`, shown on the boot and loading screens, in the Mods list
+   and in F3, and it is the version the GitHub release check compares against, so a release tagged
+   `2.5.0` is not offered as an update to a `2.5.0` build.
+5. Wait for the build to finish successfully.
 
 The workflow performs the following operations:
 

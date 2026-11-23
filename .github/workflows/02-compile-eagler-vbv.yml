@@ -4,6 +4,12 @@ run-name: "02 - Build VBV + Herz"
 
 on:
   workflow_dispatch:
+    inputs:
+      client_version:
+        description: "Client version shown in the build (e.g. 2.5.0)"
+        required: false
+        default: "2.0.0"
+        type: string
   
 permissions:
   contents: read
@@ -95,12 +101,19 @@ jobs:
           ffmpeg -version | head -n 1
       - name: Inject VBV + Herz and embedded resource-pack mods
         shell: bash
+        env:
+          VBV_CLIENT_VERSION: ${{ inputs.client_version }}
         run: |
           set -Eeuo pipefail
           trap 'status=$?; echo "::error::Injection step failed at line ${LINENO}: ${BASH_COMMAND} (exit ${status})"; exit "$status"' ERR
           python3 -m pip install --disable-pip-version-check Pillow
           python3 VBV/patch/apply_vbv_patch.py "$PWD/eaglercraft-u2"
           vbv_src="eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient"
+          expected_version="${VBV_CLIENT_VERSION:-2.0.0}"
+          expected_version="${expected_version//[[:space:]]/}"
+          grep -Fq "public static final String VERSION = \"$expected_version\";" "$vbv_src/VBVClient.java" \
+            || { echo "::error::The client version was not stamped into VBVClient.java (expected $expected_version)"; exit 1; }
+          echo "Client version: v$expected_version"
           pack_registry="$vbv_src/VBVGeneratedPackMods.java"
           test -s "$pack_registry" || { echo "::error::Generated resource-pack registry is missing"; exit 1; }
           expected_pack_count="$(find "$GITHUB_WORKSPACE/ModsPack" -type f -name '*.zip' ! -path '*/__MACOSX/*' | wc -l)"

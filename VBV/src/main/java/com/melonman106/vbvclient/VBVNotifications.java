@@ -23,7 +23,8 @@ import net.minecraft.network.chat.Component;
  *
  * <p>Entries are kept for the session: a newer release, a saved screenshot, and any Modrinth update
  * the browser finds all land here. The tag of a release that was already announced is written to the
- * settings store, so the same release is not announced on every launch.</p>
+ * settings store, so the same release is not announced on every launch. Each row has a small X at its
+ * right edge that dismisses that notification.</p>
  */
 public final class VBVNotifications {
     public static final String REPO = "melonman106/Eagler-26.2-Client";
@@ -60,7 +61,7 @@ public final class VBVNotifications {
     private static int panelH;
     private static int footerY;
     private static final int[] rowY = new int[5];
-    private static final int[] rowEntry = new int[5];
+    private static final Entry[] rowRef = new Entry[5];
     private static int rowCount;
 
     private VBVNotifications() {}
@@ -95,6 +96,19 @@ public final class VBVNotifications {
     private static void markAllRead() {
         synchronized (ENTRIES) {
             for (Entry entry : ENTRIES) entry.read = true;
+        }
+    }
+
+    /** Removes one notification, by identity, when its X is clicked. */
+    private static void dismiss(Entry target) {
+        if (target == null) return;
+        synchronized (ENTRIES) {
+            for (int i = 0; i < ENTRIES.size(); i++) {
+                if (ENTRIES.get(i) == target) {
+                    ENTRIES.remove(i);
+                    return;
+                }
+            }
         }
     }
 
@@ -267,20 +281,28 @@ public final class VBVNotifications {
                 Entry entry = entries.get(i);
                 int y = panelY + 26 + i * 34;
                 rowY[rowCount] = y;
-                rowEntry[rowCount] = i;
+                rowRef[rowCount] = entry;
                 rowCount++;
                 if (i > 0) graphics.fill(panelX + 8, y - 2, panelX + panelW - 8, y - 1, VBVTheme.accentAlpha(0x30));
                 graphics.fill(panelX + 8, y + 3, panelX + 11, y + 6, entry.read ? VBVTheme.accentAlpha(0x60) : VBVTheme.accentLight());
-                graphics.text(font, VBVUi.fit(font, entry.title, panelW - 26), panelX + 15, y + 1,
+                graphics.text(font, VBVUi.fit(font, entry.title, panelW - 44), panelX + 15, y + 1,
                     entry.read ? VBVUi.TEXT : 0xFFFFFFFF, true);
-                int detailWidth = panelW - (entry.link.isEmpty() ? 26 : 46);
+                int detailWidth = panelW - (entry.link.isEmpty() ? 44 : 64);
                 graphics.text(font, VBVUi.fit(font, entry.detail, detailWidth), panelX + 15, y + 13,
                     VBVUi.TEXT_DIM, false);
                 String when = age(entry.at);
-                graphics.text(font, when, panelX + panelW - 8 - font.width(when), y + 1, VBVUi.TEXT_DISABLED, false);
+                graphics.text(font, when, panelX + panelW - 26 - font.width(when), y + 1, VBVUi.TEXT_DISABLED, false);
                 if (!entry.link.isEmpty()) {
-                    graphics.text(font, "open", panelX + panelW - 8 - font.width("open"), y + 13,
+                    graphics.text(font, "open", panelX + panelW - 26 - font.width("open"), y + 13,
                         VBVTheme.accentAlpha(0xC0), false);
+                }
+                // Dismiss X in the right-hand margin of the row.
+                int dx = panelX + panelW - 18;
+                int dy = y + 9;
+                int xColor = entry.read ? VBVUi.TEXT_DISABLED : VBVUi.TEXT_DIM;
+                for (int step = 0; step < 8; step++) {
+                    graphics.fill(dx + step, dy + step, dx + step + 1, dy + step + 1, xColor);
+                    graphics.fill(dx + 7 - step, dy + step, dx + 8 - step, dy + step + 1, xColor);
                 }
             }
         }
@@ -329,13 +351,13 @@ public final class VBVNotifications {
         for (int i = 0; i < rowCount; i++) {
             int top = rowY[i];
             if (mouseY < top || mouseY >= top + 32) continue;
-            List<Entry> entries;
-            synchronized (ENTRIES) {
-                entries = new ArrayList<>(ENTRIES);
+            Entry entry = rowRef[i];
+            if (entry == null) continue;
+            // The right-hand margin of the row is the dismiss button, not the link.
+            if (mouseX >= panelX + panelW - 22) {
+                dismiss(entry);
+                return true;
             }
-            int index = rowEntry[i];
-            if (index < 0 || index >= entries.size()) continue;
-            Entry entry = entries.get(index);
             entry.read = true;
             if (!entry.link.isEmpty()) openUrl(entry.link);
             return true;

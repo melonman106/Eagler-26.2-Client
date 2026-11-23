@@ -191,7 +191,7 @@ public final class VBVBetterF3 {
         long usedMb = VBVMemory.usedMb();
         long maxMb = VBVMemory.maxMb();
         Section section = new Section("System");
-        section.add("Client", "Eaglercraft 26.2 | VBV 2.0");
+        section.add("Client", "Eaglercraft 26.2 | VBV " + VBVClient.VERSION);
         section.add("Runtime", System.getProperty("java.version", "browser"));
         section.add("Platform", System.getProperty("os.name", "browser"));
         section.add("Memory", usedMb + " / " + maxMb + " MB"

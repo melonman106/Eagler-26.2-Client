@@ -34,6 +34,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_pack_modrinth_button.py",
     "patch_screenshot_storage.py",
     "patch_inventory_sorter.py",
+    "patch_client_version.py",
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
@@ -380,6 +381,12 @@ finally:
 post = CLIENT_SIDE / "patch/post_vbv_fixes.py"
 if post.is_file():
     subprocess.run([sys.executable, str(post), *sys.argv[1:]], check=True)
+
+# Build version: the workflow asks for the client version and this stage writes it into the copied
+# VBVClient.VERSION, which the boot/loading screens, the Mods list and the release check read.
+client_version = PATCH_DIR / "patch_client_version.py"
+if client_version.is_file():
+    subprocess.run([sys.executable, str(client_version), *sys.argv[1:]], check=True)
 
 # The upstream patch injects the V/M hotkeys as two hardcoded key codes. Route those two
 # conditions through VBVKeybinds so Options > Modded Settings > Keybinds... can change them.

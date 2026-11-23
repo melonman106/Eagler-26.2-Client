@@ -13,6 +13,7 @@ Nothing about the loading order or the JavaScript that starts the game changes;
 only the markup and the style of the two pages, plus the percent readout.
 """
 from pathlib import Path
+import os
 import re
 import sys
 
@@ -37,6 +38,10 @@ ACCENT_DARK = "#B98A2E"
 ACCENT_LIGHT = "#FFD98A"
 BG = "#08070D"
 DIM = "#8b8b96"
+EDITION = "EAGLER 26.2 EDITION"
+_build_version = os.environ.get("VBV_CLIENT_VERSION", "").strip()
+if re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z._+-]{0,31}", _build_version):
+    EDITION += f" · v{_build_version}"
 
 LOADING = f"""\t\t<!-- {MARKER}: the pre-game pages use the same dark VBV screen as the in-game loader. -->
 \t\t<style>
@@ -50,7 +55,7 @@ LOADING = f"""\t\t<!-- {MARKER}: the pre-game pages use the same dark VBV screen
 \t\t\t\t<div id="vbv_boot_head">
 \t\t\t\t\t<div style="font-weight:800;letter-spacing:0.34em;font-size:clamp(42px,9vmin,92px);line-height:1;color:#ffffff;text-shadow:0 0 22px rgba(232,180,74,0.35);">VBV</div>
 \t\t\t\t\t<div style="margin:12px auto 0;width:34%;height:1px;background:{ACCENT};opacity:0.9;"></div>
-\t\t\t\t\t<div style="margin-top:9px;letter-spacing:0.42em;font-size:clamp(9px,1.5vmin,12px);color:{DIM};">EAGLER 26.2 EDITION</div>
+\t\t\t\t\t<div style="margin-top:9px;letter-spacing:0.42em;font-size:clamp(9px,1.5vmin,12px);color:{DIM};">{EDITION}</div>
 \t\t\t\t</div>
 \t\t\t\t<div style="margin-top:clamp(26px,7vmin,62px);display:flex;align-items:flex-end;justify-content:space-between;gap:14px;">
 \t\t\t\t\t<div style="text-align:left;min-width:0;">
