@@ -142,7 +142,9 @@ public final class VBVConfigStore {
         VBVCem.setAnimationsEnabled(bool("cem.animations", true));
         VBVCem.setAnimationRange(integer("cem.animRange", 48, 0, 512));
         VBVPanoramaOverlay.selectById(read("panorama.selected", VBVPanoramaOverlay.DEFAULT_ID));
-        VBVPanoramaOverlay.setMotion(bool("panorama.motion", true));
+        // A still backdrop costs one blit; a moving one costs a decode and an upload on every frame.
+        // Low-end machines start still and can turn Motion back on in Extras > Panoramas.
+        VBVPanoramaOverlay.setMotion(bool("panorama.motion", !VBVHardware.lowEnd()));
         VBVWorldMap.setTerrainCaptureEnabled(bool("worldmap.terrain", false));
 
         VBVExtraFeatures.loadSettings(
@@ -204,7 +206,8 @@ public final class VBVConfigStore {
             write("hardware.cores", VBVHardware.cores());
             if (VBVHardware.lowEnd()) {
                 write("hardware.profile", "low");
-                if (VBVLod.getLevel() == VBVLod.OFF) VBVLod.setLevel(VBVLod.LOW);
+                // LOD is the largest optional render cost, so a low-end first run leaves it off until
+                // the player asks for it; turning it on by default made single-digit-FPS machines worse.
                 VBVEntityCulling.setEnabled(true);
                 VBVAdaptive.setEnabled(true);
                 if (VBVCem.isEnabled()) VBVCem.setAnimationRange(16);

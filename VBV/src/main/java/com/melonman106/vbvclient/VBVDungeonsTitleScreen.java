@@ -18,8 +18,9 @@ import net.minecraft.network.chat.Component;
  * begin") is shown on top of the same panorama and opens this screen once a key is pressed.
  * Hero, Party, Storage, Panoramas and Appearance live in {@link VBVLauncherScreen}, the Extras screen.
  *
- * The panorama itself is drawn by TitleScreen; everything here is layered on top of it. Layout is
- * computed in one place ({@link #computeLayout()}). Sizes follow the GUI height, so the menu keeps
+ * The backdrop is drawn by {@code Screen.extractPanorama()}: the selected stored frame replaces the
+ * 3D camera panorama, or the vanilla one is used when "Minecraft" is selected. Everything here is
+ * layered on top of it. Layout is computed in one place ({@link #computeLayout()}). Sizes follow the GUI height, so the menu keeps
  * the proportions of the design it copies (row pitch about 5.6% of the screen height, label capitals
  * about 1.9%, wordmark capitals about 5%) whatever the window size or GUI scale, and the scale is
  * snapped to whole screen pixels per font pixel so the text stays crisp.
@@ -292,7 +293,9 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
 
         // Horizontal fade: darkest at the left edge, gone by the end of the menu column.
         int vigW = Math.min(w, left + menuW + w / 6);
-        int steps = Math.min(48, Math.max(1, vigW));
+        // One full-height quad per step. 16 is visually smooth for a wide fade and is a third of the
+        // draw calls the menu used to spend on it, which matters on a low-end browser GPU.
+        int steps = Math.min(16, Math.max(1, vigW));
         for (int i = 0; i < steps; i++) {
             float t = 1.0F - (float) i / steps;
             int alpha = (int) (0xB8 * t * t);

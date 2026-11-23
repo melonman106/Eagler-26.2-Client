@@ -296,6 +296,7 @@ jobs:
           grep -q 'VBVPotionHud.render' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
           grep -q 'VBVInventorySorter.tick' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVClient.java
           grep -q 'VBVModrinthUpdatesScreen' eaglercraft-u2/game/src/main/java/com/melonman106/vbvclient/VBVModrinthScreen.java
+          grep -q 'VBV_PANORAMA_OVERLAY_REPLACE' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/Screen.java
           grep -q 'VBV_BOOT_SCREEN' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/LoadingOverlay.java
           grep -q 'VBV_DUNGEONS_SUPPRESS_VANILLA_BRANDING' eaglercraft-u2/game/src/main/java/net/minecraft/client/gui/screens/TitleScreen.java
           grep -R -q 'VBVExtraFeatures.handleKey' eaglercraft-u2/game/src/main/java

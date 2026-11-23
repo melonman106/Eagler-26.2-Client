@@ -24,6 +24,8 @@ public final class VBVPerf {
     private static final int SPIKE_LOG = 96;
 
     private static boolean meter;
+    /** Set once the aggressive low-end profile is applied; the automatic governor uses it as a latch. */
+    private static boolean lowEndMode;
 
     /** Draggable screen offset, set from the HUD Editor. */
     public static int offsetX;
@@ -112,35 +114,66 @@ public final class VBVPerf {
         meter = !meter;
     }
 
-    /**
-     * One-click low-end profile. Each item is a setting the player can still change afterwards:
-     * fewer chunks to draw and simulate, far terrain from LOD instead of real chunks, the automatic
-     * governor on, cheaper custom-entity animation, culling on, no shader pass, no world-map terrain
-     * capture and a still menu backdrop, plus the FPS meter on so the difference is visible. Nothing
-     * here is state a later click cannot undo from the same screens.
-     */
+    /** Kept for the existing settings button; it now applies the stronger low-end profile. */
     public static void applyPerformancePreset() {
+        applyLowEndMode();
+    }
+
+    /** True while the aggressive low-end profile is in force for this session. */
+    public static boolean isLowEndMode() {
+        return lowEndMode;
+    }
+
+    /**
+     * The strongest performance profile, below the engine's own web FAST preset. It exists for
+     * machines that sit in single-digit FPS, where the far-terrain LOD mesh and custom entity models
+     * cost more than they are worth. Every value it changes is an ordinary setting the player can
+     * raise again from the same screens; nothing here is one-way.
+     */
+    public static void applyLowEndMode() {
+        lowEndMode = true;
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft != null && minecraft.options != null) {
             try {
-                minecraft.options.renderDistance().set(Math.min(minecraft.options.renderDistance().get(), 8));
-                minecraft.options.simulationDistance().set(Math.min(minecraft.options.simulationDistance().get(), 5));
+                // FAST already sets the web-tuned render toggles (AO and shadows off, biome blend 0,
+                // minimal particles, entity distance 0.5, render distance 4, simulation 4). Go below
+                // its floor: a 2-chunk view is four times fewer chunks than 4 and is what makes a
+                // difference on a GPU that is already struggling at single-digit FPS.
+                minecraft.options.graphicsPreset().set(net.minecraft.client.GraphicsPreset.FAST);
+                minecraft.options.renderDistance().set(2);
+                minecraft.options.simulationDistance().set(3);
+                minecraft.options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF);
+                minecraft.options.particles().set(net.minecraft.server.level.ParticleStatus.MINIMAL);
+                minecraft.options.entityDistanceScaling().set(0.5D);
+                minecraft.options.biomeBlendRadius().set(0);
+                minecraft.options.ambientOcclusion().set(false);
+                minecraft.options.entityShadows().set(false);
+                // Two screen-space passes that cost fill rate and buy nothing for playability.
+                minecraft.options.vignette().set(false);
+                minecraft.options.menuBackgroundBlurriness().set(0);
                 minecraft.options.save();
             } catch (Throwable ignored) {
-                // A failed option write must not take the rest of the preset with it.
+                // A failed option write must not take the rest of the profile with it.
             }
         }
-        // Far terrain is cheaper than real chunks at the same distance, so make sure LOD is on.
-        if (VBVLod.getLevel() < VBVLod.LOW) VBVLod.setLevel(VBVLod.LOW);
-        VBVAdaptive.setEnabled(true);
+        // Far terrain and custom models are the two largest optional render costs. The LOD mesh can
+        // cost more than the chunks it hides on a machine this slow, so it goes first.
+        VBVLod.setLevel(VBVLod.OFF);
+        VBVCem.setEnabled(false);
+        VBVCem.setAnimationsEnabled(false);
         VBVEntityCulling.setEnabled(true);
-        if (VBVCem.isEnabled()) VBVCem.setAnimationRange(16);
+        VBVAdaptive.setEnabled(true);
         // Painting explored chunks into the world map is a per-chunk cost with no frame-rate payoff.
         VBVWorldMap.setTerrainCaptureEnabled(false);
         VBVExtraFeatures.setDebugHudEnabled(false);
-        // A still backdrop removes the per-frame PNG decode and texture upload in the menu.
+        // A still backdrop removes the per-frame blend in the menu.
         VBVPanoramaOverlay.setMotion(false);
         meter = true;
+        try {
+            VBVConfigStore.saveAll();
+        } catch (Throwable ignored) {
+            // The settings are already applied in memory; a failed write only affects the next launch.
+        }
     }
 
     /** Called once per HUD frame. Records the frame time and draws the meter if it is on. */
@@ -291,16 +324,19 @@ public final class VBVPerf {
             graphics.text(font, line8, x + 4, ty, 0xFFFFB070, true);
             ty += lineH;
         }
-        // Frame-time bars: each bar is one frame, full height = 50 ms or worse.
-        int gx = x + width / 2 - GRAPH_FRAMES / 2;
-        int base = ty + GRAPH_HEIGHT;
-        int shown = Math.min(GRAPH_FRAMES, count);
-        for (int i = 0; i < shown; i++) {
-            float ms = FRAME_MS[(head - 1 - i + CAPACITY) % CAPACITY];
-            int h = Math.max(1, Math.min(GRAPH_HEIGHT, Math.round(ms / SPIKE_MS * GRAPH_HEIGHT)));
-            int bar = ms >= BIG_SPIKE_MS ? 0xFFFF5050 : (ms >= SPIKE_MS ? 0xFFFFA040 : (ms > 25.0F ? 0xFFFFE070 : 0xFF70E070));
-            int bx = gx + GRAPH_FRAMES - 1 - i;
-            graphics.fill(bx, base - h, bx + 1, base, bar);
+        // Frame-time bars: each bar is one frame, full height = 50 ms or worse. In Low-End Mode the
+        // number and the summary lines are what matter; the 90 extra quads are not worth their cost.
+        if (!lowEndMode) {
+            int gx = x + width / 2 - GRAPH_FRAMES / 2;
+            int base = ty + GRAPH_HEIGHT;
+            int shown = Math.min(GRAPH_FRAMES, count);
+            for (int i = 0; i < shown; i++) {
+                float ms = FRAME_MS[(head - 1 - i + CAPACITY) % CAPACITY];
+                int h = Math.max(1, Math.min(GRAPH_HEIGHT, Math.round(ms / SPIKE_MS * GRAPH_HEIGHT)));
+                int bar = ms >= BIG_SPIKE_MS ? 0xFFFF5050 : (ms >= SPIKE_MS ? 0xFFFFA040 : (ms > 25.0F ? 0xFFFFE070 : 0xFF70E070));
+                int bx = gx + GRAPH_FRAMES - 1 - i;
+                graphics.fill(bx, base - h, bx + 1, base, bar);
+            }
         }
     }
 

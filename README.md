@@ -213,6 +213,10 @@ in **Extras > Panoramas** under a name made from the file name (`LoadingScreenNi
 "Loading Screen Night"). The choice is saved with your settings. `panorama_overlay` is the default;
 the **Minecraft** card in Extras switches back to the vanilla panorama. Only a short ring of frames
 is kept in memory at a time, so long clips cost build size (PNG frames) rather than game memory.
+When a stored panorama is selected, the menu draws that frame and skips the 3D camera panorama that
+used to sit underneath it; and if the menu still renders below about eight FPS with Motion on, the
+overlay holds its current frame for the rest of the session so it is not also paying a decode,
+a texture upload and a second full-screen blend (the saved Motion choice is unchanged).
 
 Frame quality is a size trade-off, and it is also load time: the game downloads and unpacks every frame of
 every clip when it starts. At 10 fps and 1280 px the four bundled clips came to about 152 MB of a 178 MB
@@ -326,13 +330,20 @@ there either.
 - **Options > Modded Settings > Diagnostics...** prints the frame breakdown, what the resource packs
 supplied (models found, baked rigs, layer followers, remembered poses), the LOD mesh and sample
 counts, and the heap state. **Copy** puts the same text on the clipboard.
-- **Auto Quality** lowers the render distance one step while the smoothed FPS stays under 42, falls
-  back to LOD when the render distance is at its floor, and walks back up to where it started once the
-  frame rate recovers. Changes are at least eight seconds apart and saved like any other setting.
-- **Performance Preset** (Modded Settings) is the one-click low-end profile: render distance 8 and
-  simulation 5 at most, LOD at least Low, auto quality on, entity culling on, shaders off, custom-model
-  animations to 16 blocks, world-map terrain capture off, a still menu backdrop and the FPS meter on.
-  Every item can still be changed afterwards from its own screen.
+- **Auto Quality** lowers the render distance while the smoothed FPS stays under 42: one chunk at a
+  time normally, two at a time below 25 FPS, down to a floor of 2. Below 22 FPS it first switches LOD
+  off, because the far-terrain mesh can cost more than the chunks it hides. It walks the render
+  distance back up to where it started once the frame rate recovers, at least eight seconds between
+  changes, saved like any other setting. If the frame rate stays below 15 FPS for two windows
+  (about four seconds), it applies **Low-End Mode** once instead of slowly stepping down.
+- **Low-End Mode** (Modded Settings) is the one-click profile for a machine in single-digit FPS. It
+  starts from the engine's web `FAST` preset and goes below it: render distance 2, simulation 3,
+  clouds off, particles minimal, entity distance 0.5, biome blend 0, ambient occlusion, entity
+  shadows, the vignette and the menu background blur off, LOD off, custom entity models and
+  animations off, auto quality and entity culling on, world-map terrain capture off, a still menu
+  backdrop and the FPS meter on. Every value is an
+  ordinary setting that can be raised again afterwards; nothing here is permanent. The older
+  **Performance Preset** name still applies the same profile.
 - **Memory** figures come from the browser (`performance.memory`) when it exposes them, because
   `Runtime.maxMemory()` is constant-folded to a meaningless donor value inside TeaVM. Chrome gives
   this tab about 2 GB of heap on an 8 GB machine, the embedded asset pack lives in that same heap, and

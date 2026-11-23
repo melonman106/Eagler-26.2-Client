@@ -5,12 +5,12 @@ import net.minecraft.client.Minecraft;
 /**
  * Automatic quality governor.
  *
- * <p>The one-click performance preset is a single decision made at one moment; this keeps making
- * it. It watches the smoothed FPS the meter already computes and, in two-second windows, lowers the
- * render distance one step while the frame rate stays low, then falls back to turning LOD on when
- * there is no render distance left to give. When the frame rate recovers it walks the render
- * distance back up, but only to where it started, so it never pushes the machine off the cliff it
- * just climbed.</p>
+ * <p>The one-click profile is a single decision made at one moment; this keeps making it. It watches
+ * the smoothed FPS the meter already computes and, in two-second windows, lowers the render distance
+ * while the frame rate stays low. Below 22 FPS it turns LOD off first, because the far-terrain mesh
+ * can cost more than the chunks it hides on a weak CPU/GPU; below 15 FPS it applies the full
+ * low-end profile after two windows. When the frame rate recovers it walks the render distance back
+ * up, but only to where it started, so it never pushes the machine off the cliff it just climbed.</p>
  *
  * <p>Changes are rare, spaced at least eight seconds apart, and written to the config like any
  * other setting, so the player can always take over. It only acts in the world (never in a menu),
@@ -29,7 +29,14 @@ public final class VBVAdaptive {
     private static final long RETRY_MS = 120_000L;
     private static final int BAD_WINDOWS = 3;
     private static final int GOOD_WINDOWS = 6;
-    private static final int MIN_RENDER_DISTANCE = 5;
+    /**
+     * Below this the frame rate is not "a bit low", it is unplayable. The governor steps two chunks
+     * at a time, drops LOD, and after two windows hands over to {@link VBVPerf#applyLowEndMode()}.
+     */
+    private static final int EMERGENCY_FPS = 15;
+    private static final int EMERGENCY_WINDOWS = 2;
+    /** The engine's web FAST preset starts at 4; below that only a genuinely tiny view is left. */
+    private static final int MIN_RENDER_DISTANCE = 2;
 
     private static boolean enabled = true;
     private static int badWindows;
@@ -42,6 +49,9 @@ public final class VBVAdaptive {
     private static long badUntil;
     private static long windowStarted;
     private static long nextChangeAt;
+    private static int emergencyWindows;
+    /** Smoothed FPS from the last window, used to choose how hard stepDown should cut. */
+    private static int lastFps;
     private static String lastAction = "";
     private static String lastNote = "";
 
@@ -70,6 +80,8 @@ public final class VBVAdaptive {
         badUntil = 0L;
         windowStarted = 0L;
         nextChangeAt = 0L;
+        emergencyWindows = 0;
+        lastFps = 0;
         lastAction = "";
         lastNote = "";
     }
@@ -90,6 +102,18 @@ public final class VBVAdaptive {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null || mc.player == null || mc.level == null) {
             return;
+        }
+        lastFps = fps;
+        // A machine that stays under 15 FPS after two windows is past what render-distance steps can
+        // fix. Apply the full low-end profile once; the player can undo any part of it afterwards.
+        if (fps < EMERGENCY_FPS) {
+            if (++emergencyWindows >= EMERGENCY_WINDOWS && !VBVPerf.isLowEndMode()) {
+                emergencyWindows = 0;
+                VBVPerf.applyLowEndMode();
+                return;
+            }
+        } else {
+            emergencyWindows = 0;
         }
         if (lastSetDistance >= 0 && mc.options.renderDistance().get() != lastSetDistance) {
             // The player moved the slider themselves: that is their setting now, so stop managing it.
@@ -123,21 +147,29 @@ public final class VBVAdaptive {
         if (originalRenderDistance < 0) {
             originalRenderDistance = renderDistance;
         }
-        if (renderDistance > MIN_RENDER_DISTANCE) {
-            mc.options.renderDistance().set(renderDistance - 1);
-            mc.options.save();
-            lastSetDistance = renderDistance - 1;
-            badDistance = renderDistance;
-            badUntil = now + RETRY_MS;
-            lastAction = "render distance " + (renderDistance - 1);
+        // Far terrain is the first thing to give up when the frame rate is already very low: the
+        // LOD mesh and its rebuilds can cost more than the chunks they hide on a weak CPU/GPU.
+        if (lastFps < 22 && VBVLod.getLevel() != VBVLod.OFF) {
+            VBVLod.setLevel(VBVLod.OFF);
+            lastAction = "LOD off";
             nextChangeAt = now + COOLDOWN_MS;
             return;
         }
-        if (VBVLod.getLevel() < VBVLod.LOW) {
-            VBVLod.setLevel(VBVLod.LOW);
-            lastAction = "LOD Low";
+        if (renderDistance > MIN_RENDER_DISTANCE) {
+            // Two chunks at a time below 25 FPS, so a 5 FPS machine reaches the floor in a few
+            // windows instead of spending a minute at 12 -> 11 -> 10 ...
+            int step = lastFps < 25 ? 2 : 1;
+            int next = Math.max(MIN_RENDER_DISTANCE, renderDistance - step);
+            mc.options.renderDistance().set(next);
+            mc.options.save();
+            lastSetDistance = next;
+            badDistance = renderDistance;
+            badUntil = now + RETRY_MS;
+            lastAction = "render distance " + next;
             nextChangeAt = now + COOLDOWN_MS;
+            return;
         }
+        // At the floor, VBVPerf.applyLowEndMode() is the only thing left that can help.
     }
 
     private static void stepUp(Minecraft mc, long now) {

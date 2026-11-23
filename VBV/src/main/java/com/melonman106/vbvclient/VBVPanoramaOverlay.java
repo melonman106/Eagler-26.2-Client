@@ -49,6 +49,9 @@ public final class VBVPanoramaOverlay {
     private static Identifier cachedNextId;
     /** When false the first frame is held: no per-frame decode, upload or blend. */
     private static boolean motion = true;
+    /** Last menu frame time, used to drop the motion for this session when the menu is very slow. */
+    private static long lastRenderNanos;
+    private static int slowMenuFrames;
 
     private VBVPanoramaOverlay() {}
 
@@ -124,10 +127,17 @@ public final class VBVPanoramaOverlay {
         }
     }
 
-    public static void render(GuiGraphicsExtractor graphics, int width, int height) {
+    /**
+     * Draws the selected stored backdrop and returns true, or returns false when no overlay is
+     * selected so the caller can draw the vanilla 3D panorama instead. The two are never drawn
+     * together: the stored frame covers the whole screen, so rendering the camera panorama underneath
+     * it would only cost menu frame time.
+     */
+    public static boolean render(GuiGraphicsExtractor graphics, int width, int height) {
         if (selected < 0 || selected >= IDS.length || COUNTS[selected] <= 0) {
-            return;
+            return false;
         }
+        observeMenuFrameRate();
         int count = COUNTS[selected];
         long frameMs = Math.max(1L, FRAME_MS[selected]);
         long now = System.currentTimeMillis();
@@ -149,6 +159,36 @@ public final class VBVPanoramaOverlay {
             float blend = (float) (now % frameMs) / (float) frameMs;
             graphics.blit(RenderPipelines.GUI_TEXTURED, cachedNextId, 0, 0, 0, 0,
                 width, height, width, height, width, height, ARGB.white(blend));
+        }
+        return true;
+    }
+
+    /**
+     * If the menu itself is rendering below about eight FPS while a moving backdrop is selected, hold
+     * the current frame for the rest of the session. The saved Motion choice is not changed, so the
+     * next launch (or the Panoramas tab) can turn it back on; this only prevents a machine that is
+     * already struggling from also paying a decode, an upload and a second full-screen blend.
+     */
+    private static void observeMenuFrameRate() {
+        long now = System.nanoTime();
+        long previous = lastRenderNanos;
+        lastRenderNanos = now;
+        if (previous == 0L || !motion) {
+            return;
+        }
+        long gap = now - previous;
+        if (gap <= 0L || gap >= 1_000_000_000L) {
+            slowMenuFrames = 0;
+            return;
+        }
+        if (gap > 120_000_000L) {
+            slowMenuFrames++;
+        } else {
+            slowMenuFrames = Math.max(0, slowMenuFrames - 1);
+        }
+        if (slowMenuFrames >= 12) {
+            slowMenuFrames = 0;
+            motion = false;
         }
     }
 

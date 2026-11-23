@@ -101,12 +101,14 @@ public final class VBVModdedSettingsScreen extends Screen {
         y += btnH + gap;
         addRenderableWidget(Button.builder(Component.literal("Keybinds..."),
             button -> VBVNav.open(new VBVKeybindConfigScreen(this))).bounds(left, y, half, btnH).build());
-        addRenderableWidget(Button.builder(Component.literal("Performance Preset"), button -> {
-            VBVPerf.applyPerformancePreset();
-            VBVConfigStore.saveAll();
-            button.setMessage(Component.literal("Performance Preset: applied"));
-            // The preset turns the FPS meter on, so keep that row's label in step with it.
+        addRenderableWidget(Button.builder(lowEndLabel(), button -> {
+            VBVPerf.applyLowEndMode();
+            button.setMessage(lowEndLabel());
+            // The profile changes several rows' settings, so keep their labels in step with it.
             if (meterButton != null) meterButton.setMessage(meterLabel());
+            if (lodButton != null) lodButton.setMessage(lodLabel());
+            if (cemButton != null) cemButton.setMessage(cemLabel());
+            if (cemAnimButton != null) cemAnimButton.setMessage(cemAnimLabel());
         }).bounds(right, y, half, btnH).build());
 
         // Diagnostics shows what the client actually loaded (models, layers, LOD mesh) and the
@@ -135,6 +137,10 @@ public final class VBVModdedSettingsScreen extends Screen {
 
     private static Component cemAnimLabel() {
         return Component.literal("Model Anim: " + VBVCem.animationsLabel());
+    }
+
+    private static Component lowEndLabel() {
+        return Component.literal(VBVPerf.isLowEndMode() ? "Low-End Mode: on" : "Low-End Mode");
     }
 
     private static Component autoQualityLabel() {

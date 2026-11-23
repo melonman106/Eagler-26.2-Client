@@ -136,12 +136,23 @@ def configure_panorama_overlay():
     # pause and other in-world screens are unaffected.
     screen_files=[p for p in GAME.rglob("Screen.java") if p.as_posix().endswith("/net/minecraft/client/gui/screens/Screen.java")]
     if not screen_files: raise RuntimeError("Screen.java not found for panorama overlay hook")
-    screen=screen_files[0]; ss=screen.read_text(encoding="utf-8"); marker="VBV_PANORAMA_OVERLAY_RENDER"
+    screen=screen_files[0]; ss=screen.read_text(encoding="utf-8"); marker="VBV_PANORAMA_OVERLAY_REPLACE"
+    anchor="this.minecraft.gameRenderer.panorama().extractRenderState(graphics, this.width, this.height);"
+    # Older builds drew the stored frame *after* the 3D panorama, paying for both. Remove that call
+    # so the migration below can replace it with the exclusive version.
+    old_hook=("      // VBV_PANORAMA_OVERLAY_RENDER\n"
+              "      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);\n")
+    changed=False
+    if old_hook in ss:
+        ss=ss.replace(old_hook,"",1); changed=True
     if marker not in ss:
-        anchor="this.minecraft.gameRenderer.panorama().extractRenderState(graphics, this.width, this.height);"
         if ss.count(anchor)!=1: raise RuntimeError("Could not uniquely locate Screen.extractPanorama panorama render call")
-        hook=anchor+f"\n      // {marker}\n      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);"
-        screen.write_text(ss.replace(anchor,hook,1),encoding="utf-8")
+        hook=(f"// {marker}: the stored frame is opaque, so do not also render the 3D panorama under it.\n"
+              "      if (!com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height)) {\n"
+              f"         {anchor}\n"
+              "      }")
+        ss=ss.replace(anchor,hook,1); changed=True
+    if changed: screen.write_text(ss,encoding="utf-8")
     # An older build hooked TitleScreen directly; drop it so the overlay is never drawn twice.
     if title is not None:
         ts=title.read_text(encoding="utf-8"); old_hook="\n      // VBV_PANORAMA_OVERLAY_RENDER\n      com.melonman106.vbvclient.VBVPanoramaOverlay.render(graphics, this.width, this.height);"
