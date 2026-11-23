@@ -66,6 +66,10 @@ public final class VBVConfigStore {
     }
 
     public static void loadAll() {
+        ensureLoaded();
+        // A store with no keys at all is a genuinely new profile. Only that one
+        // gets the hardware guess; an existing install keeps what it saved.
+        boolean freshProfile = VALUES.isEmpty();
         VBVArmorHudConfig.enabled = bool("armor.enabled", true);
         VBVArmorHudConfig.anchor = integer("armor.anchor", 4, 0, 4);
         VBVArmorHudConfig.side = integer("armor.side", 0, 0, 1);
@@ -183,7 +187,7 @@ public final class VBVConfigStore {
         // browser describes as small. Render distance is left alone here because
         // the options object is not reliably available at this point; the
         // Performance Preset button still sets it once a world is loaded.
-        if (!bool("hardware.auto", false)) {
+        if (freshProfile && !bool("hardware.auto", false)) {
             write("hardware.auto", true);
             write("hardware.memGb", VBVHardware.memoryGb());
             write("hardware.cores", VBVHardware.cores());
