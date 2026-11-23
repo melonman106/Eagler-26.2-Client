@@ -49,7 +49,7 @@ Note: This is a custom Eaglercraft implementation, not the original OptiFine mod
 - Jade-style block and entity information.
 - Shulker box previews.
 - Armor HUD and additional HUD elements.
-- Potion HUD with effect icons, amplifiers and remaining time.
+- Potion HUD with effect icons, amplifiers and remaining time; while it is enabled it replaces the vanilla effect icons.
 - Inventory Sorter for the 27 backpack slots, or the open chest, barrel, ender chest or shulker box; partial stacks of the same item are merged into full stacks (normal pick-up clicks, hotbar untouched).
 - Screenshot Manager: F2 captures are written into the storage folder's `Screenshots/` directory.
 - BetterF3-style debug information.
@@ -83,7 +83,7 @@ The client uses Java source injection to integrate the modifications directly in
 | Simple HUD Enhanced | Additional HUD functionality |
 | Mouse Tweaks | Improved inventory interaction |
 | Worldmap | Worldmap and explored-chunk mapping |
-| Potion HUD | Active effect icons, amplifier and remaining time |
+| Potion HUD | Active effect icons, amplifier and remaining time (replaces the vanilla icons while enabled) |
 | Inventory Sorter | Orders the 27 backpack slots or the open storage block and merges partial stacks (R by default) |
 | Screenshot Manager | Saves screenshots into the storage folder and lists them |
 

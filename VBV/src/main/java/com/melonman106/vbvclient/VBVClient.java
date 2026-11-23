@@ -49,7 +49,7 @@ public final class VBVClient {
         reg("custom-crosshair", "Custom Crosshair", "1.5.3", "melonman106",
             "Edit a 15×15 pixel crosshair with configurable scale, color, presets and locally saved patterns.", "vbvclient:textures/mods/viabackportvisuals-client.png");
         reg("vbv-potion-hud", "Potion HUD", "1.5.3", "melonman106",
-            "Lists active status effects with their icon, amplifier and remaining time in a compact HUD panel.", "vbvclient:textures/mods/vbv-potion-hud.png");
+            "Lists active status effects with their icon, amplifier and remaining time in a compact HUD panel, replacing the vanilla effect icons while it is enabled.", "vbvclient:textures/mods/vbv-potion-hud.png");
         reg("vbv-inventory-sorter", "Inventory Sorter", "1.5.3", "melonman106",
             "Sorts the 27 backpack slots, or the open chest, barrel, ender chest or shulker box, by item name and merges partial stacks; the hotbar is left alone.", "vbvclient:textures/mods/vbv-inventory-sorter.png");
         reg("vbv-screenshot-manager", "Screenshot Manager", "1.5.3", "melonman106",

@@ -121,7 +121,19 @@ public final class VBVScreenshots {
           var ctx = canvas.getContext("2d");
           if (!ctx) return "";
           var data = ctx.createImageData(width, height);
-          data.data.set(rgba);
+          // TeaVM hands the byte[] over as a signed Int8Array. Copying it straight into the
+          // ImageData would clamp every byte above 0x7F (including the alpha channel) to 0,
+          // which turned the saved PNG into a fully transparent, blank image.
+          var out = data.data;
+          for (var k = 0; k < rgba.length; k++) out[k] = rgba[k] & 0xFF;
+          // Some backends report an opaque frame with alpha 0; keep the screenshot opaque.
+          var hasAlpha = false;
+          for (var i = 3; i < data.data.length; i += 4) {
+            if (data.data[i] !== 0) { hasAlpha = true; break; }
+          }
+          if (!hasAlpha) {
+            for (var j = 3; j < data.data.length; j += 4) data.data[j] = 255;
+          }
           ctx.putImageData(data, 0, 0);
           var path = "";
           if (window.VBVStorage && window.VBVStorage.saveScreenshotData) {

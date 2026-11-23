@@ -121,6 +121,20 @@ if hud_candidates:
  # Custom crosshair drawing now runs in the shared HUD callback; retain only
  # the vanilla crosshair suppression guard above.
  t = re.sub(r"(?m)^\s*// VBV_CUSTOM_CROSSHAIR_RENDER\s*\n?", "", t)
+ # The native Potion HUD replaces the vanilla effect icon row while it is enabled.
+ marker="VBV_POTION_HUD_SUPPRESS"
+ if marker not in t:
+  t,n=re.subn(
+   r"(?m)^([ \t]*)private void extractEffects\(final GuiGraphicsExtractor \w+, final DeltaTracker \w+\) \{\n",
+   lambda m: (
+    m.group(0)
+    + m.group(1) + "   // " + marker + ": the Potion HUD draws the active effects instead.\n"
+    + m.group(1) + "   if (com.melonman106.vbvclient.VBVPotionHud.enabled) {\n"
+    + m.group(1) + "      return;\n"
+    + m.group(1) + "   }\n"
+   ),
+   t,count=1)
+  if n!=1: raise RuntimeError("Could not find Hud.extractEffects for the Potion HUD suppression hook")
  # Fabric-shaped HUD render callback: run after native HUD state collection.
  hud_marker="VBV_FABRIC_HUD_RENDER_CALLBACK"
  if hud_marker not in t:
