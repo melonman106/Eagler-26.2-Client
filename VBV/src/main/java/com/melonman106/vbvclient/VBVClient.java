@@ -51,7 +51,7 @@ public final class VBVClient {
         reg("vbv-potion-hud", "Potion HUD", "1.5.3", "melonman106",
             "Lists active status effects with their icon, amplifier and remaining time in a compact HUD panel.", "vbvclient:textures/mods/vbv-potion-hud.png");
         reg("vbv-inventory-sorter", "Inventory Sorter", "1.5.3", "melonman106",
-            "Sorts the 27 backpack slots by item name with a short series of normal pick-up clicks; the hotbar is left alone.", "vbvclient:textures/mods/vbv-inventory-sorter.png");
+            "Sorts the 27 backpack slots, or the open chest, barrel, ender chest or shulker box, by item name and merges partial stacks; the hotbar is left alone.", "vbvclient:textures/mods/vbv-inventory-sorter.png");
         reg("vbv-screenshot-manager", "Screenshot Manager", "1.5.3", "melonman106",
             "Saves every screenshot as a PNG in the managed storage folder and lists, opens, downloads or deletes them.", "vbvclient:textures/mods/vbv-screenshot-manager.png");
 
