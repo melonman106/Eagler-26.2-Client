@@ -104,6 +104,11 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         }
         selected = Math.max(0, Math.min(ITEM_COUNT - 1, selected));
 
+        // Notification bell in the top-right corner. It is part of this screen only, so it never
+        // covers the in-game HUD or another menu; the release check starts once the real menu is up.
+        addRenderableWidget(VBVNotifications.createButton(this, width - 26, 4));
+        VBVNotifications.onMainMenuShown();
+
         layoutWidth = width;
         layoutHeight = height;
     }
@@ -188,6 +193,11 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (VBVNotifications.isPanelOpen() && event.isEscape()) {
+            // Escape closes the notification overlay first, not the menu behind it.
+            VBVNotifications.closePanel();
+            return true;
+        }
         int key = event.key();
         if (key == 265) { // up
             selected = (selected + ITEM_COUNT - 1) % ITEM_COUNT;
@@ -251,6 +261,28 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         }
 
         renderPartyPanel(graphics);
+        // Drawn after the widgets and the menu rows so the panel sits above both.
+        VBVNotifications.renderPanel(graphics);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        VBVNotifications.tick();
+    }
+
+    @Override
+    public void removed() {
+        // Leaving the menu closes the overlay, so it never reappears over a later visit.
+        VBVNotifications.closePanel();
+        super.removed();
+    }
+
+    @Override
+    public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent click, boolean doubleClick) {
+        // The panel is an overlay, not a widget: route its clicks before the menu rows see them.
+        if (VBVNotifications.clickPanel(click.x(), click.y())) return true;
+        return super.mouseClicked(click, doubleClick);
     }
 
     /** Left-hand vignette and top/bottom shading so the menu reads on any panorama. */
@@ -277,7 +309,8 @@ public final class VBVDungeonsTitleScreen extends TitleScreen {
         String[] party = VBVParty.players();
         if (party.length == 0) return;
         int shown = Math.min(4, party.length);
-        int py = 12;
+        // Below the notification bell in the top-right corner.
+        int py = 30;
         graphics.fill(width - 188, py - 4, width - 10, py + shown * 18 + 16, VBVTheme.panel(0xB0));
         graphics.fill(width - 188, py - 4, width - 186, py + shown * 18 + 16, VBVTheme.accent());
         graphics.text(font, "PARTY", width - 176, py, VBVTheme.accentLight(), true);

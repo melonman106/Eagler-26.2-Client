@@ -55,6 +55,15 @@ public final class VBVFeatureConfigScreen extends Screen {
             link("Edit Jade position", () -> VBVNav.open(new VBVHudEditorScreen(this, 0)));
         } else if ("shulkerboxtooltip".equals(modId)) {
             option(() -> "Shulker preview: " + onOff(VBVShulkerViewer.enabled), VBVShulkerViewer::toggle);
+        } else if ("vbv-potion-hud".equals(modId)) {
+            option(() -> "Potion HUD: " + onOff(VBVPotionHud.enabled), () -> VBVPotionHud.enabled = !VBVPotionHud.enabled);
+            option(() -> "Remaining time: " + onOff(VBVPotionHud.showTimer), () -> VBVPotionHud.showTimer = !VBVPotionHud.showTimer);
+            option(() -> "Amplifier: " + onOff(VBVPotionHud.showAmplifier), () -> VBVPotionHud.showAmplifier = !VBVPotionHud.showAmplifier);
+            option(() -> "Compact rows: " + onOff(VBVPotionHud.compact), () -> VBVPotionHud.compact = !VBVPotionHud.compact);
+            link("Edit position", () -> VBVNav.open(new VBVHudEditorScreen(this, 3)));
+        } else if ("vbv-inventory-sorter".equals(modId)) {
+            option(() -> "Inventory Sorter: " + onOff(VBVInventorySorter.enabled), () -> VBVInventorySorter.enabled = !VBVInventorySorter.enabled);
+            link("Rebind the sort key", () -> VBVNav.open(new VBVKeybindConfigScreen(this)));
         }
         layoutEntries();
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());

@@ -32,6 +32,8 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_first_person_arms.py",
     "patch_pack_installer_hook.py",
     "patch_pack_modrinth_button.py",
+    "patch_screenshot_storage.py",
+    "patch_inventory_sorter.py",
     "patch_screen_resize_guard.py",
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
@@ -77,6 +79,8 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(cem_hooks)",
     "subprocess.run([sys.executable, str(loading_theme)",
     "subprocess.run([sys.executable, str(boot_hooks)",
+    "subprocess.run([sys.executable, str(screenshot_storage)",
+    "subprocess.run([sys.executable, str(inventory_sorter)",
     "subprocess.run([sys.executable, str(js_long_checker)",
 )
 execution_start = runner_source.find("\n_materialize_eagler_overlay()\n")
@@ -520,6 +524,18 @@ if boot_hooks.is_file():
 perf_hooks = PATCH_DIR / "patch_perf_hooks.py"
 if perf_hooks.is_file():
     subprocess.run([sys.executable, str(perf_hooks), *sys.argv[1:]], check=True)
+
+# Screenshots: the game's own screenshot key writes the PNG into the managed storage folder and the
+# original browser download remains the fallback when the frame cannot be read back.
+screenshot_storage = PATCH_DIR / "patch_screenshot_storage.py"
+if screenshot_storage.is_file():
+    subprocess.run([sys.executable, str(screenshot_storage), *sys.argv[1:]], check=True)
+
+# Inventory Sorter: two tiny helpers on AbstractContainerScreen plus a call at the top of its key
+# handler. The sort itself is a short queue of normal pick-up clicks.
+inventory_sorter = PATCH_DIR / "patch_inventory_sorter.py"
+if inventory_sorter.is_file():
+    subprocess.run([sys.executable, str(inventory_sorter), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.

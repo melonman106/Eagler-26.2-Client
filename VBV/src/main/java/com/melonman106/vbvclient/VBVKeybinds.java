@@ -15,29 +15,32 @@ public final class VBVKeybinds {
     public static final int MAP = 1;
     public static final int ZOOM = 2;
     public static final int GAMMA = 3;
-    public static final int COUNT = 4;
+    public static final int SORT = 4;
+    public static final int COUNT = 5;
 
     public static final int DEFAULT_MODS = 86;   // V
     public static final int DEFAULT_MAP = 77;    // M
     public static final int DEFAULT_ZOOM = 67;   // C
     public static final int DEFAULT_GAMMA = 71;  // G
+    public static final int DEFAULT_SORT = 82;   // R
 
     /** Range of key codes the keybind screen accepts (GLFW keyboard codes). */
     public static final int MIN_CODE = 32;
     public static final int MAX_CODE = 348;
 
-    private static final String[] NAMES = { "Mods menu", "World map", "Zoom", "Gamma" };
-    private static final int[] DEFAULTS = { DEFAULT_MODS, DEFAULT_MAP, DEFAULT_ZOOM, DEFAULT_GAMMA };
+    private static final String[] NAMES = { "Mods menu", "World map", "Zoom", "Gamma", "Sort inventory" };
+    private static final int[] DEFAULTS = { DEFAULT_MODS, DEFAULT_MAP, DEFAULT_ZOOM, DEFAULT_GAMMA, DEFAULT_SORT };
     private static final int[] CODES = DEFAULTS.clone();
 
     private VBVKeybinds() {}
 
     /** Restores every key from saved settings, falling back to the default for anything invalid. */
-    public static void load(int modsCode, int mapCode, int zoomCode, int gammaCode) {
+    public static void load(int modsCode, int mapCode, int zoomCode, int gammaCode, int sortCode) {
         CODES[MODS] = valid(modsCode, DEFAULT_MODS);
         CODES[MAP] = valid(mapCode, DEFAULT_MAP);
         CODES[ZOOM] = valid(zoomCode, DEFAULT_ZOOM);
         CODES[GAMMA] = valid(gammaCode, DEFAULT_GAMMA);
+        CODES[SORT] = valid(sortCode, DEFAULT_SORT);
     }
 
     public static int code(int action) {

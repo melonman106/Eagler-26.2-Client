@@ -49,6 +49,9 @@ Note: This is a custom Eaglercraft implementation, not the original OptiFine mod
 - Jade-style block and entity information.
 - Shulker box previews.
 - Armor HUD and additional HUD elements.
+- Potion HUD with effect icons, amplifiers and remaining time.
+- Inventory Sorter for the 27 backpack slots (normal pick-up clicks, hotbar untouched).
+- Screenshot Manager: F2 captures are written into the storage folder's `Screenshots/` directory.
 - BetterF3-style debug information.
 - Mouse Tweaks.
 - Minimap and explored-chunk world map.
@@ -80,6 +83,9 @@ The client uses Java source injection to integrate the modifications directly in
 | Simple HUD Enhanced | Additional HUD functionality |
 | Mouse Tweaks | Improved inventory interaction |
 | Worldmap | Worldmap and explored-chunk mapping |
+| Potion HUD | Active effect icons, amplifier and remaining time |
+| Inventory Sorter | Orders the 27 backpack slots (R by default) |
+| Screenshot Manager | Saves screenshots into the storage folder and lists them |
 
 Additional resource-pack-based client modifications are imported from the `ModsPack/` directory.
 
@@ -133,6 +139,7 @@ Eaglercraft/
 ├── Server Profiles/
 ├── Backups/
 │   └── WorldMap/
+├── Screenshots/
 ├── Cache/
 └── Settings/
 ```
@@ -234,6 +241,13 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
 
 - After the game finishes loading you land on a "press any button to begin" screen over the panorama
   (once per launch). The bottom-left corner shows how long the resource reload took.
+- The top-right corner has a **notification bell**. It is only part of the main menu: the first time
+  the menu appears it asks the public GitHub Releases API for
+  `melonman106/Eagler-26.2-Client`, and when a newer release exists the bell shows an unread badge.
+  Clicking the bell opens the notification list (client updates, saved screenshots and Modrinth
+  updates); an announcement that was already shown is remembered, so it is not repeated every
+  launch. Hovering the bell shows its tooltip. The panel is drawn above the menu and closes when you
+  click outside it.
 - The launch countdown and the early-load page that prints "Unpacking assets..." use the same dark
   VBV screen as the in-game loader: wordmark, accent rule, segmented bar with a travelling highlight,
   the percentage on the right and the running step on the left, so a cold start is one continuous
@@ -258,8 +272,14 @@ proportion at any window size or GUI scale (a lower GUI scale just makes the tex
   page and WebAssembly download) is not part of it.
 - **Extras** has a sidebar: Panoramas, Hero (skin and name), Friends, Party, Storage and Appearance
   (accent colour, hand position).
-- **Options > Resource Packs** now has a **Modrinth...** button that opens the Modrinth pack browser.
-  Resource packs are no longer listed in the Mods menu; they still work exactly as before.
+- **Options > Resource Packs** now has a **Modrinth** icon in the top-right corner (the Modrinth mark from
+  `VBV/PackIcons/modrinth.png`) that opens the Modrinth pack browser. The footer keeps only
+  *Import Pack...* and *Done*. Resource packs are no longer listed in the Mods menu; they still work
+  exactly as before. Installs also fetch the pack's **required dependency packs** (up to eight, three
+  levels deep) and queue them behind it, so a pack that depends on another one works on the first
+  try. The browser's **UPDATES** button compares every pack it installed with the newest Modrinth
+  version and offers a one-click update; found updates are also added to the main-menu notification
+  centre.
 
 Resource-pack client modifications are imported from `ModsPack/` during the build.
 
@@ -299,7 +319,7 @@ browser bridge from `VBVFriends.java` against the Worker).
 ## HUD, diagnostics and performance controls
 
 - **HUD Editor** (Mods screen) cycles through the overlays that can be dragged: the Jade target
-tooltip, the Simple HUD information block and the FPS meter. Each one is shown at its real size and
+tooltip, the Simple HUD information block, the FPS meter and the Potion HUD. Each one is shown at its real size and
 position, the offset is saved on mouse release, and **Reset position** puts the current overlay back
 where its anchor puts it. The minimap is not part of the editor; its own config page no longer links
 there either.

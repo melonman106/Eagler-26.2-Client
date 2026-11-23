@@ -107,6 +107,8 @@ public final class VBVModrinthScreen extends Screen {
         addRenderableWidget(nextButton);
         addRenderableWidget(new VBVUi.ThemedButton(left + contentW - 80, pagerY, 80, 20, "< BACK", VBVUi.Style.SMALL,
             b -> VBVNav.open(parent)));
+        addRenderableWidget(new VBVUi.ThemedButton(left + contentW - 62, 10, 56, 18, "UPDATES", VBVUi.Style.SMALL,
+            b -> VBVNav.open(new VBVModrinthUpdatesScreen(this))));
 
         if (!firstSearchDone || rows != lastRows) {
             firstSearchDone = true;
@@ -193,14 +195,14 @@ public final class VBVModrinthScreen extends Screen {
         hits = VBVModrinth.results();
         refreshButtons();
         if (VBVModrinth.packReady()) {
-            String name = VBVModrinth.packName();
-            byte[] data = VBVModrinth.takePack();
-            if (data != null) {
-                // The Resource Packs screen imports queued packs as soon as it is shown again.
-                VBVPackInstaller.queue(name, data);
-                VBVNav.open(parent);
-            }
+            // Required dependency packs are queued behind the chosen one; move all of them into the
+            // importer before the Resource Packs screen is shown again, where they are unpacked.
+            VBVModrinth.drainPacks();
+            VBVModrinth.finishInstallIfNeeded();
+            VBVNav.open(parent);
+            return;
         }
+        VBVModrinth.finishInstallIfNeeded();
     }
 
     @Override

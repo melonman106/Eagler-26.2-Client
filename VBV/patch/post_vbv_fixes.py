@@ -36,7 +36,7 @@ for source in SRC.rglob("*.java"):
   continue
  target=dest/source.relative_to(SRC);target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,target)
 icon_root=CLIENT/"PackIcons";icon_dst=RES/"assets/vbvclient/textures/mods";icon_dst.mkdir(parents=True,exist_ok=True)
-for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.jpeg"),("Viabackportvisuals-client.png","viabackportvisuals-client.png")):
+for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.jpeg"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png")):
  src=icon_root/a
  if src.is_file():shutil.copy2(src,icon_dst/b)
 mc_candidates=java_files_named("Minecraft.java")

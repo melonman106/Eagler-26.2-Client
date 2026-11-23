@@ -16,8 +16,8 @@ import net.minecraft.network.chat.Component;
  * only costs one drag.</p>
  */
 public final class VBVHudEditorScreen extends Screen {
-    private static final String[] TARGETS = { "Jade overlay", "Simple HUD", "FPS meter" };
-    private static final int JADE = 0, SIMPLE = 1, METER = 2;
+    private static final String[] TARGETS = { "Jade overlay", "Simple HUD", "FPS meter", "Potion HUD" };
+    private static final int JADE = 0, SIMPLE = 1, METER = 2, POTION = 3;
     private final Screen parent;
     private int target;
     private boolean dragging;
@@ -52,20 +52,26 @@ public final class VBVHudEditorScreen extends Screen {
 
     /** Where the overlay's own anchor puts it before the saved offset is added. */
     private int originX() {
-        return target == SIMPLE ? 6 : width / 2 - 90;
+        if (target == SIMPLE) return 6;
+        if (target == POTION) return width - VBVPotionHud.lastWidth - 6;
+        return width / 2 - 90;
     }
 
     private int originY() {
-        return target == SIMPLE ? 6 : (target == METER ? 2 : 8);
+        if (target == SIMPLE) return 6;
+        if (target == POTION) return 54;
+        return target == METER ? 2 : 8;
     }
 
     private int offsetX() {
         if (target == SIMPLE) return VBVSimpleHudConfig.hudXOffset;
+        if (target == POTION) return VBVPotionHud.offsetX;
         return target == METER ? VBVPerf.offsetX : VBVJadeHud.offsetX;
     }
 
     private int offsetY() {
         if (target == SIMPLE) return VBVSimpleHudConfig.hudYOffset;
+        if (target == POTION) return VBVPotionHud.offsetY;
         return target == METER ? VBVPerf.offsetY : VBVJadeHud.offsetY;
     }
 
@@ -76,6 +82,9 @@ public final class VBVHudEditorScreen extends Screen {
         } else if (target == METER) {
             VBVPerf.offsetX = x;
             VBVPerf.offsetY = y;
+        } else if (target == POTION) {
+            VBVPotionHud.offsetX = x;
+            VBVPotionHud.offsetY = y;
         } else {
             VBVJadeHud.offsetX = x;
             VBVJadeHud.offsetY = y;
@@ -84,11 +93,14 @@ public final class VBVHudEditorScreen extends Screen {
 
     private int boxW() {
         if (target == SIMPLE) return Math.max(205, Math.round(230 * VBVSimpleHudConfig.hudScale));
+        if (target == POTION) return Math.max(96, VBVPotionHud.lastWidth);
         return 184;
     }
 
     private int boxH() {
-        return target == SIMPLE ? 60 : (target == METER ? 62 : 43);
+        if (target == SIMPLE) return 60;
+        if (target == POTION) return Math.max(32, VBVPotionHud.lastHeight);
+        return target == METER ? 62 : 43;
     }
 
     private int boxX() { return originX() + offsetX(); }
@@ -149,6 +161,15 @@ public final class VBVHudEditorScreen extends Screen {
             graphics.text(font, "Stone", x + 8, y + 5, 0xFFFFFFFF, true);
             graphics.text(font, "Hardness: 1.5", x + 8, y + 18, 0xFFCCCCCC, false);
             graphics.text(font, "XYZ: 120, 64, -32", x + 8, y + 30, 0xFFAAAAAA, false);
+        } else if (target == POTION) {
+            String[] names = { "Speed II", "Fire Resistance", "Poison" };
+            String[] times = { "1:32", "0:08", "0:21" };
+            for (int i = 0; i < names.length; i++) {
+                int row = y + 4 + i * 16;
+                graphics.fill(x + 5, row + 2, x + 17, row + 14, i == 2 ? 0x804A1010 : 0x804A4A10);
+                graphics.text(font, names[i], x + 21, row + 3, i == 2 ? 0xFFFF8C8C : 0xFFFFFFFF, false);
+                graphics.text(font, times[i], x + w - 6 - font.width(times[i]), row + 3, 0xFFB8B0A0, false);
+            }
         } else if (target == SIMPLE) {
             String[] lines = { "FPS: 60", "XYZ: 120 64 -32", "Facing: north", "Chunk: 7 -2" };
             for (int i = 0; i < lines.length; i++) {

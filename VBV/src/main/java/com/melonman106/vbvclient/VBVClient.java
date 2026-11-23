@@ -48,6 +48,12 @@ public final class VBVClient {
             "Previews the contents of shulker boxes in a 9×3 inventory grid when Shift-hovering a box in a container.", "vbvclient:textures/mods/shulkerboxtooltip.jpeg");
         reg("custom-crosshair", "Custom Crosshair", "1.5.3", "melonman106",
             "Edit a 15×15 pixel crosshair with configurable scale, color, presets and locally saved patterns.", "vbvclient:textures/mods/viabackportvisuals-client.png");
+        reg("vbv-potion-hud", "Potion HUD", "1.5.3", "melonman106",
+            "Lists active status effects with their icon, amplifier and remaining time in a compact HUD panel.", "vbvclient:textures/mods/vbv-potion-hud.png");
+        reg("vbv-inventory-sorter", "Inventory Sorter", "1.5.3", "melonman106",
+            "Sorts the 27 backpack slots by item name with a short series of normal pick-up clicks; the hotbar is left alone.", "vbvclient:textures/mods/vbv-inventory-sorter.png");
+        reg("vbv-screenshot-manager", "Screenshot Manager", "1.5.3", "melonman106",
+            "Saves every screenshot as a PNG in the managed storage folder and lists, opens, downloads or deletes them.", "vbvclient:textures/mods/vbv-screenshot-manager.png");
 
         registerFabricCallbacks();
         VBVGeneratedPackMods.register();
@@ -70,6 +76,7 @@ public final class VBVClient {
             VBVExtraFeatures.renderGammaStatus(graphics);
             VBVAppleSkin.render(graphics);
             VBVJadeHud.render(graphics);
+            VBVPotionHud.render(graphics);
             VBVCrosshair.render(graphics);
             VBVPerf.render(graphics);
         });
@@ -78,6 +85,7 @@ public final class VBVClient {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             VBVExtraFeatures.tick(client);
             VBVFriends.tick(client);
+            VBVInventorySorter.tick(client);
             VBVWorldMap.tick();
         });
     }

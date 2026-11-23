@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -127,6 +128,32 @@ public final class VBVUi {
                     graphics.text(font, label, textX, y + (h - font.lineHeight) / 2 + 1, color, true);
                 }
             }
+        }
+    }
+
+    /**
+     * Square, texture-backed corner button. The icon is drawn from a 64x64 texture inside a themed
+     * frame, with the frame brightening on hover and the text label exposed as a tooltip.
+     */
+    public static final class IconButton extends Button {
+        private final Identifier texture;
+
+        public IconButton(int x, int y, int size, Identifier texture, String tooltip, Button.OnPress onPress) {
+            super(x, y, size, size, Component.literal(tooltip), onPress, DEFAULT_NARRATION);
+            this.texture = texture;
+            setTooltip(Tooltip.create(Component.literal(tooltip)));
+        }
+
+        @Override
+        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            int x = getX();
+            int y = getY();
+            int size = getWidth();
+            boolean lit = isHoveredOrFocused() && active;
+            graphics.fill(x, y, x + size, y + size, lit ? VBVTheme.accentAlpha(0x50) : VBVTheme.panel(0xD0));
+            graphics.outline(x, y, size, size, lit ? VBVTheme.accentLight() : VBVTheme.accentAlpha(0x90));
+            graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x + 2, y + 2, 0, 0,
+                    size - 4, size - 4, 64, 64, 64, 64);
         }
     }
 

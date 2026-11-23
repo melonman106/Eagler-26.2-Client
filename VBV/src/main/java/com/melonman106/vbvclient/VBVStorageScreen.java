@@ -13,7 +13,7 @@ public final class VBVStorageScreen extends Screen {
     @Override protected void init(){super.init();rebuild();}
     private void rebuild(){clearWidgets();int tabWidth=Math.min(112,Math.max(78,(width-36)/TABS.length));int total=tabWidth*TABS.length+5*(TABS.length-1);int left=width/2-total/2;for(int i=0;i<TABS.length;i++){final int s=i;addRenderableWidget(Button.builder(Component.literal((tab==i?"■ ":"")+TABS[i]),b->{tab=s;rebuild();}).bounds(left+i*(tabWidth+5),55,tabWidth,20).build());}
         int x=width/2-100;
-        if(tab==0){addButton("Choose Storage Folder",x,112,b->VBVStorage.chooseFolder());addButton("Reconnect Existing Folder",x,137,b->VBVStorage.reconnect());}
+        if(tab==0){addButton("Choose Storage Folder",x,112,b->VBVStorage.chooseFolder());addButton("Reconnect Existing Folder",x,137,b->VBVStorage.reconnect());addButton("Screenshot Manager",x,162,b->VBVNav.open(new VBVScreenshotsScreen(this)));}
         else if(tab==1){addButton("Import World",x,112,b->VBVStorage.importWorld());addButton("World Storage Info",x,137,b->show("Worlds","Imported worlds are copied into Worlds/. Minecraft saves remain managed by the native game save system."));}
         else if(tab==2){addButton("Import Resource Pack",x,112,b->VBVStorage.importResourcePack());addButton("Resource Pack Storage",x,137,b->show("Resource Packs","Imported packs are copied into Resource Packs/Global/. Server-specific packs can be stored under Resource Packs/Servers/."));}
         else if(tab==3){addButton("Import Datapack",x,112,b->VBVStorage.importDatapack());addButton("Datapack Storage",x,137,b->show("Datapacks","Imported packs are copied into Datapacks/Global/. Server-specific packs can be stored under Datapacks/Servers/."));}

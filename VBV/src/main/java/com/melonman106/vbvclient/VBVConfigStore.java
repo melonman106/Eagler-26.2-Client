@@ -154,11 +154,22 @@ public final class VBVConfigStore {
             bool("betterF3.player", true), bool("betterF3.compact", false),
             bool("betterF3.target", true), bool("betterF3.system", true));
 
+        VBVPotionHud.enabled = bool("potionHud.enabled", true);
+        VBVPotionHud.showTimer = bool("potionHud.timer", true);
+        VBVPotionHud.showAmplifier = bool("potionHud.amplifier", true);
+        VBVPotionHud.compact = bool("potionHud.compact", false);
+        VBVPotionHud.offsetX = integer("potionHud.x", 0, -2000, 2000);
+        VBVPotionHud.offsetY = integer("potionHud.y", 0, -2000, 2000);
+        VBVInventorySorter.enabled = bool("sorter.enabled", true);
+        VBVNotifications.seenTag = read("notifications.seen", "");
+        VBVModrinth.loadInstalled(read("modrinth.installed", ""));
+
         VBVKeybinds.load(
             integer("keys.mods", VBVKeybinds.DEFAULT_MODS, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.map", VBVKeybinds.DEFAULT_MAP, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.zoom", VBVKeybinds.DEFAULT_ZOOM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
-            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
+            integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
+            integer("keys.sort", VBVKeybinds.DEFAULT_SORT, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
 
         // The stored format is versioned so a later build can migrate a key whose
         // meaning changed instead of guessing from its value. Version 2 added the
@@ -286,10 +297,20 @@ public final class VBVConfigStore {
         write("betterF3.compact", VBVExtraFeatures.debugCompact());
         write("betterF3.target", VBVExtraFeatures.debugShowTarget());
         write("betterF3.system", VBVExtraFeatures.debugShowSystem());
+        write("potionHud.enabled", VBVPotionHud.enabled);
+        write("potionHud.timer", VBVPotionHud.showTimer);
+        write("potionHud.amplifier", VBVPotionHud.showAmplifier);
+        write("potionHud.compact", VBVPotionHud.compact);
+        write("potionHud.x", VBVPotionHud.offsetX);
+        write("potionHud.y", VBVPotionHud.offsetY);
+        write("sorter.enabled", VBVInventorySorter.enabled);
+        write("notifications.seen", VBVNotifications.seenTag);
+        write("modrinth.installed", VBVModrinth.installedText());
         write("keys.mods", VBVKeybinds.code(VBVKeybinds.MODS));
         write("keys.map", VBVKeybinds.code(VBVKeybinds.MAP));
         write("keys.zoom", VBVKeybinds.code(VBVKeybinds.ZOOM));
         write("keys.gamma", VBVKeybinds.code(VBVKeybinds.GAMMA));
+        write("keys.sort", VBVKeybinds.code(VBVKeybinds.SORT));
         flush();
     }
 }

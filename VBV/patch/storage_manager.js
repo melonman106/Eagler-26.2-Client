@@ -6,7 +6,7 @@
   const DB_NAME = "vbv-storage-handles-v1";
   const STORE = "handles";
   const KV_STORE = "data";
-  const LAYOUT = ["Worlds","WorldMap","Resource Packs","Resource Packs/Global","Resource Packs/Servers","Datapacks","Datapacks/Global","Datapacks/Servers","Server Profiles","Backups","Backups/WorldMap","Backups/Worlds","Cache","Settings"];
+  const LAYOUT = ["Worlds","WorldMap","Resource Packs","Resource Packs/Global","Resource Packs/Servers","Datapacks","Datapacks/Global","Datapacks/Servers","Server Profiles","Backups","Backups/WorldMap","Backups/Worlds","Screenshots","Cache","Settings"];
   const cache = new Map(); const pending = new Map();
   let root = null, rootName = "", revision = 0, activeAddress = "", activeProfile = null, writeError = "", dbPromise;
   function openDB(){if(dbPromise)return dbPromise;dbPromise=new Promise((resolve,reject)=>{if(!( "indexedDB" in window))return reject(new Error("IndexedDB is unavailable"));const request=indexedDB.open(DB_NAME,2);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE);if(!db.objectStoreNames.contains(KV_STORE))db.createObjectStore(KV_STORE);};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error("Could not open storage metadata"));});return dbPromise;}
@@ -20,7 +20,7 @@
   async function writeFile(path,content){const slash=path.lastIndexOf("/"),folder=await dir(slash<0?"":path.slice(0,slash),true),name=path.slice(slash+1);const handle=await folder.getFileHandle(name,{create:true});const writer=await handle.createWritable();await writer.write(content);await writer.close();}
   async function writeBlob(path,blob){const slash=path.lastIndexOf("/"),folder=await dir(slash<0?"":path.slice(0,slash),true),name=path.slice(slash+1);const handle=await folder.getFileHandle(name,{create:true});const writer=await handle.createWritable();await writer.write(blob);await writer.close();}
   function queueWrite(path,content){pending.set(path,{content});const item=pending.get(path);if(item.timer)clearTimeout(item.timer);item.timer=setTimeout(async()=>{const current=pending.get(path);if(!current)return;pending.delete(path);try{await writeFile(path,current.content);writeError="";}catch(e){writeError=String(e&&e.message||e);}updateStatus();},350);}
-  function pathForKey(key){return key==="vbv.server-profiles.v1"?"Server Profiles/profiles.json":"Settings/"+encodeURIComponent(key)+".json";}
+  function pathForKey(key){return key==="vbv.server-profiles.v1"?"Server Profiles/profiles.json":key==="vbv.screenshots.v1"?"Screenshots/index.tsv":"Settings/"+encodeURIComponent(key)+".json";}
   function getTextSync(key){return cache.has(key)?String(cache.get(key)):((()=>{try{return localStorage.getItem(key)||"";}catch(_){return "";}})());}
   function setTextSync(key,value){cache.set(key,String(value));revision++;try{localStorage.setItem(key,String(value));}catch(_){}kvSet(key,String(value)).catch(()=>{});if(root)queueWrite(pathForKey(key),String(value));updateStatus();return true;}
   function normalizedAddress(address){return String(address||"").trim().toLowerCase();}
@@ -48,7 +48,36 @@
   async function inspectLitematic(file){try{let buf=await file.arrayBuffer();let bytes=new Uint8Array(buf);if(bytes[0]===0x1f&&bytes[1]===0x8b&&"DecompressionStream" in window){const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));buf=await new Response(stream).arrayBuffer();}const d=new DataView(buf);const type=u8(d,0);if(type!==10)throw new Error("Not an NBT compound");const root=str(d,1);const out={file:file.name,size:file.size};readCompound(d,root[1],out,0);const m=out.metadata||{};window.VBVLitematicaSummary={name:file.name,size:file.size,author:m.Author||out.Author||"",description:m.Description||"",width:m.Width||0,height:m.Height||0,length:m.Length||0,regions:out.regionCount||0,palette:out.paletteCount||0};}catch(e){window.VBVLitematicaSummary={name:file.name,size:file.size,error:String(e&&e.message||e)};}}
 
   async function importFile(kind,accept,targetFolder){try{if(!root){const ok=await chooseFolder();if(!ok)return false;}const input=document.createElement("input");input.type="file";input.accept=accept||"*/*";input.multiple=false;const picked=await new Promise(resolve=>{input.onchange=()=>resolve(input.files&&input.files[0]||null);input.click();});if(!picked)return false;const safe=picked.name.replace(/[^A-Za-z0-9._() -]/g,"_");const folder=String(targetFolder||"Cache").replace(/^\/+|\/+$/g,"");await writeBlob(folder+"/"+safe,picked);window.VBVStorageLastImport={kind:String(kind||"file"),name:picked.name,size:picked.size,path:folder+"/"+safe};if(String(kind)==="litematic")inspectLitematic(picked);revision++;updateStatus();return true;}catch(e){writeError=String(e&&e.message||e);updateStatus();alert("Import failed: "+writeError);return false;}}
+  // Screenshots: the game hands over an RGBA canvas after an F2 capture. The PNG is written into
+  // Screenshots/ in the managed folder, or downloaded when no folder is connected, and the small
+  // index lets the native Screenshot Manager list and manage the files later.
+  function screenshotIndex(){return String(getTextSync("vbv.screenshots.v1")||"");}
+  function screenshotEntries(){return screenshotIndex().split("\n").filter(Boolean).map(function(line){const f=line.split("\t");return{name:f[0]||"",path:f[1]||"",bytes:Number(f[2])||0,width:Number(f[3])||0,height:Number(f[4])||0,at:Number(f[5])||0};});}
+  function writeScreenshotEntries(list){setTextSync("vbv.screenshots.v1",list.slice(0,200).map(function(e){return[e.name,e.path,e.bytes,e.width,e.height,e.at].join("\t");}).join("\n"));}
+  function addScreenshotEntry(name,path,bytes,width,height,at){const list=screenshotEntries().filter(function(e){return e.path!==path;});list.unshift({name,path,bytes,width,height,at});writeScreenshotEntries(list);revision++;updateStatus();}
+  function updateScreenshotBytes(path,bytes){const list=screenshotEntries();let changed=false;for(const entry of list){if(entry.path===path){entry.bytes=Number(bytes)||0;changed=true;}}if(changed)writeScreenshotEntries(list);}
+  function markScreenshotDownloaded(name){const list=screenshotEntries();let changed=false;for(const entry of list){if(entry.name===name){entry.path="Downloads/"+name;entry.bytes=0;changed=true;}}if(changed)writeScreenshotEntries(list);}
+  function saveScreenshotData(canvas,name,width,height){
+    const safe=String(name||"screenshot.png").replace(/[^A-Za-z0-9._ -]/g,"_");
+    const at=Date.now();
+    const path=(root?"Screenshots/":"Downloads/")+safe;
+    function fallbackDownload(){try{const url=canvas.toDataURL("image/png");const el=document.createElement("a");el.style.display="none";el.href=url;el.download=safe;document.body.appendChild(el);el.click();document.body.removeChild(el);}catch(e){writeError=String(e&&e.message||e);updateStatus();}}
+    try{
+      if(root){
+        canvas.toBlob(function(blob){
+          if(!blob){fallbackDownload();return;}
+          writeBlob(path,blob).then(function(){updateScreenshotBytes(path,blob.size);revision++;updateStatus();}).catch(function(e){writeError=String(e&&e.message||e);updateStatus();markScreenshotDownloaded(safe);fallbackDownload();});
+        },"image/png");
+      }else fallbackDownload();
+    }catch(e){writeError=String(e&&e.message||e);fallbackDownload();}
+    addScreenshotEntry(safe,path,0,width,height,at);
+    return path;
+  }
+  async function fetchScreenshotFile(path){if(!root)return null;const slash=String(path).lastIndexOf("/");const folder=await dir(String(path).slice(0,slash),false);const handle=await folder.getFileHandle(String(path).slice(slash+1));return await handle.getFile();}
+  async function openScreenshot(path){try{const file=await fetchScreenshotFile(path);if(!file)return false;const url=URL.createObjectURL(file);const el=document.createElement("a");el.href=url;el.target="_blank";el.rel="noopener";el.style.display="none";document.body.appendChild(el);el.click();document.body.removeChild(el);setTimeout(function(){URL.revokeObjectURL(url);},60000);return true;}catch(e){writeError=String(e&&e.message||e);updateStatus();return false;}}
+  async function downloadScreenshot(path){try{const file=await fetchScreenshotFile(path);if(!file)return false;const url=URL.createObjectURL(file);const el=document.createElement("a");el.style.display="none";el.href=url;el.download=file.name||"screenshot.png";document.body.appendChild(el);el.click();document.body.removeChild(el);setTimeout(function(){URL.revokeObjectURL(url);},60000);return true;}catch(e){writeError=String(e&&e.message||e);updateStatus();return false;}}
+  async function deleteScreenshot(path){const text=String(path||"");if(root&&text.indexOf("Screenshots/")===0){try{const slash=text.lastIndexOf("/");const folder=await dir(text.slice(0,slash),false);await folder.removeEntry(text.slice(slash+1));}catch(e){writeError=String(e&&e.message||e);updateStatus();return false;}}writeScreenshotEntries(screenshotEntries().filter(function(e){return e.path!==path;}));revision++;updateStatus();return true;}
   function openUI(){if(window.VBVStorageNativeRequested)window.dispatchEvent(new CustomEvent("vbv:storage-native-open"));}
-  window.VBVStorage={version:4,openUI,chooseFolder,reconnect:(()=>reconnect(true)),getTextSync,setTextSync,revision:()=>revision,refresh:()=>{revision++;updateStatus();},updateServer:matchServer,saveProfile,getProfilesText,profileRenderDistance,deleteProfile,importFile,status:()=>({connected:!!root,folder:rootName,revision,activeAddress,activeProfile,writeError}),async initialize(){try{const saved=await kvLoadAll();for(const [k,v] of saved)cache.set(k,v);}catch(_){}try{const h=await handleGet("root");if(h&&await permission(h,false)){root=h;rootName=h.name||"Eaglercraft Storage";await ensureLayout();await loadProfiles();revision++;}}catch(_){}updateStatus();}};
+  window.VBVStorage={version:5,openUI,chooseFolder,reconnect:(()=>reconnect(true)),getTextSync,setTextSync,revision:()=>revision,refresh:()=>{revision++;updateStatus();},updateServer:matchServer,saveProfile,getProfilesText,profileRenderDistance,deleteProfile,importFile,saveScreenshotData,screenshotsText:screenshotIndex,openScreenshot,downloadScreenshot,deleteScreenshot,status:()=>({connected:!!root,folder:rootName,revision,activeAddress,activeProfile,writeError}),async initialize(){try{const saved=await kvLoadAll();for(const [k,v] of saved)cache.set(k,v);}catch(_){}try{const h=await handleGet("root");if(h&&await permission(h,false)){root=h;rootName=h.name||"Eaglercraft Storage";await ensureLayout();await loadProfiles();revision++;}}catch(_){}updateStatus();}};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>window.VBVStorage.initialize());else window.VBVStorage.initialize();
 })();
