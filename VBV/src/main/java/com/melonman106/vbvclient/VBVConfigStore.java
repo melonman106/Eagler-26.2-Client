@@ -155,9 +155,56 @@ public final class VBVConfigStore {
             integer("keys.map", VBVKeybinds.DEFAULT_MAP, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.zoom", VBVKeybinds.DEFAULT_ZOOM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
+
+        // The stored format is versioned so a later build can migrate a key whose
+        // meaning changed instead of guessing from its value. Version 2 added the
+        // one-shot hardware profile and safe mode; older stores are simply read.
+        if (integer("config.schema", 1, 1, 99) < 2) {
+            write("config.schema", 2);
+            flush();
+        }
+
+        // Safe mode (?safe) is a rescue session for a machine that froze last
+        // time: the optional expensive work is off and saveAll() refuses to
+        // write, so a rescue cannot overwrite settings that were working.
+        if (VBVSafeMode.requested()) {
+            VBVCem.setEnabled(false);
+            VBVCem.setAnimationsEnabled(false);
+            VBVLod.setLevel(VBVLod.OFF);
+            VBVWorldMap.setTerrainCaptureEnabled(false);
+            VBVPanoramaOverlay.setMotion(false);
+            VBVAdaptive.setEnabled(false);
+            VBVEntityCulling.setEnabled(true);
+            VBVPerf.setMeter(true);
+            return;
+        }
+
+        // First run only: pick the cheap VBV-side defaults on a machine the
+        // browser describes as small. Render distance is left alone here because
+        // the options object is not reliably available at this point; the
+        // Performance Preset button still sets it once a world is loaded.
+        if (!bool("hardware.auto", false)) {
+            write("hardware.auto", true);
+            write("hardware.memGb", VBVHardware.memoryGb());
+            write("hardware.cores", VBVHardware.cores());
+            if (VBVHardware.lowEnd()) {
+                write("hardware.profile", "low");
+                if (VBVLod.getLevel() == VBVLod.OFF) VBVLod.setLevel(VBVLod.LOW);
+                VBVEntityCulling.setEnabled(true);
+                VBVAdaptive.setEnabled(true);
+                if (VBVCem.isEnabled()) VBVCem.setAnimationRange(16);
+                VBVWorldMap.setTerrainCaptureEnabled(false);
+            } else {
+                write("hardware.profile", "default");
+            }
+            flush();
+        }
     }
 
     public static void saveAll() {
+        // A safe-mode session is for getting back to a working client, not for
+        // rewriting the settings the previous session had.
+        if (VBVSafeMode.requested()) return;
         write("armor.enabled", VBVArmorHudConfig.enabled);
         write("armor.anchor", VBVArmorHudConfig.anchor); write("armor.side", VBVArmorHudConfig.side);
         write("armor.x", VBVArmorHudConfig.offsetX); write("armor.y", VBVArmorHudConfig.offsetY);

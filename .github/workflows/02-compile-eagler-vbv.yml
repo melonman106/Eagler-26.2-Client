@@ -27,7 +27,9 @@ jobs:
       - name: Checkout this mod project
         uses: actions/checkout@v4
         with:
-          ref: main
+          # Build the branch the workflow was started from, so a development
+          # branch (Dev-Beta) builds itself instead of main.
+          ref: ${{ github.ref_name }}
           fetch-depth: 1
 
       - name: Checkout known-good Eaglercraft 26.2 u2 workspace
@@ -205,7 +207,7 @@ jobs:
                   )
               print(f"Verified {len(specials)} shield special model(s) keep the 180 degree rotation.")
           PYMODEL
-          for source in VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVKeybinds.java VBVKeybindConfigScreen.java VBVMapPainter.java VBVWorldMapScreen.java VBVEntityCulling.java VBVPerf.java VBVAdaptive.java VBVMemory.java VBVDiagnosticsScreen.java VBVCem.java VBVCemJem.java VBVCemExpr.java VBVCemRig.java VBVCemNames.java VBVCemNbt.java VBVFriends.java VBVFriendsScreen.java VBVBetterF3.java VBVBoot.java VBVLoadingTheme.java VBVPanoramaOverlay.java VBVSplashScreen.java VBVModrinthScreen.java VBVBootScreen.java VBVDungeonsTitleScreen.java; do
+          for source in VBVSafeMode.java VBVHardware.java VBVPackIndex.java VBVSettingsFile.java VBVClient.java VBVAppleSkin.java VBVExtraFeatures.java VBVFirstPersonAnimations.java VBVFirstPersonAnimationsConfigScreen.java VBVStorage.java VBVStorageScreen.java HerzVBVBridge.java HerzClient.java HerzMod.java HerzModRegistry.java VBVGeneratedPackMods.java VBVLauncherScreen.java VBVModrinth.java VBVPackInstaller.java VBVTheme.java VBVUi.java VBVLod.java VBVLodCache.java VBVLodRenderer.java VBVModdedSettingsScreen.java VBVKeybinds.java VBVKeybindConfigScreen.java VBVMapPainter.java VBVWorldMapScreen.java VBVEntityCulling.java VBVPerf.java VBVAdaptive.java VBVMemory.java VBVDiagnosticsScreen.java VBVCem.java VBVCemJem.java VBVCemExpr.java VBVCemRig.java VBVCemNames.java VBVCemNbt.java VBVFriends.java VBVFriendsScreen.java VBVBetterF3.java VBVBoot.java VBVLoadingTheme.java VBVPanoramaOverlay.java VBVSplashScreen.java VBVModrinthScreen.java VBVBootScreen.java VBVDungeonsTitleScreen.java; do
             test -f "$vbv_src/$source" || { echo "::error::Required VBV/Herz source was not injected: $vbv_src/$source"; exit 1; }
           done
           test -s VBV/patch/storage_manager.js || { echo "::error::Filesystem storage manager source is missing"; exit 1; }
@@ -522,9 +524,13 @@ jobs:
         run: |
           set -euo pipefail
           cp eaglercraft-26.2-vbv-herz.html eaglercraft-26.2-vbv-herz-pre-console.html
-          node VBV/patch/inject_error_overlay.js eaglercraft-26.2-vbv-herz-pre-console.html eaglercraft-26.2-vbv-herz.html
+          test -s VBV/patch/.vbv_pack_index.txt
+          node VBV/patch/inject_error_overlay.js eaglercraft-26.2-vbv-herz-pre-console.html eaglercraft-26.2-vbv-herz.html --pack-index VBV/patch/.vbv_pack_index.txt
           test -s eaglercraft-26.2-vbv-herz.html
           grep -q 'id="vbv-diag-script"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'id="vbv-pack-index"' eaglercraft-26.2-vbv-herz.html
+          grep -q 'window.__vbvSafeMode' eaglercraft-26.2-vbv-herz.html
+          grep -q 'window.__vbvPreviousFailures' eaglercraft-26.2-vbv-herz.html
           grep -q 'window.__vbvDiagReady = true' eaglercraft-26.2-vbv-herz.html
           grep -q 'VBV runtime console (tap to collapse)' eaglercraft-26.2-vbv-herz.html
           grep -q 'refresh();' eaglercraft-26.2-vbv-herz.html
@@ -533,7 +539,7 @@ jobs:
           web_root="eaglercraft-u2/target_teavm_wasm_gc/build/web"
           test -s "$web_root/index.html"
           cp VBV/patch/vbv-coi-sw.js "$web_root/vbv-sw.js"
-          node VBV/patch/inject_error_overlay.js "$web_root/index.html" "$web_root/index.html"
+          node VBV/patch/inject_error_overlay.js "$web_root/index.html" "$web_root/index.html" --pack-index VBV/patch/.vbv_pack_index.txt
           mkdir -p vbv-coi-standalone
           cp eaglercraft-26.2-vbv-herz.html vbv-coi-standalone/index.html
           cp VBV/patch/vbv-coi-sw.js vbv-coi-standalone/vbv-sw.js
@@ -572,3 +578,53 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
+
+  smoke:
+    # Compiling proves the HTML was produced; this proves it boots. Headless
+    # Chromium on a runner has no GPU, so the game runs on SwiftShader: slow,
+    # but it needs no hardware and it fails on the freezes a marker check cannot
+    # see. The report and a screenshot are kept even when the boot fails.
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout this mod project
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Download the standalone client
+        uses: actions/download-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-Single-HTML-${{ github.run_id }}
+          path: smoke-html
+
+      - name: Install headless Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Boot the client headlessly
+        shell: bash
+        env:
+          VBV_SMOKE_TIMEOUT_MS: "600000"
+        run: |
+          set -euo pipefail
+          node VBV/patch/smoke_test.mjs smoke-html/eaglercraft-26.2-vbv-herz.html smoke-out
+
+      - name: Upload the boot report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VBV-Boot-Report-${{ github.run_id }}
+          path: smoke-out
+          if-no-files-found: warn
+          retention-days: 14

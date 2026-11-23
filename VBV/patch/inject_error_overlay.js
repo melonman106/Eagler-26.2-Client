@@ -3,15 +3,50 @@
 /* Small, dependency-free startup diagnostics for the standalone Eagler HTML. */
 const fs = require("node:fs");
 const [, , input, output] = process.argv;
-if (!input || !output) { console.error("usage: node inject_error_overlay.js <in.html> <out.html>"); process.exit(2); }
+if (!input || !output) { console.error("usage: node inject_error_overlay.js <in.html> <out.html> [--pack-index <file>]"); process.exit(2); }
 
 function diag() {
   var t0 = Date.now(), errors = [], wasmLines = [], maxGap = 0, lastBeat = t0;
   var box = null, pre = null, collapsed = false, timer = null;
+  // A launch that dies (tab killed, out of memory, frozen tab closed) leaves
+  // nothing behind except the console nobody saw. The journal keeps the last
+  // stage and errors in localStorage so the next launch can say what happened.
+  var JOURNAL_KEY = "vbv.diag.journal.v1";
+  var previous = null, previousFailures = 0, lastPersist = 0;
+  var safe = false;
+  try { safe = /[?&]safe(=|&|$)/.test(window.location.search); } catch (e) {}
+  window.__vbvSafeMode = safe;
+  try {
+    var journalRaw = localStorage.getItem(JOURNAL_KEY);
+    if (journalRaw) previous = JSON.parse(journalRaw);
+  } catch (e) { previous = null; }
+  try { previousFailures = Math.round(Number(localStorage.getItem(JOURNAL_KEY + ".failures")) || 0); } catch (e) {}
+  if (previous && previous.finished !== true) {
+    previousFailures += 1;
+    try { localStorage.setItem(JOURNAL_KEY + ".failures", String(previousFailures)); } catch (e) {}
+  }
+  window.__vbvPreviousFailures = previousFailures;
+
   function secs(ms) { return (ms / 1000).toFixed(1) + "s"; }
   function short(v, n) { v = String(v); return v.length > n ? v.slice(0, n) + "..." : v; }
   function errText(e) { return e && e.stack ? String(e.stack).split("\n").slice(0, 4).join(" | ") : String(e); }
   function note(list, msg) { list.push("[" + secs(Date.now() - t0) + "] " + short(msg, 300)); if (list.length > 40) list.shift(); }
+  function stageText() {
+    try { return (document.getElementById("boot_status") || {}).textContent || ""; } catch (e) { return ""; }
+  }
+  function persist(finished) {
+    try {
+      localStorage.setItem(JOURNAL_KEY, JSON.stringify({
+        started: t0,
+        at: Date.now(),
+        finished: finished === true,
+        loaded: window.__loaded === true,
+        stage: short(stageText(), 300),
+        errors: errors.slice(-3)
+      }));
+      if (finished === true) { localStorage.setItem(JOURNAL_KEY + ".failures", "0"); }
+    } catch (e) {}
+  }
 
   // Do not monkey-patch Function/WebAssembly or any Eagler runtime primitive.
   // The diagnostics are observational only so they cannot alter startup.
@@ -41,13 +76,20 @@ function diag() {
   }
   function report() {
     var out = [], status = "", stage = "?";
-    try { status = (document.getElementById("boot_status") || {}).textContent || ""; } catch(e) {}
+    try { status = stageText(); } catch(e) {}
     try { var s = window.__eaglerCrashJournal && window.__eaglerCrashJournal.snapshot(); if (s) stage = s.stage + " (" + s.state + ")"; } catch(e) {}
     out.push("VBV RUNTIME CONSOLE  elapsed " + secs(Date.now() - t0) + "   main-thread max block " + secs(maxGap));
     out.push("screen text : " + status);
     out.push("loader stage: " + stage + "   loaded=" + !!window.__loaded + (window.__err ? "   __err=" + window.__err : ""));
     out.push(memory());
     out.push(capabilities());
+    out.push("safe mode   : " + (safe ? "ON (settings are not saved this session)" : "off")
+      + "   previous unfinished launches: " + previousFailures);
+    if (previous && previous.finished !== true) {
+      out.push("last launch : stopped at " + short(previous.stage || "(no stage recorded)", 160)
+        + " after " + secs(Math.max(0, (previous.at || 0) - (previous.started || 0)))
+        + (previous.errors && previous.errors.length ? " :: " + short(previous.errors[previous.errors.length - 1], 200) : ""));
+    }
     out.push("--- loader log ---");
     try { Array.prototype.push.apply(out, (window.__log || []).slice(-16).map(function(x) { return short(x, 320); })); } catch(e) {}
     if (errors.length) { out.push("--- errors ---"); Array.prototype.push.apply(out, errors.slice(-10)); }
@@ -73,6 +115,13 @@ function diag() {
     title.textContent = "VBV runtime console (tap to collapse)";
     title.style.flex = "1";
     bar.onclick = function() { collapsed = !collapsed; pre.style.display = collapsed ? "none" : "block"; };
+    if (!safe && previousFailures > 0) {
+      var safeLink = document.createElement("a");
+      safeLink.href = "?safe";
+      safeLink.textContent = "Reload in safe mode";
+      safeLink.style.cssText = "color:#7ec8ff;text-decoration:underline;white-space:nowrap";
+      bar.appendChild(safeLink);
+    }
     var btn = document.createElement("button");
     btn.textContent = "Save report";
     btn.onclick = function(ev) {
@@ -97,11 +146,14 @@ function diag() {
       // The console is a startup diagnostic only. Once Minecraft reports that
       // the main client is loaded, remove it completely and stop refreshing.
       if (window.__loaded === true) {
+        persist(true);
         removeBox();
         if (timer !== null) { clearInterval(timer); timer = null; }
         return;
       }
       if (ensureBox() && !collapsed) pre.textContent = report();
+      var now = Date.now();
+      if (now - lastPersist > 5000) { lastPersist = now; persist(false); }
     } catch(e) { try { if(pre) pre.textContent = "VBV console internal error: " + errText(e); } catch(ignore) {} }
   }
   refresh();
@@ -109,6 +161,19 @@ function diag() {
 }
 
 const diagTag = '<script id="vbv-diag-script">(' + diag.toString() + ")();</script>";
+let packTag = "";
+const packArg = process.argv.indexOf("--pack-index");
+if (packArg > 0 && process.argv[packArg + 1]) {
+  try {
+    const text = fs.readFileSync(process.argv[packArg + 1], "utf8").trim();
+    if (text) {
+      const encoded = JSON.stringify(text).replace(/<\/script/gi, "<\\/script");
+      packTag = '<script id="vbv-pack-index">window.__vbvPackIndexText=' + encoded + ";</script>";
+    }
+  } catch (error) {
+    console.warn("[overlay] resource-pack index not embedded: " + error.message);
+  }
+}
 const coiTag = `<script id="vbv-coi-bootstrap">(function(){
   if (window.crossOriginIsolated === true) { try { sessionStorage.removeItem("vbv-coi-reload"); } catch(e) {} return; }
   if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
@@ -125,12 +190,14 @@ const coiTag = `<script id="vbv-coi-bootstrap">(function(){
     });
 })();</script>`;
 let html = fs.readFileSync(input, "utf8");
-if (!html.includes('id="vbv-coi-bootstrap"') || !html.includes('id="vbv-diag-script"')) {
+if (!html.includes('id="vbv-coi-bootstrap"') || !html.includes('id="vbv-diag-script"') || (packTag && !html.includes('id="vbv-pack-index"'))) {
   const head = /<head[^>]*>/i.exec(html), body = /<body[^>]*>/i.exec(html);
   if (!head && !body) { console.error("[overlay] ERROR: no <body> or <head> found"); process.exit(1); }
   const at = head ? head.index + head[0].length : body.index + body[0].length;
-  const tags = (!html.includes('id="vbv-coi-bootstrap"') ? coiTag : "") + (!html.includes('id="vbv-diag-script"') ? diagTag : "");
+  const tags = (!html.includes('id="vbv-pack-index"') ? packTag : "")
+    + (!html.includes('id="vbv-coi-bootstrap"') ? coiTag : "")
+    + (!html.includes('id="vbv-diag-script"') ? diagTag : "");
   html = html.slice(0, at) + tags + html.slice(at);
 }
 fs.writeFileSync(output, html);
-console.log("[overlay] injected diagnostics and cross-origin-isolation bootstrap into " + output);
+console.log("[overlay] injected diagnostics, safe mode and cross-origin-isolation bootstrap into " + output);

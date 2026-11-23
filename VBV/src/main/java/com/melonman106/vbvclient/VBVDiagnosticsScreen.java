@@ -32,12 +32,15 @@ public final class VBVDiagnosticsScreen extends Screen {
         for (String raw : text.split("\n")) {
             wrap(raw).forEach(lines::add);
         }
+        addRenderableWidget(Button.builder(Component.literal("Save Settings"), button ->
+            button.setMessage(Component.literal(VBVSettingsFile.exportSettings() ? "Saved" : "Failed"))
+        ).bounds(width / 2 - 155, height - 30, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Copy"), button -> {
             VBVPerf.copyReport();
             button.setMessage(Component.literal("Copied!"));
-        }).bounds(width / 2 - 105, height - 30, 100, 20).build());
+        }).bounds(width / 2 - 50, height - 30, 100, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent))
-            .bounds(width / 2 + 5, height - 30, 100, 20).build());
+            .bounds(width / 2 + 55, height - 30, 100, 20).build());
     }
 
     private List<String> wrap(String raw) {

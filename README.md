@@ -434,14 +434,14 @@ You do not need to install Java, Gradle, or Node.js locally to run the repositor
 
 ### Build Workflow
 
-The main build process uses two workflows:
+The repository has one workflow:
 
 | Workflow | Purpose |
 |---|---|
-| `02 - Build Eaglercraft 26.2 u2 (VBV + Herz)` | Builds the native VBV + Herz client |
-| `03 - Retrieve Eaglercraft 26.2 u2 (Single HTML)` | Retrieves and verifies the standalone HTML |
+| `02 - Build Eaglercraft 26.2 u2 (VBV + Herz)` | Builds the native VBV + Herz client, then boots it headlessly |
 
-Both workflows are manually triggered.
+It is manually triggered and builds the branch it is started from (select
+`Dev-Beta` instead of `main` for development builds).
 
 ### Step 1: Compile the Client
 
@@ -467,20 +467,49 @@ The workflow performs the following operations:
 
 ### Step 2: Retrieve the Standalone HTML
 
-After workflow 02 completes successfully:
-
-1. Open the Actions tab.
-2. Select `03 - Retrieve Eaglercraft 26.2 u2 (Single HTML)`.
-3. Select **Run workflow**.
-4. Optionally provide the successful workflow 02 run ID.
-5. Leave the run ID empty to use the newest successful build.
-6. Download the generated artifact.
-
-The resulting standalone client is:
+When workflow 02 finishes, open its run page and download the
+`Eaglercraft-26.2-VBV-Herz-Single-HTML-<run id>` artifact. The standalone client
+inside it is:
 
 ```text
 eaglercraft-26.2-vbv-herz.html
 ```
+
+### Development branch (Dev-Beta)
+
+`Dev-Beta` is for client work that has not been through a full in-game pass yet;
+`main` stays the release branch. The build workflow checks out whichever branch
+it is started from, so pick `Dev-Beta` in the run dialog.
+
+**Headless boot check.** After the compile job, a `smoke` job serves the built
+HTML with the cross-origin isolation headers, opens it in headless Chromium
+(SwiftShader, so no GPU is needed) and waits for `window.__loaded`. It uploads
+`smoke-report.txt` and `smoke.png`; a client that never reaches the loading
+screen transition fails with the last screen text in the log. It is slow and it
+cannot judge how the game looks.
+
+**Safe mode and the crash journal.** The runtime console writes the current boot
+stage and the last errors to `localStorage` every five seconds. If a launch never
+finishes loading, the next one says so and offers **Reload in safe mode**;
+`?safe` can also be added to the address by hand. Safe mode turns custom entity
+models and their animations, LOD, world-map capture and the moving panorama off,
+keeps entity culling on, and refuses to save settings for that session,
+so a rescue cannot overwrite a working configuration. **Save report** downloads
+the console text.
+
+**Hardware-aware first run.** On the first launch the client reads
+`navigator.deviceMemory` and `hardwareConcurrency` once. At 4 GB or less of
+reported memory, or 4 cores or fewer (an N100 reports 4), it starts with LOD Low,
+cheaper custom-model animations, terrain capture off and the automatic quality
+governor on. Every value is an ordinary setting, and the choice is never made
+again after the first run.
+
+**Pack provenance.** The build merges every `ModsPack/` archive and writes a short
+index of what each pack contributed and which item, model, CEM and font paths
+more than one pack supplies. It is embedded in the standalone HTML and printed by
+**Options > Modded Settings > Diagnostics...**, so "which pack changed this" is
+answerable without the CI log. **Save Settings** on that screen downloads the
+saved key/value configuration as a text file.
 
 ### Worker modes and singleplayer
 
@@ -549,9 +578,7 @@ Eagler-26.2-Client/
 │
 ├── .github/
 │   └── workflows/
-│       ├── 02-compile-eagler-vbv.yml
-│       ├── 03-single-html-eagler-vbv.yml
-│       └── 04-import-build-litematica-malilib.yml
+│       └── 02-compile-eagler-vbv.yml
 │
 ├── VBV/
 │   ├── src/

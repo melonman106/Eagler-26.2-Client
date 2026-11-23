@@ -309,6 +309,8 @@ public final class VBVPerf {
         Minecraft mc = Minecraft.getInstance();
         StringBuilder out = new StringBuilder("VBV performance report\n");
         out.append(VBVBoot.report());
+        out.append(VBVSafeMode.describe());
+        out.append(VBVHardware.describe());
         if (count == 0) {
             out.append("No in-game frames recorded yet. Play for a few seconds with the HUD visible, then copy again.\n");
         } else {
@@ -371,6 +373,7 @@ public final class VBVPerf {
             out.append("Window ").append(mc.getWindow().getWidth()).append('x').append(mc.getWindow().getHeight())
                 .append(" | GUI scale ").append(mc.getWindow().getGuiScale()).append('\n');
         }
+        out.append(VBVPackIndex.report());
         return out.toString();
     }
 
