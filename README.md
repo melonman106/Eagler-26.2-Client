@@ -502,7 +502,8 @@ The workflow performs the following operations:
 9. Builds the WebAssembly client.
 10. Packages the standalone HTML.
 11. Verifies the generated client.
-12. Uploads the build artifacts.
+12. Packages and signs a Chrome Isolated Web App bundle (`.swbn`).
+13. Uploads the build artifacts.
 
 ### Step 2: Retrieve the Standalone HTML
 
@@ -513,6 +514,40 @@ inside it is:
 ```text
 eaglercraft-26.2-vbv-herz.html
 ```
+
+### Step 3: Signed Web Bundle (Chrome Isolated Web App)
+
+The compile job also packages the browser build as a signed web bundle:
+
+```text
+eaglercraft-26.2-vbv-herz.swbn
+eaglercraft-26.2-vbv-herz-swbn.txt
+```
+
+Download `Eaglercraft-26.2-VBV-Herz-SWB-<run id>` and install the `.swbn` from
+`chrome://web-app-internals` (with the Isolated Web App developer mode flag enabled)
+using **Install IWA from Signed Web Bundle**. The bundle contains its own web app
+manifest at `/.well-known/manifest.webmanifest` plus 192, 512 and maskable 512 icons
+generated from `VBV/pack.png`.
+
+The Web Bundle ID is derived from the signing key, so the app identity is stable only
+if the key is. Add a repository secret named `IWA_SIGNING_KEY` holding an Ed25519
+private key in PEM form (or the base64 of that PEM). To keep the key encrypted at
+rest, also add `IWA_SIGNING_KEY_PASSPHRASE`:
+
+```bash
+openssl genpkey -algorithm Ed25519 -out private_key.pem
+openssl pkcs8 -in private_key.pem -topk8 -out encrypted_key.pem
+```
+
+Without the secret each run signs with a fresh key and gets a new Web Bundle ID (so
+it installs as a new app). The workflow summary prints the ID and `isolated-app://`
+origin used for that run.
+
+Chrome applies its Isolated Web App content security policy to the bundle, which is
+stricter than a normal page (inline scripts are blocked and `blob:` workers are not
+allowed). The `.swbn` is packaged for IWA testing; the website and standalone HTML
+remain the supported clients until the shell is adapted to that policy.
 
 ### Development branch (Dev-Beta)
 
@@ -579,6 +614,7 @@ The main compilation workflow produces:
 | Single HTML | Standalone browser client |
 | COI Website | Cross-origin-isolated website bundle |
 | Web Build | Raw browser website output |
+| Signed Web Bundle | `.swbn` Chrome Isolated Web App package and its Web Bundle ID |
 
 Artifacts are retained for 14 days.
 

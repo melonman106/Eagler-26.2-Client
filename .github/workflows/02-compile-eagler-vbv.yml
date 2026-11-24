@@ -576,6 +576,150 @@ jobs:
                   archive.write(path, path.name)
           PY
           test -s eaglercraft-26.2-vbv-herz-coi.zip
+
+      - name: Build signed web bundle for Chrome Isolated Web Apps (.swbn)
+        shell: bash
+        env:
+          IWA_SIGNING_KEY: ${{ secrets.IWA_SIGNING_KEY }}
+          IWA_SIGNING_KEY_PASSPHRASE: ${{ secrets.IWA_SIGNING_KEY_PASSPHRASE }}
+          CLIENT_VERSION: ${{ inputs.client_version }}
+        run: |
+          set -Eeuo pipefail
+          tool="$RUNNER_TEMP/iwa-tools"
+          key="$RUNNER_TEMP/iwa-signing-key.pem"
+          site="$RUNNER_TEMP/iwa-site"
+          web="eaglercraft-u2/target_teavm_wasm_gc/build/web"
+          out="$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.swbn"
+          info="$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz-swbn.txt"
+          test -s "$web/index.html"
+
+          # Chrome's Signed Web Bundle tooling. wbn-sign needs Node 22.13+; this job sets up Node 24.
+          npm install --prefix "$tool" --no-save --no-package-lock --no-audit --no-fund wbn@0.0.10 wbn-sign@0.3.3
+          export PATH="$tool/node_modules/.bin:$PATH"
+
+          if [ -n "${IWA_SIGNING_KEY:-}" ]; then
+            if printf '%s' "$IWA_SIGNING_KEY" | grep -q 'BEGIN .*PRIVATE KEY'; then
+              printf '%s\n' "$IWA_SIGNING_KEY" > "$key"
+            else
+              printf '%s' "$IWA_SIGNING_KEY" | base64 --decode > "$key"
+            fi
+            signing="the IWA_SIGNING_KEY secret"
+          else
+            openssl genpkey -algorithm Ed25519 -out "$key"
+            signing="a one-off key (set the IWA_SIGNING_KEY secret for a stable Web Bundle ID)"
+            echo "::warning::IWA_SIGNING_KEY is not set; this .swbn is signed with a one-off key, so its Web Bundle ID changes on every run."
+          fi
+          chmod 600 "$key"
+          test -s "$key"
+          if [ -n "${IWA_SIGNING_KEY_PASSPHRASE:-}" ]; then
+            export WEB_BUNDLE_SIGNING_PASSPHRASE="$IWA_SIGNING_KEY_PASSPHRASE"
+          fi
+          if grep -q 'ENCRYPTED' "$key" && [ -z "${WEB_BUNDLE_SIGNING_PASSPHRASE:-}" ]; then
+            echo "::error::The IWA signing key is encrypted; set IWA_SIGNING_KEY_PASSPHRASE as well."
+            exit 1
+          fi
+
+          bundle_id="$(wbn-dump-id -k "$key")"
+          base_url="$(wbn-dump-id -k "$key" -s)"
+          case "$base_url" in
+            isolated-app://*/) ;;
+            *) echo "::error::Could not derive the Isolated Web App origin from the signing key (got: $base_url)"; exit 1 ;;
+          esac
+
+          version="${CLIENT_VERSION:-2.0.0}"
+          version="$(printf '%s' "$version" | grep -oE '^[0-9]+(\.[0-9]+)*' || true)"
+          [ -n "$version" ] || version="2.0.0"
+
+          # Stage a copy so the manifest and icons live only inside the bundle.
+          rm -rf "$site"
+          mkdir -p "$site/.well-known/iwa"
+          cp -a "$web/." "$site/"
+
+          python3 - "$site" "$version" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from PIL import Image, ImageOps
+
+          site = Path(sys.argv[1])
+          version = sys.argv[2]
+          icon_dir = site / ".well-known" / "iwa"
+          with Image.open("VBV/pack.png") as source:
+              icon = source.convert("RGBA")
+          for size in (192, 512):
+              canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+              fitted = ImageOps.contain(icon, (size, size), method=Image.Resampling.LANCZOS)
+              canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+              canvas.save(icon_dir / f"icon-{size}.png", format="PNG", optimize=True)
+          size = 512
+          canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+          fitted = ImageOps.contain(icon, (int(size * 0.8), int(size * 0.8)), method=Image.Resampling.LANCZOS)
+          canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+          canvas.save(icon_dir / "icon-maskable-512.png", format="PNG", optimize=True)
+
+          manifest = {
+              "name": "Eaglercraft 26.2 VBV",
+              "short_name": "Eaglercraft VBV",
+              "description": "VBV + Herz Eaglercraft 26.2 client packaged as a signed web bundle.",
+              "version": version,
+              "id": "/",
+              "start_url": "/",
+              "scope": "/",
+              "display": "standalone",
+              "background_color": "#0b0b10",
+              "theme_color": "#0b0b10",
+              "icons": [
+                  {"src": "/.well-known/iwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                  {"src": "/.well-known/iwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                  {"src": "/.well-known/iwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+              ],
+          }
+          (site / ".well-known" / "manifest.webmanifest").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"IWA manifest {version} with 192/512/maskable icons")
+          PY
+          test -s "$site/.well-known/manifest.webmanifest"
+          python3 -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$site/.well-known/manifest.webmanifest"
+
+          wbn --dir "$site" --baseURL "$base_url" --output "$RUNNER_TEMP/eaglercraft-26.2-vbv-herz.wbn"
+          wbn-sign sign "$RUNNER_TEMP/eaglercraft-26.2-vbv-herz.wbn" "$key" -o "$out"
+          test -s "$out"
+          wbn-sign info "$out" > "$RUNNER_TEMP/swbn-info.txt"
+          grep -q 'is correct: Yes' "$RUNNER_TEMP/swbn-info.txt"
+
+          {
+            echo "Eaglercraft 26.2 VBV signed web bundle"
+            echo "Web Bundle ID: $bundle_id"
+            echo "Origin: $base_url"
+            echo "Signed with: $signing"
+            echo "Version: $version"
+            echo "Size: $(stat -c%s "$out") bytes"
+          } > "$info"
+
+          {
+            echo "### Signed Web Bundle (.swbn)"
+            echo ""
+            echo "- Artifact: \`eaglercraft-26.2-vbv-herz.swbn\`"
+            echo "- Web Bundle ID: \`$bundle_id\`"
+            echo "- Origin: \`$base_url\`"
+            echo "- Signed with: $signing"
+            echo "- Version: \`$version\`"
+            echo "- Size: $(stat -c%s "$out") bytes"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Signed web bundle: $(stat -c%s "$out") bytes, Web Bundle ID $bundle_id"
+
+      - name: Upload signed web bundle (Chrome IWA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-SWB-${{ github.run_id }}
+          path: |
+            eaglercraft-26.2-vbv-herz.swbn
+            eaglercraft-26.2-vbv-herz-swbn.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
       - name: Upload standalone HTML client
         uses: actions/upload-artifact@v4
         with:
