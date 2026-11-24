@@ -91,6 +91,9 @@ jobs:
           CLIENT_VERSION: ${{ inputs.client_version }}
         run: |
           set -Eeuo pipefail
+          # GitHub Actions sets CI, which makes wbn-sign colorize its output.
+          # Color escapes would corrupt the parsed IDs and the signature check.
+          export NO_COLOR=1
           tool="$RUNNER_TEMP/iwa-tools"
           key="$RUNNER_TEMP/iwa-signing-key.pem"
           site="$RUNNER_TEMP/iwa-site"
@@ -139,12 +142,13 @@ jobs:
             exit 1
           fi
 
-          bundle_id="$(wbn-dump-id -k "$key")"
-          base_url="$(wbn-dump-id -k "$key" -s)"
-          case "$base_url" in
-            isolated-app://*/) ;;
-            *) echo "::error::Could not derive the Isolated Web App origin from the signing key (got: $base_url)"; exit 1 ;;
+          # Strip any color escapes a tool might still emit, then derive the
+          # origin from the ID so both values are guaranteed to agree.
+          bundle_id="$(wbn-dump-id -k "$key" | sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g')"
+          case "$bundle_id" in
+            ""|*[!a-z2-7]*) echo "::error::Could not derive the Isolated Web App origin from the signing key (got: '$bundle_id')"; exit 1 ;;
           esac
+          base_url="isolated-app://${bundle_id}/"
 
           version=""
           if [ -s "$web/vbv-version.txt" ]; then
@@ -209,7 +213,7 @@ jobs:
           wbn --dir "$site" --baseURL "$base_url" --output "$RUNNER_TEMP/eaglercraft-26.2-vbv-herz.wbn"
           wbn-sign sign "$RUNNER_TEMP/eaglercraft-26.2-vbv-herz.wbn" "$key" -o "$out"
           test -s "$out"
-          wbn-sign info "$out" > "$RUNNER_TEMP/swbn-info.txt"
+          wbn-sign info "$out" | sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' > "$RUNNER_TEMP/swbn-info.txt"
           grep -q 'is correct: Yes' "$RUNNER_TEMP/swbn-info.txt"
 
           {
