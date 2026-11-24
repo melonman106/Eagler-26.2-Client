@@ -23,4 +23,9 @@ files=()
 for name in "${PURE[@]}"; do files+=("$src/$name.java"); done
 for extra in "$here"/com/melonman106/vbvclient/mods/*.java; do files+=("$extra"); done
 javac -Xlint:all,-classfile -cp "$gson" -d "$out" "${files[@]}"
-java -Xmx512m -cp "$out:$gson" com.melonman106.vbvclient.mods.ModsCoreSelfTest
+examples=""
+if command -v python3 >/dev/null 2>&1; then
+  examples="$out/examples"
+  python3 "$here/../examples/build_example_mods.py" "$examples" >/dev/null
+fi
+java -Xmx512m -Dvbv.examples="$examples" -cp "$out:$gson" com.melonman106.vbvclient.mods.ModsCoreSelfTest

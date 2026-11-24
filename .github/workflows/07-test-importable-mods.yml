@@ -1,0 +1,49 @@
+name: "07 - Test importable mods (plain JVM)"
+
+run-name: "07 - Importable mods checks"
+
+# Runs the checks for the parts of the importable-mods system that use no game classes: the manifest/Fabric-faking
+# rules, the zip reader, the store and the example mods. It does not build or start the game.
+on:
+  pull_request:
+    paths:
+      - "VBV/src/main/java/com/melonman106/vbvclient/mods/**"
+      - "VBV/test/**"
+      - "VBV/examples/**"
+      - ".github/workflows/07-test-importable-mods.yml"
+  push:
+    branches: [main]
+    paths:
+      - "VBV/src/main/java/com/melonman106/vbvclient/mods/**"
+      - "VBV/test/**"
+      - "VBV/examples/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # The pinned hash is that of the gson-2.13.1.jar bundled with Maven 3.9.11, which should be the same file as
+      # Maven Central's. If this step ever reports a mismatch, compare it with Central's published .sha256 and update.
+      - name: Fetch Gson (pinned)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/gson.jar" https://repo1.maven.org/maven2/com/google/code/gson/gson/2.13.1/gson-2.13.1.jar
+          echo "94855942d4992f112946d3de1c334e709237b8126d8130bf07807c018a4a2120  $RUNNER_TEMP/gson.jar" | sha256sum -c -
+          echo "GSON_JAR=$RUNNER_TEMP/gson.jar" >> "$GITHUB_ENV"
+
+      - name: Run the checks
+        shell: bash
+        run: bash VBV/test/run-mods-core-tests.sh

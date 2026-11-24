@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import net.minecraft.resources.Identifier;
@@ -20,7 +19,7 @@ import net.minecraft.server.packs.resources.IoSupplier;
  * It never offers server data: imported mods have no data pack in this version.
  */
 final class ModPackResources extends AbstractPackResources {
-    private final NavigableMap<String, byte[]> files;
+    private final Map<String, byte[]> files;
     private final byte[] packMeta;
     private final byte[] packIcon;
 
@@ -53,7 +52,8 @@ final class ModPackResources extends AbstractPackResources {
     public void listResources(PackType type, String namespace, String directory, ResourceOutput output) {
         if (type != PackType.CLIENT_RESOURCES) return;
         String prefix = namespace + "/" + (directory.isEmpty() ? "" : directory + "/");
-        for (Map.Entry<String, byte[]> entry : files.subMap(prefix, true, prefix + '￿', false).entrySet()) {
+        for (Map.Entry<String, byte[]> entry : files.entrySet()) {
+            if (!entry.getKey().startsWith(prefix)) continue;
             Identifier id = Identifier.tryBuild(namespace, entry.getKey().substring(namespace.length() + 1));
             if (id != null) output.accept(id, supply(entry.getValue()));
         }
