@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "id": "demo_ingot",
+      "name": "Demo Ingot",
+      "creative_tab": ["ingredients", "tools_and_utilities"]
+    },
+    {
+      "id": "demo_wand",
+      "name": "Demo Wand",
+      "durability": 64,
+      "glint": true,
+      "rarity": "uncommon",
+      "model": "handheld",
+      "creative_tab": "tools_and_utilities"
+    }
+  ]
+}

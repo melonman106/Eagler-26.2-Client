@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "id": "ruby",
+      "name": "Ruby",
+      "creative_tab": "ingredients"
+    },
+    {
+      "id": "ruby_sword",
+      "name": "Ruby Sword",
+      "attack_damage": 8,
+      "attack_speed": 1.6,
+      "durability": 1800,
+      "enchantability": 15,
+      "rarity": "rare",
+      "repair_with": "minecraft:diamond",
+      "creative_tab": ["combat", "tools_and_utilities"]
+    },
+    {
+      "id": "ruby_apple",
+      "name": "Ruby Apple",
+      "rarity": "epic",
+      "glint": true,
+      "food": { "nutrition": 6, "saturation": 9.6, "always_edible": true }
+    }
+  ]
+}

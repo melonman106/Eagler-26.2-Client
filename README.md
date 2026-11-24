@@ -109,6 +109,16 @@ Modifications are registered during the build process and made available through
 
 The project also supports configurable features and additional client-side functionality through its native mod architecture.
 
+### Importable mods (.zip)
+
+Mods can also be imported at runtime from **Mods → Imported Mods... → Import .zip**. An importable mod is a `.zip` with an
+`info.json` (or a Fabric-style `fabric.mod.json`), an `items.json`, a `pack.png` and an `assets/` folder; it contains no code.
+Mods that depend on Fabric Loader or Fabric API load because the client reports those as present (faked), while the
+parts of Fabric API a data mod can really use — item settings, vanilla creative tabs, resource loading and item
+registration — are backed by real code. This first version adds **items only**. See
+[`docs/importable-mods.md`](docs/importable-mods.md) for the format, the Fabric table, safe mode (`?nomods=1`, `?safe`) and the
+limits, and `VBV/examples/` for two example mods. It has not been run in the game yet.
+
 ---
 
 ## Eaglercraft Filesystem Storage
@@ -435,6 +445,8 @@ Additional compatibility hooks include:
 **This is not the official Fabric Loader or Fabric API.**
 
 It does not load arbitrary Fabric mod JARs. It is a compatibility layer intended to help manually port selected functionality into the native Eaglercraft environment.
+
+`FabricLoader.getInstance()` also reports the faked Fabric pieces (`fabricloader`, `fabric-api` and its modules, `minecraft`, `java`) and every imported mod that loaded, so a dependency check on them succeeds. See [`docs/importable-mods.md`](docs/importable-mods.md) for what is real, partly real or faked.
 
 ---
 

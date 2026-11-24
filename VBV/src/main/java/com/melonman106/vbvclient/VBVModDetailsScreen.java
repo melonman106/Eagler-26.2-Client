@@ -16,6 +16,17 @@ public final class VBVModDetailsScreen extends Screen {
         this.info = info;
     }
 
+    /** True for a mod that was imported as a .zip (and is not shadowed by a built-in mod with the same id). */
+    private boolean isImported() {
+        for (VBVModInfo builtIn : VBVClient.getMods()) {
+            if (builtIn == info || builtIn.id().equals(info.id())) return false;
+        }
+        for (com.melonman106.vbvclient.mods.ModPackage pkg : com.melonman106.vbvclient.mods.ModBootstrap.loaded()) {
+            if (pkg.manifest.id.equals(info.id())) return true;
+        }
+        return false;
+    }
+
     private void label(String text) {
         Button b = Button.builder(Component.literal(text), button -> { })
             .bounds(20, labelY, Math.min(520, width - 40), 20).build();
@@ -32,7 +43,7 @@ public final class VBVModDetailsScreen extends Screen {
         label("ID: " + info.id());
         label("Version: " + info.version());
         label("Authors: " + info.authors());
-        label(info.resourcePackMod() ? "Type: Resource-pack client mod" : "Type: Native client mod");
+        label(isImported() ? "Type: Imported mod" : info.resourcePackMod() ? "Type: Resource-pack client mod" : "Type: Native client mod");
         label("pack.png: " + info.iconPath());
 
         if ("simple-hud-enhanced".equals(info.id())) {

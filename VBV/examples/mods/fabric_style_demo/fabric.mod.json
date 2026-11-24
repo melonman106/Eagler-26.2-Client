@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "fabric_style_demo",
+  "version": "0.1.0",
+  "name": "Fabric Style Demo",
+  "description": "A mod written the way a Fabric mod is described: fabric.mod.json asks for Fabric Loader, Fabric API, Minecraft and Java, which the client fakes (or partly provides), and its items come from items.json.",
+  "authors": ["VBV examples"],
+  "icon": "assets/fabric_style_demo/icon.png",
+  "environment": "*",
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "fabric-item-group-api-v1": "*",
+    "minecraft": "~26.2",
+    "java": ">=21"
+  },
+  "entrypoints": {
+    "main": ["example.fabricdemo.DemoMod"]
+  }
+}

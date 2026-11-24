@@ -1,5 +1,8 @@
 package com.melonman106.vbvclient;
 
+import com.melonman106.vbvclient.mods.ModAssets;
+import com.melonman106.vbvclient.mods.ModBootstrap;
+import com.melonman106.vbvclient.mods.ModPackage;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -31,6 +34,8 @@ public final class VBVModsScreen extends Screen {
     private final Screen parent;
     private final List<VBVModInfo> all = new ArrayList<>();
     private final List<VBVModInfo> shown = new ArrayList<>();
+    /** Ids of the entries that come from imported mods (they have no built-in settings screen). */
+    private final Set<String> importedIds = new HashSet<>();
     private VBVModInfo selected;
     private String searchText = "";
     private boolean ascending = true;
@@ -55,6 +60,20 @@ public final class VBVModsScreen extends Screen {
         this.parent = parent;
         VBVClient.init();
         this.all.addAll(VBVClient.getMods());
+        addImportedMods();
+    }
+
+    /** Imported mods that were loaded at start-up are listed beside the built-in ones; they are managed on their own screen. */
+    private void addImportedMods() {
+        Set<String> taken = new HashSet<>();
+        for (VBVModInfo info : this.all) taken.add(info.id());
+        for (ModPackage pkg : ModBootstrap.loaded()) {
+            String id = pkg.manifest.id;
+            if (!taken.add(id)) continue; // never shadow a built-in mod that happens to share the id
+            importedIds.add(id);
+            this.all.add(new VBVModInfo(id, pkg.manifest.name, pkg.manifest.version, String.join(", ", pkg.manifest.authors),
+                pkg.manifest.description, pkg.icon != null ? ModAssets.iconLocation(id) : "minecraft:textures/misc/unknown_pack.png", false));
+        }
     }
 
     private int listBottom() { return height - 36; }
@@ -104,6 +123,8 @@ public final class VBVModsScreen extends Screen {
         favoriteButton = Button.builder(Component.literal("*"), button -> toggleFavorite())
             .bounds(width - 82, RIGHT_PANE_Y, 24, 20).build();
         addRenderableWidget(favoriteButton);
+        addRenderableWidget(Button.builder(Component.literal("Imported Mods..."), button -> VBVNav.open(new VBVImportedModsScreen(this)))
+            .bounds(rightPaneX + 2, 22, Math.min(150, paneWidth - 4), 20).build());
         addRenderableWidget(Button.builder(Component.literal("World Map"), button -> VBVNav.open(new VBVWorldMapScreen(this)))
             .bounds(width / 2 - 158, height - 28, 98, 20).build());
         addRenderableWidget(Button.builder(Component.literal("HUD Editor"), button -> VBVNav.open(new VBVHudEditorScreen(this)))
@@ -204,7 +225,8 @@ public final class VBVModsScreen extends Screen {
             addLine("Favourite", VBVTheme.accent());
         }
         addLine("", 0xFFAAAAAA); addLine("Type", 0xFFFFFFFF);
-        addWrapped(selected.resourcePackMod() ? "Resource-pack client mod" : "Native client mod", wrapWidth, 0xFFAAAAAA);
+        addWrapped(importedIds.contains(selected.id()) ? "Imported mod (managed under Imported Mods...)"
+            : selected.resourcePackMod() ? "Resource-pack client mod" : "Native client mod", wrapWidth, 0xFFAAAAAA);
         addLine("", 0xFFAAAAAA); addLine("Mod ID", 0xFFFFFFFF);
         addWrapped(String.valueOf(selected.id()), wrapWidth, 0xFFAAAAAA);
     }
@@ -355,7 +377,10 @@ public final class VBVModsScreen extends Screen {
         try {
             String path = String.valueOf(info.iconPath());
             Identifier icon = path.contains(":") ? Identifier.parse(path) : Identifier.withDefaultNamespace(path);
-            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0, 0, size, size, 64, 64, 64, 64);
+            int[] dims = importedIds.contains(info.id()) ? ModBootstrap.iconSize(info.id()) : null;
+            int tw = dims != null ? dims[0] : 64;
+            int th = dims != null ? dims[1] : 64;
+            graphics.blit(RenderPipelines.GUI_TEXTURED, icon, x, y, 0, 0, size, size, tw, th, tw, th);
         } catch (RuntimeException ignored) {
             // The guaranteed letter badge remains visible.
         }
