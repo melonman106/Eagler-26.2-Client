@@ -393,6 +393,12 @@ final class PackageAndStoreTests {
         check(store.safeMode(), "safe mode flag");
         store.setSafeMode(false);
         check(!store.plan().safeMode() && !store.plan().active().isEmpty(), "safe mode off again");
+        store.setSafeMode(true, "Because the address said so.");
+        check(store.plan().safeModeReason().equals("Because the address said so."), "safe mode can carry its own reason");
+        store.setSafeMode(true, "A later reason");
+        check(store.plan().safeModeReason().equals("Because the address said so."), "...and an existing reason is not overwritten");
+        store.setSafeMode(false);
+        check(!store.plan().safeMode(), "safe mode off after the reasoned one");
 
         // damaged state file falls back to defaults
         files.map.put("mods/state.json", bytes("{{{{"));

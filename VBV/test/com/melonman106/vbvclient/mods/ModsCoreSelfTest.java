@@ -17,6 +17,7 @@ public final class ModsCoreSelfTest {
         faker();
         ManifestAndItemTests.run();
         PackageAndStoreTests.run();
+        ViewTests.run();
         System.out.println(TestKit.checks + " checks, " + TestKit.failures + " failed");
         if (TestKit.failures > 0) System.exit(1);
     }

@@ -54,6 +54,14 @@ public final class ModBootstrap {
         return Collections.unmodifiableList(new ArrayList<>(LOADED));
     }
 
+    /** Width and height of a loaded mod's icon, or null when it has none (or has not been loaded). */
+    public static synchronized int[] iconSize(String modId) {
+        for (ModPackage pkg : LOADED) {
+            if (pkg.manifest.id.equals(modId)) return pkg.icon == null ? null : ModPackage.pngSize(pkg.icon);
+        }
+        return null;
+    }
+
     public static synchronized Map<String, Report> reports() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(REPORTS));
     }
@@ -82,6 +90,10 @@ public final class ModBootstrap {
         ModStore.Applied applied;
         if (realm == ModPlatform.Realm.PAGE) {
             try {
+                if (ModPlatform.urlFlag("nomods")) {
+                    // The way out when a mod keeps the game from starting: open the page with ?nomods=1.
+                    store.setSafeMode(true, "Safe mode was turned on because the page was opened with ?nomods=1.");
+                }
                 guardTripped = store.beginRegistration();
                 ModStore.Plan plan = store.plan();
                 applied = store.apply(plan);

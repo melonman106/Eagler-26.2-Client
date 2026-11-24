@@ -30,6 +30,14 @@ public final class ModPlatform {
     @JSBody(script = "try { return typeof window !== 'undefined' && typeof document !== 'undefined'; } catch (e) { return false; }")
     private static native boolean hasDocument();
 
+    /** True when the page address has the given query flag, for example {@code ?nomods=1}. */
+    @JSBody(params = {"name"}, script = "try { return new URLSearchParams(window.location.search).has(name); } catch (e) { return false; }")
+    public static native boolean urlFlag(String name);
+
+    /** Reloads the page, which is how changes to the imported mods take effect. */
+    @JSBody(script = "try { window.location.reload(); } catch (e) { }")
+    public static native void reloadPage();
+
     public static Realm realm() {
         try {
             if (ServerPlatformSingleplayer.getWorldsDatabase() != null) return Realm.SERVER;

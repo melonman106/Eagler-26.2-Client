@@ -91,13 +91,18 @@ public final class ModStore {
 
     /** Turning safe mode off also clears a tripped boot guard. */
     public boolean setSafeMode(boolean on) {
+        return setSafeMode(on, "Safe mode was turned on.");
+    }
+
+    /** As {@link #setSafeMode(boolean)}; the reason is only used when safe mode was not already on with one. */
+    public boolean setSafeMode(boolean on, String reason) {
         JsonObject state = state();
         state.addProperty("safe_mode", on);
         if (!on) {
             state.remove("registering");
             state.remove("safe_reason");
         } else if (!state.has("safe_reason")) {
-            state.addProperty("safe_reason", "Safe mode was turned on.");
+            state.addProperty("safe_reason", reason);
         }
         return saveState(state);
     }
