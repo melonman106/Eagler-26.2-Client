@@ -436,6 +436,19 @@ final class PackageAndStoreTests {
     }
 
     static void snapshot() {
+        TestKit.MemoryFiles fresh = memory();
+        ModStore first = store(fresh);
+        check(first.nothingStored(), "a fresh store has nothing stored");
+        check(first.readApplied().mods().isEmpty() && first.plan().active().isEmpty() && fresh.map.isEmpty(), "...and looking at it wrote nothing");
+        first.setSafeMode(true);
+        check(!first.nothingStored(), "any state counts as stored");
+        TestKit.MemoryFiles imported = memory();
+        store(imported).install(zip(goodMod("ruby_tools")));
+        check(!store(imported).nothingStored(), "an imported mod counts as stored");
+        store(imported).remove("ruby_tools");
+        store(imported).apply(store(imported).plan());
+        check(!store(imported).nothingStored(), "after the last mod is removed the snapshot still counts, so the next start rewrites it");
+
         TestKit.MemoryFiles files = memory();
         ModStore client = store(files);
         ModStore worker = store(files); // the integrated-server worker shares the same storage

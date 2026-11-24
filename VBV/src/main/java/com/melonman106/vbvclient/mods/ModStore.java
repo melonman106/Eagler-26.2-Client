@@ -144,6 +144,15 @@ public final class ModStore {
 
     // ---- listing ----
 
+    /**
+     * True when nothing of the mods system has ever been written: no imported file, no state, no snapshot. Start-up uses
+     * this to skip every write on a game that has never imported a mod (the common case), so the feature costs those
+     * players nothing.
+     */
+    public boolean nothingStored() {
+        return files.list(FOLDER).isEmpty() && files.read(APPLIED_JSON) == null && files.read(STATE) == null;
+    }
+
     public List<Installed> installed() {
         Set<String> off = disabled(state());
         Map<String, Installed> sorted = new TreeMap<>();

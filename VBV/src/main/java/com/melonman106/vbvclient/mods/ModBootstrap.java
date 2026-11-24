@@ -90,6 +90,8 @@ public final class ModBootstrap {
         ModStore.Applied applied;
         if (realm == ModPlatform.Realm.PAGE) {
             try {
+                // A game that never imported a mod has nothing to read, write or register: leave storage untouched.
+                if (store.nothingStored()) return;
                 if (ModPlatform.urlFlag("nomods")) {
                     // The way out when a mod keeps the game from starting: open the page with ?nomods=1.
                     store.setSafeMode(true, "Safe mode was turned on because the page was opened with ?nomods=1.");
