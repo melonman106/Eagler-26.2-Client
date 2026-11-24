@@ -123,14 +123,7 @@ public final class VBVModsScreen extends Screen {
         favoriteButton = Button.builder(Component.literal("*"), button -> toggleFavorite())
             .bounds(width - 82, RIGHT_PANE_Y, 24, 20).build();
         addRenderableWidget(favoriteButton);
-        addRenderableWidget(Button.builder(Component.literal("Imported Mods..."), button -> VBVNav.open(new VBVImportedModsScreen(this)))
-            .bounds(rightPaneX + 2, 22, Math.min(150, paneWidth - 4), 20).build());
-        addRenderableWidget(Button.builder(Component.literal("World Map"), button -> VBVNav.open(new VBVWorldMapScreen(this)))
-            .bounds(width / 2 - 158, height - 28, 98, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("HUD Editor"), button -> VBVNav.open(new VBVHudEditorScreen(this)))
-            .bounds(width / 2 - 55, height - 28, 105, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent))
-            .bounds(width / 2 + 60, height - 28, 98, 20).build());
+        addFooter();
         applyFilterVisibility();
         refilter();
         int selectedIndex = selected == null ? -1 : shown.indexOf(selected);
@@ -139,6 +132,45 @@ public final class VBVModsScreen extends Screen {
             else if (selectedIndex >= listScroll + visibleRows()) listScroll = selectedIndex - visibleRows() + 1;
             listScroll = Math.max(0, Math.min(listScroll, maxListScroll()));
         }
+    }
+
+    /**
+     * The bottom row holds the screens reached from the Mods list. The buttons are measured from
+     * their labels instead of using fixed offsets, so the row stays centred and the four of them
+     * never overlap when the GUI is narrow.
+     */
+    private void addFooter() {
+        String[] labels = {"World Map", "HUD Editor", "Imported Mods...", "Done"};
+        int gap = 6;
+        int[] widths = new int[labels.length];
+        int total = gap * (labels.length - 1);
+        for (int i = 0; i < labels.length; i++) {
+            widths[i] = font.width(labels[i]) + 20;
+            total += widths[i];
+        }
+        int available = width - 8;
+        if (total > available) {
+            // Very narrow GUIs: take the excess from every button, down to a readable minimum.
+            int trim = (total - available + labels.length - 1) / labels.length;
+            total = gap * (labels.length - 1);
+            for (int i = 0; i < widths.length; i++) {
+                widths[i] = Math.max(40, widths[i] - trim);
+                total += widths[i];
+            }
+        }
+        int x = Math.max(4, (width - total) / 2);
+        int y = height - 28;
+        addRenderableWidget(Button.builder(Component.literal(labels[0]), button -> VBVNav.open(new VBVWorldMapScreen(this)))
+            .bounds(x, y, widths[0], 20).build());
+        x += widths[0] + gap;
+        addRenderableWidget(Button.builder(Component.literal(labels[1]), button -> VBVNav.open(new VBVHudEditorScreen(this)))
+            .bounds(x, y, widths[1], 20).build());
+        x += widths[1] + gap;
+        addRenderableWidget(Button.builder(Component.literal(labels[2]), button -> VBVNav.open(new VBVImportedModsScreen(this)))
+            .bounds(x, y, widths[2], 20).build());
+        x += widths[2] + gap;
+        addRenderableWidget(Button.builder(Component.literal(labels[3]), button -> VBVNav.open(parent))
+            .bounds(x, y, widths[3], 20).build());
     }
 
     private void applyFilterVisibility() { sortButton.visible = filtersShown; }
@@ -313,7 +345,10 @@ public final class VBVModsScreen extends Screen {
         drawPanel(graphics, rightPaneX, width, DESC_TOP, listBottom()); drawDetails(graphics); drawDescription(graphics);
     }
     private void drawCount(GuiGraphicsExtractor graphics) {
-        int total = all.size(); String full = shown.size() == total ? "Showing " + total + " mods" : "Showing " + shown.size() + "/" + total + " mods";
+        // Resource packs are installed and active but are not listed here, so do not count them in "Showing x/y".
+        int total = 0;
+        for (VBVModInfo info : all) if (!info.resourcePackMod()) total++;
+        String full = shown.size() == total ? "Showing " + total + " mods" : "Showing " + shown.size() + "/" + total + " mods";
         String text = full; if (filtersShown && searchBoxX + font.width(full) > filtersX - 5) text = shown.size() + " mods";
         graphics.text(font, text, searchBoxX, 52, 0xFFFFFFFF, true);
     }
@@ -386,7 +421,10 @@ public final class VBVModsScreen extends Screen {
         }
     }
     private void drawBadges(GuiGraphicsExtractor graphics, VBVModInfo info, int startX, int y, int maxX) {
-        int x = startX; x = drawBadge(graphics, x, y, maxX, "Client", 0xFF2B4B7C, 0xFF0E2A55);
+        // Imported mods are not built into the client, so the badge must not call them a Client mod.
+        int x = importedIds.contains(info.id())
+            ? drawBadge(graphics, startX, y, maxX, "Imported", 0xFF2B7C4B, 0xFF0E5530)
+            : drawBadge(graphics, startX, y, maxX, "Client", 0xFF2B4B7C, 0xFF0E2A55);
         if (info.resourcePackMod()) drawBadge(graphics, x, y, maxX, "Pack", 0xFF7A2B7C, 0xFF510D54);
     }
     private int drawBadge(GuiGraphicsExtractor graphics, int x, int y, int maxX, String label, int outline, int fill) {

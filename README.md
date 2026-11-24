@@ -53,7 +53,7 @@ Note: This is a custom Eaglercraft implementation, not the original OptiFine mod
 - Inventory Sorter for the 27 backpack slots, or the open chest, barrel, ender chest or shulker box; partial stacks of the same item are merged into full stacks (normal pick-up clicks, hotbar untouched).
 - Screenshot Manager: F2 captures are written into the storage folder's `Screenshots/` directory.
 - Chat Heads: each player message shows the sender's head in a small gutter; the chat text shifts right so the head never covers it.
-- 3D Skin Layers: the second skin layer gets real depth (0.5–1.0 px, configurable) instead of vanilla's flat 0.25 px shell.
+- 3D Skin Layers: the second skin layer gets real depth (0.75–1.25 px, configurable) instead of vanilla's flat 0.25 px shell; the hat is included.
 - BetterF3-style debug information.
 - Mouse Tweaks.
 - Minimap and explored-chunk world map.

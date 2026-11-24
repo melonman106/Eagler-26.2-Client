@@ -53,7 +53,7 @@ def install_icon(src,dst):
   canvas.alpha_composite(icon,((64-icon.width)//2,(64-icon.height)//2))
   icon=canvas
  icon.save(dst,"PNG")
-for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.png"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png"),("crosshair.png","crosshair.png"),("ChatHeads.png","chatheads.png"),("3DSkinLayers.png","3d-skin-layers.png")):
+for a,b in (("ShulkerBoxTooltips.jpeg","shulkerboxtooltip.png"),("Viabackportvisuals-client.png","viabackportvisuals-client.png"),("PotionHud.png","vbv-potion-hud.png"),("InventorySorter.png","vbv-inventory-sorter.png"),("ScreenshotManager.png","vbv-screenshot-manager.png"),("crosshair.png","crosshair.png"),("chat.png","chatheads.png"),("skin.png","3d-skin-layers.png")):
  src=icon_root/a
  if not src.is_file():continue
  install_icon(src,icon_dst/b)

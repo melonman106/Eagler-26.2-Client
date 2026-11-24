@@ -88,6 +88,7 @@ public final class VBVImportedModsScreen extends Screen {
             selectedId = installed.isEmpty() ? null : installed.get(0).id();
         }
         detailScroll = 0;
+        listScroll = Math.max(0, Math.min(listScroll, maxListScroll()));
         rebuildDetails();
         updateButtons();
     }
@@ -208,6 +209,7 @@ public final class VBVImportedModsScreen extends Screen {
     private int listBottom() { return height - 36; }
     private int visibleRows() { return Math.max(1, (listBottom() - LIST_TOP - 4) / ROW_HEIGHT); }
     private int maxListScroll() { return Math.max(0, installed.size() - visibleRows()); }
+    private int rowWidth() { return leftWidth - (installed.size() > visibleRows() ? 20 : 14); }
     private int visibleDetailLines() { return Math.max(1, (listBottom() - LIST_TOP - 8) / (font.lineHeight + 1)); }
     private int maxDetailScroll() { return Math.max(0, detailText.size() - visibleDetailLines()); }
 
@@ -218,8 +220,9 @@ public final class VBVImportedModsScreen extends Screen {
         rightX = leftWidth + 8;
 
         int gap = 4;
-        int buttonWidth = Math.max(60, Math.min(112, (width - 12 - gap * 4) / 5));
-        int x = (width - (buttonWidth * 5 + gap * 4)) / 2;
+        // Five buttons must share the width; without the old 60 px floor the row never runs off a narrow GUI.
+        int buttonWidth = Math.max(42, Math.min(112, (width - 8 - gap * 4) / 5));
+        int x = Math.max(4, (width - (buttonWidth * 5 + gap * 4)) / 2);
         int y = height - 28;
         importButton = addRenderableWidget(Button.builder(Component.literal("Import .zip"), button -> startImport())
             .bounds(x, y, buttonWidth, 20).build());
@@ -243,10 +246,10 @@ public final class VBVImportedModsScreen extends Screen {
         toggleButton.active = store != null && mod != null && mod.pkg() != null;
         toggleButton.setMessage(Component.literal(mod != null && !ModView.canTurnOff(mod) && mod.pkg() != null ? "Turn on" : "Turn off"));
         removeButton.active = store != null && mod != null;
-        removeButton.setMessage(Component.literal(mod != null && mod.id().equals(confirmRemoveId) ? "Really remove?" : "Remove"));
+        removeButton.setMessage(Component.literal(mod != null && mod.id().equals(confirmRemoveId) ? "Confirm?" : "Remove"));
         boolean safe = store != null && store.safeMode();
         safeButton.active = store != null;
-        safeButton.setMessage(Component.literal(safe ? "Safe mode: ON" : "Safe mode: OFF"));
+        safeButton.setMessage(Component.literal(safe ? "Safe: ON" : "Safe: OFF"));
         reloadButton.visible = restartNeeded && ModBootstrap.sessionSafeReason() == null;
         reloadButton.setMessage(Component.literal(confirmReload ? "Sure? Unsaved play is lost" : "Reload page"));
         reloadButton.setWidth(confirmReload ? 150 : 106);
@@ -312,7 +315,7 @@ public final class VBVImportedModsScreen extends Screen {
         if (store == null || mod == null) return;
         if (!mod.id().equals(confirmRemoveId)) {
             confirmRemoveId = mod.id();
-            setNotice("Click Remove again to delete " + mod.id() + ". Items it added that are in your worlds or inventories may disappear or fail to load, so keep a backup of worlds you care about.", ModView.Tone.WARN);
+            setNotice("Click Confirm? to delete " + mod.id() + ". Items it added that are in your worlds or inventories may disappear or fail to load, so keep a backup of worlds you care about.", ModView.Tone.WARN);
             updateButtons();
             return;
         }
@@ -393,7 +396,7 @@ public final class VBVImportedModsScreen extends Screen {
         if (super.mouseClicked(click, doubleClick)) return true;
         double mx = click.x();
         double my = click.y();
-        if (mx >= 6 && mx <= leftWidth - 8 && my >= LIST_TOP && my < listBottom()) {
+        if (mx >= 4 && mx <= 6 + rowWidth() && my >= LIST_TOP && my < listBottom()) {
             for (int k = 0; k < visibleRows(); k++) {
                 int index = listScroll + k;
                 if (index >= installed.size()) break;
@@ -440,11 +443,8 @@ public final class VBVImportedModsScreen extends Screen {
     }
 
     private void drawPanel(GuiGraphicsExtractor graphics, int x1, int x2, int top, int bottom) {
-        graphics.fill(x1, top, x2, bottom, 0x80000000);
-        graphics.fill(x1, top - 2, x2, top - 1, 0xFF000000);
-        graphics.fill(x1, top - 1, x2, top, 0xFF373737);
-        graphics.fill(x1, bottom, x2, bottom + 1, 0xFF373737);
-        graphics.fill(x1, bottom + 1, x2, bottom + 2, 0xFF000000);
+        // The same vanilla list panel as the Mods screen, so the two screens look like one menu.
+        VBVUi.panel(graphics, x1, top, x2 - x1, bottom - top);
     }
 
     private void drawList(GuiGraphicsExtractor graphics) {
@@ -452,7 +452,7 @@ public final class VBVImportedModsScreen extends Screen {
             graphics.text(font, store == null ? "No storage" : "No mods imported yet", 10, LIST_TOP + 8, DIM, false);
             return;
         }
-        int rowWidth = leftWidth - (installed.size() > visibleRows() ? 20 : 14);
+        int rowWidth = rowWidth();
         for (int k = 0; k < visibleRows(); k++) {
             int index = listScroll + k;
             if (index >= installed.size()) break;
