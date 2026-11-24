@@ -469,19 +469,22 @@ You do not need to install Java, Gradle, or Node.js locally to run the repositor
 
 ### Build Workflow
 
-The repository has one workflow:
+The repository has two workflows:
 
 | Workflow | Purpose |
 |---|---|
-| `02 - Build Eaglercraft 26.2 u2 (VBV + Herz)` | Builds the native VBV + Herz client, then boots it headlessly |
+| `02 - Compile HTML (Eaglercraft 26.2 VBV + Herz)` | Builds the native VBV + Herz browser client, then boots it headlessly |
+| `03 - Compile Signed Web Bundle (.swbn)` | Packages the browser build from workflow 02 as a signed Chrome Isolated Web App |
 
-It is manually triggered and builds the branch it is started from (select
-`Dev-Beta` instead of `main` for development builds).
+Both can be started by hand. Workflow 02 builds the branch it is started from (select
+`Dev-Beta` instead of `main` for development builds). Workflow 03 starts automatically
+after a successful 02 run, or can be run manually against the latest successful 02 build
+on the selected branch (or a specific build run ID).
 
 ### Step 1: Compile the Client
 
 1. Open the repository's **Actions** tab.
-2. Select `02 - Build Eaglercraft 26.2 u2 (VBV + Herz)`.
+2. Select `02 - Compile HTML (Eaglercraft 26.2 VBV + Herz)`.
 3. Select **Run workflow**.
 4. Type the **Client version** the build should report (for example `2.5.0`; default `2.0.0`).
    It is stamped into `VBVClient.VERSION`, shown on the boot and loading screens, in the Mods list
@@ -502,8 +505,7 @@ The workflow performs the following operations:
 9. Builds the WebAssembly client.
 10. Packages the standalone HTML.
 11. Verifies the generated client.
-12. Packages and signs a Chrome Isolated Web App bundle (`.swbn`).
-13. Uploads the build artifacts.
+12. Uploads the build artifacts.
 
 ### Step 2: Retrieve the Standalone HTML
 
@@ -515,9 +517,11 @@ inside it is:
 eaglercraft-26.2-vbv-herz.html
 ```
 
-### Step 3: Signed Web Bundle (Chrome Isolated Web App)
+### Step 3: Compile the Signed Web Bundle
 
-The compile job also packages the browser build as a signed web bundle:
+Workflow `03 - Compile Signed Web Bundle (.swbn)` packages the browser build from a
+successful workflow 02 run. It starts automatically when 02 completes; to package an
+older build, run it manually and optionally pass that build's run ID. It produces:
 
 ```text
 eaglercraft-26.2-vbv-herz.swbn
@@ -607,14 +611,14 @@ singleplayer; use the lean build only for joining servers on very low-memory dev
 
 ### Build Artifacts
 
-The main compilation workflow produces:
+Workflows 02 and 03 produce:
 
 | Artifact | Description |
 |---|---|
-| Single HTML | Standalone browser client |
-| COI Website | Cross-origin-isolated website bundle |
-| Web Build | Raw browser website output |
-| Signed Web Bundle | `.swbn` Chrome Isolated Web App package and its Web Bundle ID |
+| Single HTML | Standalone browser client (02) |
+| COI Website | Cross-origin-isolated website bundle (02) |
+| Web Build | Raw browser website output (02) |
+| Signed Web Bundle | `.swbn` Chrome Isolated Web App package and its Web Bundle ID (03) |
 
 Artifacts are retained for 14 days.
 

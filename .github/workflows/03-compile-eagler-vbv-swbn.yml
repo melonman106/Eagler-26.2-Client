@@ -1,0 +1,247 @@
+name: "03 - Compile Signed Web Bundle (.swbn)"
+
+run-name: "03 - Compile .swbn"
+
+# Chrome distributes Isolated Web Apps as signed web bundles. This workflow does
+# not rebuild the client: it downloads the browser build uploaded by workflow 02,
+# adds the IWA manifest and icons, then bundles and signs it with wbn/wbn-sign.
+
+on:
+  workflow_run:
+    workflows: ["02 - Compile HTML (Eaglercraft 26.2 VBV + Herz)"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "Run ID of a successful HTML build (leave blank for the latest successful run on this branch)"
+        required: false
+        type: string
+      client_version:
+        description: "Fallback version for builds made before vbv-version.txt existed (e.g. 2.0.0)"
+        required: false
+        default: "2.0.0"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  swbn:
+    # workflow_run fires for failed builds too; only package a successful one.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Resolve the HTML build run
+        id: build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          INPUT_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          run_id="${INPUT_RUN_ID:-}"
+          if [ -n "${EVENT_RUN_ID:-}" ]; then
+            run_id="$EVENT_RUN_ID"
+          fi
+          if [ -z "$run_id" ]; then
+            echo "Looking up the latest successful HTML build on ${GITHUB_REF_NAME}..."
+            run_id="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/02-compile-eagler-vbv.yml/runs?branch=${GITHUB_REF_NAME}&status=success&per_page=1" \
+              | python3 -c 'import json,sys; runs=json.load(sys.stdin).get("workflow_runs", []); print(runs[0]["id"] if runs else "")')"
+          fi
+          if [ -z "$run_id" ]; then
+            echo "::error::No successful HTML build found. Run workflow 02 first, or pass its run ID."
+            exit 1
+          fi
+          echo "Using HTML build run: $run_id"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout this mod project
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref_name }}
+          fetch-depth: 1
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Download the web build from the HTML workflow
+        uses: actions/download-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-Web-${{ steps.build.outputs.run_id }}
+          path: iwa-web
+          run-id: ${{ steps.build.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Pillow for icon generation
+        run: python3 -m pip install --disable-pip-version-check --quiet Pillow
+
+      - name: Build and sign the web bundle
+        shell: bash
+        env:
+          IWA_SIGNING_KEY: ${{ secrets.IWA_SIGNING_KEY }}
+          IWA_SIGNING_KEY_PASSPHRASE: ${{ secrets.IWA_SIGNING_KEY_PASSPHRASE }}
+          CLIENT_VERSION: ${{ inputs.client_version }}
+        run: |
+          set -Eeuo pipefail
+          tool="$RUNNER_TEMP/iwa-tools"
+          key="$RUNNER_TEMP/iwa-signing-key.pem"
+          site="$RUNNER_TEMP/iwa-site"
+          out="$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz.swbn"
+          info="$GITHUB_WORKSPACE/eaglercraft-26.2-vbv-herz-swbn.txt"
+
+          # actions/upload-artifact stores web/** relative to web/, but accept
+          # either layout so an artifact produced with a different root still works.
+          web=""
+          for candidate in iwa-web iwa-web/web; do
+            if [ -s "$candidate/index.html" ]; then
+              web="$candidate"
+              break
+            fi
+          done
+          if [ -z "$web" ]; then
+            echo "::error::The downloaded artifact does not contain index.html"
+            find iwa-web -maxdepth 2 -type f | head -20 || true
+            exit 1
+          fi
+          echo "Packaging $web"
+
+          # Chrome's Signed Web Bundle tooling. wbn-sign needs Node 22.13+.
+          npm install --prefix "$tool" --no-save --no-package-lock --no-audit --no-fund wbn@0.0.10 wbn-sign@0.3.3
+          export PATH="$tool/node_modules/.bin:$PATH"
+
+          if [ -n "${IWA_SIGNING_KEY:-}" ]; then
+            if printf '%s' "$IWA_SIGNING_KEY" | grep -q 'BEGIN .*PRIVATE KEY'; then
+              printf '%s\n' "$IWA_SIGNING_KEY" > "$key"
+            else
+              printf '%s' "$IWA_SIGNING_KEY" | base64 --decode > "$key"
+            fi
+            signing="the IWA_SIGNING_KEY secret"
+          else
+            openssl genpkey -algorithm Ed25519 -out "$key"
+            signing="a one-off key (set the IWA_SIGNING_KEY secret for a stable Web Bundle ID)"
+            echo "::warning::IWA_SIGNING_KEY is not set; this .swbn is signed with a one-off key, so its Web Bundle ID changes on every run."
+          fi
+          chmod 600 "$key"
+          test -s "$key"
+          if [ -n "${IWA_SIGNING_KEY_PASSPHRASE:-}" ]; then
+            export WEB_BUNDLE_SIGNING_PASSPHRASE="$IWA_SIGNING_KEY_PASSPHRASE"
+          fi
+          if grep -q 'ENCRYPTED' "$key" && [ -z "${WEB_BUNDLE_SIGNING_PASSPHRASE:-}" ]; then
+            echo "::error::The IWA signing key is encrypted; set IWA_SIGNING_KEY_PASSPHRASE as well."
+            exit 1
+          fi
+
+          bundle_id="$(wbn-dump-id -k "$key")"
+          base_url="$(wbn-dump-id -k "$key" -s)"
+          case "$base_url" in
+            isolated-app://*/) ;;
+            *) echo "::error::Could not derive the Isolated Web App origin from the signing key (got: $base_url)"; exit 1 ;;
+          esac
+
+          version=""
+          if [ -s "$web/vbv-version.txt" ]; then
+            version="$(tr -d '[:space:]' < "$web/vbv-version.txt")"
+          fi
+          [ -n "$version" ] || version="${CLIENT_VERSION:-2.0.0}"
+          version="$(printf '%s' "$version" | grep -oE '^[0-9]+(\.[0-9]+)*' || true)"
+          [ -n "$version" ] || version="2.0.0"
+
+          # Stage a copy so the manifest and icons live only inside the bundle.
+          rm -rf "$site"
+          mkdir -p "$site/.well-known/iwa"
+          cp -a "$web/." "$site/"
+
+          python3 - "$site" "$version" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from PIL import Image, ImageOps
+
+          site = Path(sys.argv[1])
+          version = sys.argv[2]
+          icon_dir = site / ".well-known" / "iwa"
+          with Image.open("VBV/pack.png") as source:
+              icon = source.convert("RGBA")
+          for size in (192, 512):
+              canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+              fitted = ImageOps.contain(icon, (size, size), method=Image.Resampling.LANCZOS)
+              canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+              canvas.save(icon_dir / f"icon-{size}.png", format="PNG", optimize=True)
+          size = 512
+          canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+          fitted = ImageOps.contain(icon, (int(size * 0.8), int(size * 0.8)), method=Image.Resampling.LANCZOS)
+          canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+          canvas.save(icon_dir / "icon-maskable-512.png", format="PNG", optimize=True)
+
+          manifest = {
+              "name": "Eaglercraft 26.2 VBV",
+              "short_name": "Eaglercraft VBV",
+              "description": "VBV + Herz Eaglercraft 26.2 client packaged as a signed web bundle.",
+              "version": version,
+              "id": "/",
+              "start_url": "/",
+              "scope": "/",
+              "display": "standalone",
+              "background_color": "#0b0b10",
+              "theme_color": "#0b0b10",
+              "icons": [
+                  {"src": "/.well-known/iwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                  {"src": "/.well-known/iwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                  {"src": "/.well-known/iwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+              ],
+          }
+          (site / ".well-known" / "manifest.webmanifest").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"IWA manifest {version} with 192/512/maskable icons")
+          PY
+          test -s "$site/.well-known/manifest.webmanifest"
+          python3 -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' "$site/.well-known/manifest.webmanifest"
+
+          wbn --dir "$site" --baseURL "$base_url" --output "$RUNNER_TEMP/eaglercraft-26.2-vbv-herz.wbn"
+          wbn-sign sign "$RUNNER_TEMP/eaglercraft-26.2-vbv-herz.wbn" "$key" -o "$out"
+          test -s "$out"
+          wbn-sign info "$out" > "$RUNNER_TEMP/swbn-info.txt"
+          grep -q 'is correct: Yes' "$RUNNER_TEMP/swbn-info.txt"
+
+          {
+            echo "Eaglercraft 26.2 VBV signed web bundle"
+            echo "Web Bundle ID: $bundle_id"
+            echo "Origin: $base_url"
+            echo "Signed with: $signing"
+            echo "Version: $version"
+            echo "Built from HTML run: ${{ steps.build.outputs.run_id }}"
+            echo "Size: $(stat -c%s "$out") bytes"
+          } > "$info"
+
+          {
+            echo "### Signed Web Bundle (.swbn)"
+            echo ""
+            echo "- Artifact: \`eaglercraft-26.2-vbv-herz.swbn\`"
+            echo "- Web Bundle ID: \`$bundle_id\`"
+            echo "- Origin: \`$base_url\`"
+            echo "- Signed with: $signing"
+            echo "- Version: \`$version\`"
+            echo "- Built from HTML run: [${{ steps.build.outputs.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ steps.build.outputs.run_id }})"
+            echo "- Size: $(stat -c%s "$out") bytes"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Signed web bundle: $(stat -c%s "$out") bytes, Web Bundle ID $bundle_id"
+
+      - name: Upload signed web bundle (Chrome IWA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Eaglercraft-26.2-VBV-Herz-SWB-${{ steps.build.outputs.run_id }}
+          path: |
+            eaglercraft-26.2-vbv-herz.swbn
+            eaglercraft-26.2-vbv-herz-swbn.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
