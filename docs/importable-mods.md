@@ -140,8 +140,9 @@ Items must exist in the game's registry before it freezes, so mods are decided *
 
 ### If a mod breaks the game
 
-* **Safe mode** (button on the screen) loads no imported mod at the next start.
-* Open the page with `?nomods=1` to turn safe mode on from the address bar.
+* **Safe mode** (button on the screen) loads no imported mod at every start until you turn it off.
+* Open the page with `?nomods=1` (or `?safe`, the client's general safe mode) to start **one session** without any imported
+  mod. Nothing is stored; open the page normally afterwards and the mods load again.
 * If the previous start stopped while mods were being registered, safe mode switches on by itself and says why.
 
 ## Limits worth knowing

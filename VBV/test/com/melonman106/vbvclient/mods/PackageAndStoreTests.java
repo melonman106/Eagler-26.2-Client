@@ -449,6 +449,18 @@ final class PackageAndStoreTests {
         store(imported).apply(store(imported).plan());
         check(!store(imported).nothingStored(), "after the last mod is removed the snapshot still counts, so the next start rewrites it");
 
+        TestKit.MemoryFiles sessionFiles = memory();
+        ModStore sessionStore = store(sessionFiles);
+        sessionStore.install(zip(goodMod("ruby_tools")));
+        int before = sessionFiles.map.size();
+        ModStore.Plan session = sessionStore.plan("Not this time (?safe).");
+        check(session.safeMode() && session.active().isEmpty() && session.safeModeReason().equals("Not this time (?safe)."), "a session override loads nothing and says why");
+        check(sessionFiles.map.size() == before && !sessionStore.safeMode(), "...and stores nothing: safe mode is not switched on for later");
+        check(sessionStore.plan().active().size() == 1 && !sessionStore.plan().safeMode(), "the next normal start loads the mod again");
+        check(sessionStore.plan(null).active().size() == 1, "a null reason is a normal plan");
+        ModStore.Applied sessionApplied = sessionStore.apply(session);
+        check(sessionApplied.mods().isEmpty() && sessionApplied.safeMode() && store(sessionFiles).readApplied().safeMode() && store(sessionFiles).readApplied().mods().isEmpty(), "the server worker follows a session override through the snapshot");
+
         TestKit.MemoryFiles files = memory();
         ModStore client = store(files);
         ModStore worker = store(files); // the integrated-server worker shares the same storage

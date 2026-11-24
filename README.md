@@ -116,7 +116,7 @@ Mods can also be imported at runtime from **Mods → Imported Mods... → Import
 Mods that depend on Fabric Loader or Fabric API load because the client reports those as present (faked), while the
 parts of Fabric API a data mod can really use — item settings, vanilla creative tabs, resource loading and item
 registration — are backed by real code. This first version adds **items only**. See
-[`docs/importable-mods.md`](docs/importable-mods.md) for the format, the Fabric table, safe mode (`?nomods=1`) and the
+[`docs/importable-mods.md`](docs/importable-mods.md) for the format, the Fabric table, safe mode (`?nomods=1`, `?safe`) and the
 limits, and `VBV/examples/` for two example mods. It has not been run in the game yet.
 
 ---

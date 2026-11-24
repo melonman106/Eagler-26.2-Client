@@ -46,6 +46,7 @@ public final class ModBootstrap {
     private static final Map<String, Report> REPORTS = new LinkedHashMap<>();
     private static final List<String> MESSAGES = new ArrayList<>();
     private static boolean guardTripped;
+    private static String sessionSafeReason;
 
     private ModBootstrap() {}
 
@@ -71,6 +72,11 @@ public final class ModBootstrap {
         return Collections.unmodifiableList(new ArrayList<>(MESSAGES));
     }
 
+    /** Why this session started without mods because of the page address ({@code ?safe}, {@code ?nomods=1}), or null. */
+    public static synchronized String sessionSafeReason() {
+        return sessionSafeReason;
+    }
+
     public static synchronized boolean guardTripped() {
         return guardTripped;
     }
@@ -90,14 +96,16 @@ public final class ModBootstrap {
         ModStore.Applied applied;
         if (realm == ModPlatform.Realm.PAGE) {
             try {
+                // The way out when a mod keeps the game from starting: one session without mods, nothing stored.
+                if (ModPlatform.urlFlag("safe")) {
+                    sessionSafeReason = "No mods were loaded this session because the page was opened with ?safe.";
+                } else if (ModPlatform.urlFlag("nomods")) {
+                    sessionSafeReason = "No mods were loaded this session because the page was opened with ?nomods=1.";
+                }
                 // A game that never imported a mod has nothing to read, write or register: leave storage untouched.
                 if (store.nothingStored()) return;
-                if (ModPlatform.urlFlag("nomods")) {
-                    // The way out when a mod keeps the game from starting: open the page with ?nomods=1.
-                    store.setSafeMode(true, "Safe mode was turned on because the page was opened with ?nomods=1.");
-                }
-                guardTripped = store.beginRegistration();
-                ModStore.Plan plan = store.plan();
+                if (sessionSafeReason == null) guardTripped = store.beginRegistration();
+                ModStore.Plan plan = store.plan(sessionSafeReason);
                 applied = store.apply(plan);
                 if (plan.safeMode()) MESSAGES.add(plan.safeModeReason());
                 for (Map.Entry<String, List<String>> blocked : plan.blocked().entrySet()) {
@@ -133,7 +141,7 @@ public final class ModBootstrap {
             }
             LOADED.add(pkg);
         }
-        if (realm == ModPlatform.Realm.PAGE) store.endRegistration();
+        if (realm == ModPlatform.Realm.PAGE && sessionSafeReason == null) store.endRegistration();
     }
 
     private static void registerItem(String modId, ModItems.ItemDef def) {

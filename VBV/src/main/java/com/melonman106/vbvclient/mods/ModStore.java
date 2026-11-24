@@ -367,6 +367,17 @@ public final class ModStore {
      * satisfy everything that asks for them.
      */
     public Plan plan() {
+        return plan(null);
+    }
+
+    /**
+     * As {@link #plan()}, but a non-null {@code sessionSafeReason} starts this session without any mod, whatever the stored
+     * settings say, and stores nothing (it is for {@code ?safe} / {@code ?nomods=1}: one session without mods).
+     */
+    public Plan plan(String sessionSafeReason) {
+        if (sessionSafeReason != null) {
+            return new Plan(new ArrayList<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), true, sessionSafeReason);
+        }
         List<Installed> all = installed();
         JsonObject state = state();
         if (safeModeFrom(state)) {

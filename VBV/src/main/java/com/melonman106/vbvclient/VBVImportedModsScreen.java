@@ -247,7 +247,7 @@ public final class VBVImportedModsScreen extends Screen {
         boolean safe = store != null && store.safeMode();
         safeButton.active = store != null;
         safeButton.setMessage(Component.literal(safe ? "Safe mode: ON" : "Safe mode: OFF"));
-        reloadButton.visible = restartNeeded;
+        reloadButton.visible = restartNeeded && ModBootstrap.sessionSafeReason() == null;
         reloadButton.setMessage(Component.literal(confirmReload ? "Sure? Unsaved play is lost" : "Reload page"));
         reloadButton.setWidth(confirmReload ? 150 : 106);
         reloadButton.setX(width - reloadButton.getWidth() - 6);
@@ -330,7 +330,7 @@ public final class VBVImportedModsScreen extends Screen {
         store.setSafeMode(!now);
         refresh();
         setNotice(now ? "Safe mode is off. Mods load again the next time the game starts."
-            : "Safe mode is on. No imported mod loads the next time the game starts, which is the way out if a mod stops the game from starting. You can also open the page with ?nomods=1.",
+            : "Safe mode is on. No imported mod loads the next time the game starts, which is the way out if a mod stops the game from starting. To skip mods for a single session instead, open the page with ?nomods=1 (or ?safe).",
             ModView.Tone.NORMAL);
     }
 
@@ -428,7 +428,9 @@ public final class VBVImportedModsScreen extends Screen {
         graphics.text(font, "Imported Mods", leftWidth / 2 - font.width("Imported Mods") / 2, 8, WHITE, true);
         String summary = store == null || plan == null ? "Storage unavailable" : ModView.summary(installed, plan, loaded);
         graphics.text(font, summary, 8, 24, DIM, false);
-        if (restartNeeded) {
+        if (ModBootstrap.sessionSafeReason() != null) {
+            graphics.text(font, "No mods this session. Open the page without ?safe / ?nomods=1 to load them.", 8, 35, WARN, false);
+        } else if (restartNeeded) {
             graphics.text(font, "Reload the page to apply your changes.", 8, 35, WARN, false);
         }
         drawPanel(graphics, 0, leftWidth, LIST_TOP, listBottom());
