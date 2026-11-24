@@ -85,7 +85,6 @@ public final class VBVFirstPersonAnimationsConfigScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF151515);
         String heading = title.getString();
         graphics.text(font, heading, width / 2 - font.width(heading) / 2, 12, 0xFFFFFFFF, true);
         String note = "Units are 1/100 block. Depth + = closer to you, Height + = higher.";

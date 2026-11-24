@@ -37,7 +37,6 @@ public final class VBVWaypointDetailsScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF151515);
         centered(graphics, title.getString(), height / 2 - 80, 0xFFFFFFFF);
         String coords = "X " + waypoint.x() + "  Y " + waypoint.y() + "  Z " + waypoint.z();
         centered(graphics, coords, height / 2 - 55, 0xFFCCCCCC);

@@ -55,7 +55,6 @@ public final class VBVServerProfilesScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF101010);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         String title = "SERVER PROFILES";
         graphics.text(font, title, width / 2 - font.width(title) / 2, 28, 0xFFFFFFFF, true);

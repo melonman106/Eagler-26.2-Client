@@ -36,7 +36,7 @@ public final class VBVDungeonsExtrasScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(0, 0, width, height, 0x50000000);
+        graphics.fillGradient(0, 0, width, height, -1072689136, -804253680);
         String title = "MODS & OPTIONS";
         graphics.text(font, title, width / 2 - font.width(title) / 2, 36, 0xFFFFFFFF, true);
     }

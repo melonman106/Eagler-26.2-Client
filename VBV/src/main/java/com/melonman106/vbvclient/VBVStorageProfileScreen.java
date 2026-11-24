@@ -21,6 +21,6 @@ public final class VBVStorageProfileScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Back"),b->VBVNav.open(parent)).bounds(x,height-34,260,20).build());
     }
     private void save(){int d=128;try{d=Integer.parseInt(distanceBox.getValue().trim());}catch(Exception ignored){}d=Math.max(2,Math.min(128,d));if(VBVStorage.saveProfile(nameBox.getValue(),addressBox.getValue(),d))VBVNav.open(parent);}
-    @Override public void extractRenderState(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float partialTick){graphics.fill(0,0,width,height,0xFF101010);super.extractRenderState(graphics,mouseX,mouseY,partialTick);String t="SERVER PROFILE";graphics.text(font,t,width/2-font.width(t)/2,32,0xFFFFFFFF,true);graphics.text(font,"Saved in Server Profiles on your selected storage folder.",width/2-150,52,0xFFAAAAAA,false);}
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float partialTick){super.extractRenderState(graphics,mouseX,mouseY,partialTick);String t="SERVER PROFILE";graphics.text(font,t,width/2-font.width(t)/2,32,0xFFFFFFFF,true);graphics.text(font,"Saved in Server Profiles on your selected storage folder.",width/2-150,52,0xFFAAAAAA,false);}
     @Override public void onClose(){VBVNav.open(parent);}
 }

@@ -165,7 +165,7 @@ public final class VBVModdedSettingsScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         String heading = title.getString();
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, headingY, VBVTheme.accentLight(), true);
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, headingY, 0xFFFFFFFF, true);
 
         int rowW = Math.min(280, width - 24);
         int left = width / 2 - rowW / 2;

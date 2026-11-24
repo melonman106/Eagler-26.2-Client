@@ -206,7 +206,7 @@ public final class VBVLauncherScreen extends Screen {
         String active = index < 0 ? "Vanilla panorama" : VBVPanoramaOverlay.name(index);
         int headerW = contentW - (contentW >= 200 ? 90 : 0);
         graphics.text(font, VBVUi.fit(font, "MENU BACKDROP  -  " + active.toUpperCase(), headerW), contentX, contentY + 2,
-            VBVTheme.accentLight(), true);
+            0xFFFFFFFF, true);
         int totalRows = (cards.size() + perRow - 1) / perRow;
         if (totalRows > visibleRows) {
             graphics.text(font, "Scroll for more", contentX, contentBottom - 8, VBVUi.TEXT_DISABLED, false);
@@ -247,7 +247,7 @@ public final class VBVLauncherScreen extends Screen {
                 Identifier preview = VBVPanoramaOverlay.preview(panorama);
                 graphics.blit(RenderPipelines.GUI_TEXTURED, preview, x, y, 0, 0, w, th, w, th, w, th);
             }
-            int edge = active ? VBVTheme.accent() : (lit ? VBVTheme.accentLight() : VBVTheme.accentAlpha(0x60));
+            int edge = active ? VBVTheme.accent() : (lit ? 0xFFFFFFFF : 0xFF808080);
             graphics.outline(x, y, w, th, edge);
             if (active) {
                 graphics.outline(x + 1, y + 1, w - 2, th - 2, edge);
@@ -257,7 +257,7 @@ public final class VBVLauncherScreen extends Screen {
             graphics.text(f, label, x, y + th + 4, active || lit ? 0xFFFFFFFF : VBVUi.TEXT_DIM, true);
             if (active) {
                 String tag = "ACTIVE";
-                graphics.text(f, tag, x + w - f.width(tag), y + th + 4, VBVTheme.accentLight(), true);
+                graphics.text(f, tag, x + w - f.width(tag), y + th + 4, 0xFFFFFFFF, true);
             }
         }
     }
@@ -286,7 +286,7 @@ public final class VBVLauncherScreen extends Screen {
         graphics.pose().scale(1.5F, 1.5F);
         graphics.text(font, VBVUi.fit(font, name, (Math.min(contentW, 300) - head - 40) * 2 / 3), 0, 0, 0xFFFFFFFF, true);
         graphics.pose().popMatrix();
-        graphics.text(font, "Your hero in VBV", tx, contentY + 28, VBVTheme.accentLight(), false);
+        graphics.text(font, "Your hero in VBV", tx, contentY + 28, VBVUi.TEXT_DIM, false);
     }
 
     // -------------------------------------------------------------- friends
@@ -301,7 +301,7 @@ public final class VBVLauncherScreen extends Screen {
     private void renderFriends(GuiGraphicsExtractor graphics) {
         int panelW = Math.min(contentW, 300);
         VBVUi.panel(graphics, contentX, contentY, panelW, 56);
-        graphics.text(font, "FRIENDS", contentX + 8, contentY + 8, VBVTheme.accentLight(), true);
+        graphics.text(font, "FRIENDS", contentX + 8, contentY + 8, 0xFFFFFFFF, true);
         if (!VBVFriends.signedIn()) {
             graphics.text(font, "No Friends account yet.", contentX + 8, contentY + 24, VBVUi.TEXT_DIM, false);
             graphics.text(font, "Open the list to create one.", contentX + 8, contentY + 38, VBVUi.TEXT_DIM, false);
@@ -331,7 +331,7 @@ public final class VBVLauncherScreen extends Screen {
         int shown = Math.max(1, Math.min(players.length, Math.max(1, (contentBottom - 60 - contentY - 26) / 14)));
         int panelH = 24 + shown * 14 + 4;
         VBVUi.panel(graphics, contentX, contentY, panelW, panelH);
-        graphics.text(font, "PARTY MEMBERS", contentX + 8, contentY + 8, VBVTheme.accentLight(), true);
+        graphics.text(font, "PARTY MEMBERS", contentX + 8, contentY + 8, 0xFFFFFFFF, true);
         if (players.length == 0) {
             graphics.text(font, "You are not in a party.", contentX + 8, contentY + 24, VBVUi.TEXT_DIM, false);
             return;
@@ -432,7 +432,7 @@ public final class VBVLauncherScreen extends Screen {
 
     private void renderAppearance(GuiGraphicsExtractor graphics) {
         graphics.text(font, "ACCENT COLOR  -  " + VBVTheme.presetName(), contentX, contentY + 2,
-            VBVTheme.accentLight(), true);
+            0xFFFFFFFF, true);
         int size = 22;
         int gap = 6;
         int perRow = Math.max(1, (contentW + gap) / (size + gap));
@@ -482,7 +482,7 @@ public final class VBVLauncherScreen extends Screen {
         VBVUi.panel(graphics, sideX, 6, sideW, height - 12);
         VBVUi.panel(graphics, contentX - 8, 6, width - contentX - 4, height - 12);
 
-        graphics.text(font, "VBV", sideX + 9, 12, VBVTheme.accentLight(), true);
+        graphics.text(font, "VBV", sideX + 9, 12, 0xFFFFFFFF, true);
         graphics.text(font, "EXTRAS", sideX + 9 + font.width("VBV "), 12, VBVUi.TEXT, true);
 
         graphics.pose().pushMatrix();
@@ -490,7 +490,6 @@ public final class VBVLauncherScreen extends Screen {
         graphics.pose().scale(1.5F, 1.5F);
         graphics.text(font, tab.label, 0, 0, 0xFFFFFFFF, true);
         graphics.pose().popMatrix();
-        graphics.fill(contentX, 28, contentX + 30, 29, VBVTheme.accent());
 
         switch (tab) {
             case PANORAMAS -> renderPanoramasHeader(graphics);

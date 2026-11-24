@@ -63,9 +63,8 @@ public final class VBVDiagnosticsScreen extends Screen {
     }
 
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF151515);
         String heading = title.getString();
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 10, VBVTheme.accentLight(), true);
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 10, 0xFFFFFFFF, true);
         int lineH = font.lineHeight + 1;
         int y = 26;
         int maxY = height - 38;

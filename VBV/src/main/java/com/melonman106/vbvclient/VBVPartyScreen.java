@@ -67,7 +67,6 @@ public final class VBVPartyScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF101010);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 
         String heading = "PARTY";

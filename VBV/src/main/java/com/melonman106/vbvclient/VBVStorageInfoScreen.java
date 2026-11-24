@@ -25,7 +25,6 @@ public final class VBVStorageInfoScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF101010);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         String title = getTitle().getString().toUpperCase();
         graphics.text(font, title, width / 2 - font.width(title) / 2, 34, 0xFFFFFFFF, true);

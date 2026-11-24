@@ -9,11 +9,30 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
-/** Shared, theme-aware drawing helpers and widgets for the VBV title screen and launcher. */
+/**
+ * Shared drawing helpers and widgets for the VBV menus.
+ *
+ * <p>Buttons use Minecraft's own widget sprites and panels use the vanilla list background,
+ * so every VBV screen follows the active resource pack and matches the vanilla UI.</p>
+ */
 public final class VBVUi {
-    public static final int TEXT = 0xFFE9E2D0;
-    public static final int TEXT_DIM = 0xFFB8B0A0;
-    public static final int TEXT_DISABLED = 0xFF706860;
+    public static final int TEXT = 0xFFFFFFFF;
+    public static final int TEXT_DIM = 0xFFA0A0A0;
+    public static final int TEXT_DISABLED = 0xFF707070;
+
+    /** Vanilla menu textures, resolved through the active resource pack. */
+    private static final Identifier MENU_LIST_BACKGROUND =
+        Identifier.withDefaultNamespace("textures/gui/menu_list_background.png");
+    private static final Identifier INWORLD_LIST_BACKGROUND =
+        Identifier.withDefaultNamespace("textures/gui/inworld_menu_list_background.png");
+    private static final Identifier HEADER_SEPARATOR =
+        Identifier.withDefaultNamespace("textures/gui/header_separator.png");
+    private static final Identifier INWORLD_HEADER_SEPARATOR =
+        Identifier.withDefaultNamespace("textures/gui/inworld_header_separator.png");
+    private static final Identifier FOOTER_SEPARATOR =
+        Identifier.withDefaultNamespace("textures/gui/footer_separator.png");
+    private static final Identifier INWORLD_FOOTER_SEPARATOR =
+        Identifier.withDefaultNamespace("textures/gui/inworld_footer_separator.png");
 
     private VBVUi() {}
 
@@ -30,7 +49,11 @@ public final class VBVUi {
         SWATCH
     }
 
-    /** Flat, dark, accent-edged button used throughout VBV's own menus. */
+    /**
+     * Button that keeps VBV's sizing helpers but draws exactly like a vanilla Minecraft button:
+     * the same sprites, hover/focus highlight, disabled state and centred label from the
+     * resource pack.
+     */
     public static final class ThemedButton extends Button {
         private final Style style;
         private boolean selected;
@@ -39,6 +62,10 @@ public final class VBVUi {
         public ThemedButton(int x, int y, int w, int h, String label, Style style, Button.OnPress onPress) {
             super(x, y, w, h, Component.literal(label), onPress, DEFAULT_NARRATION);
             this.style = style;
+            if (style == Style.TAB) {
+                // The selected tab keeps the vanilla "highlighted" sprite so it reads as active.
+                setOverrideRenderHighlightedSprite(() -> this.selected || this.isHoveredOrFocused());
+            }
         }
 
         public ThemedButton selected(boolean value) {
@@ -61,79 +88,23 @@ public final class VBVUi {
 
         @Override
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
-            Font font = Minecraft.getInstance().font;
-            String label = getMessage().getString();
-            boolean lit = this.isHoveredOrFocused() && this.active;
-            int x = this.getX();
-            int y = this.getY();
-            int w = this.getWidth();
-            int h = this.getHeight();
-            int accent = VBVTheme.accent();
-            int accentLight = VBVTheme.accentLight();
-
-            switch (style) {
-                case PRIMARY -> {
-                    int top = lit ? VBVTheme.mix(accent, 0xFFFFFFFF, 0.45F) : VBVTheme.mix(accent, 0xFFFFFFFF, 0.22F);
-                    int bottom = lit ? VBVTheme.mix(accent, 0xFF000000, 0.10F) : VBVTheme.mix(accent, 0xFF000000, 0.22F);
-                    graphics.fillGradient(x, y, x + w, y + h, top, bottom);
-                    graphics.outline(x, y, w, h, VBVTheme.accentDark());
-                    float scale = h >= 30 ? 1.5F : 1.0F;
-                    int textW = (int) (font.width(label) * scale);
-                    int textH = (int) (font.lineHeight * scale);
-                    graphics.pose().pushMatrix();
-                    graphics.pose().translate(x + 14, y + (h - textH) / 2.0F + 0.5F);
-                    graphics.pose().scale(scale, scale);
-                    graphics.text(font, label, 0, 0, VBVTheme.onAccent(), false);
-                    graphics.pose().popMatrix();
-                    if (lit && w > textW + 40) {
-                        chevron(graphics, x + w - 20, y + (h - 9) / 2, VBVTheme.onAccent());
-                    }
-                }
-                case TAB -> {
-                    int fill = selected ? VBVTheme.accentAlpha(0x38) : (lit ? 0xB02A2A30 : 0x90101014);
-                    graphics.fill(x, y, x + w, y + h, fill);
-                    graphics.fill(x, y, x + (selected ? 3 : 2), y + h, selected ? accentLight : VBVTheme.accentAlpha(0x70));
-                    int color = !this.active ? TEXT_DISABLED : (selected || lit ? accentLight : TEXT);
-                    graphics.text(font, fit(font, label, w - 14), x + 9, y + (h - font.lineHeight) / 2 + 1, color, true);
-                }
-                case SWATCH -> {
-                    graphics.fill(x, y, x + w, y + h, swatchColor);
-                    int border = selected ? 0xFFFFFFFF : (lit ? 0xFFD0D0D0 : 0xFF000000);
-                    graphics.outline(x, y, w, h, border);
-                    if (selected) {
-                        graphics.outline(x + 1, y + 1, w - 2, h - 2, 0xFF000000);
-                    }
-                }
-                case SMALL -> {
-                    graphics.fill(x, y, x + w, y + h, lit ? VBVTheme.accentAlpha(0x50) : VBVTheme.panel(0xD0));
-                    graphics.outline(x, y, w, h, lit ? accentLight : VBVTheme.accentAlpha(0x90));
-                    int color = !this.active ? TEXT_DISABLED : (lit ? accentLight : TEXT);
-                    String shown = fit(font, label, w - 8);
-                    graphics.text(font, shown, x + (w - font.width(shown)) / 2, y + (h - font.lineHeight) / 2 + 1, color, true);
-                }
-                default -> {
-                    graphics.fill(x, y, x + w, y + h, lit ? VBVTheme.panel(0xE8) : VBVTheme.panel(0xB0));
-                    int textX = x + 12;
-                    if (lit) {
-                        graphics.fill(x, y, x + 3, y + h, accentLight);
-                        graphics.outline(x, y, w, h, VBVTheme.accentAlpha(0x80));
-                        textX += 3;
-                        if (w > font.width(label) + 44) {
-                            chevron(graphics, x + w - 18, y + (h - 9) / 2, accentLight);
-                        }
-                    } else {
-                        graphics.fill(x, y, x + 2, y + h, VBVTheme.accentAlpha(0x80));
-                    }
-                    int color = !this.active ? TEXT_DISABLED : (lit ? accentLight : TEXT);
-                    graphics.text(font, label, textX, y + (h - font.lineHeight) / 2 + 1, color, true);
-                }
+            extractDefaultSprite(graphics);
+            if (style == Style.SWATCH) {
+                int x = getX();
+                int y = getY();
+                int w = getWidth();
+                int h = getHeight();
+                graphics.fill(x + 3, y + 3, x + w - 3, y + h - 3, swatchColor);
+                graphics.outline(x + 2, y + 2, w - 4, h - 4, selected ? 0xFFFFFFFF : 0xFF000000);
+                return;
             }
+            extractDefaultLabel(graphics.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE));
         }
     }
 
     /**
-     * Square, texture-backed corner button. The icon is drawn from a 64x64 texture inside a themed
-     * frame, with the frame brightening on hover and the text label exposed as a tooltip.
+     * Square, texture-backed corner button. It uses the vanilla button sprite as its frame, so it
+     * matches the other menus, with the icon drawn on top and the label exposed as a tooltip.
      */
     public static final class IconButton extends Button {
         private final Identifier texture;
@@ -146,12 +117,10 @@ public final class VBVUi {
 
         @Override
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            extractDefaultSprite(graphics);
             int x = getX();
             int y = getY();
             int size = getWidth();
-            boolean lit = isHoveredOrFocused() && active;
-            graphics.fill(x, y, x + size, y + size, lit ? VBVTheme.accentAlpha(0x50) : VBVTheme.panel(0xD0));
-            graphics.outline(x, y, size, size, lit ? VBVTheme.accentLight() : VBVTheme.accentAlpha(0x90));
             graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x + 2, y + 2, 0, 0,
                     size - 4, size - 4, 64, 64, 64, 64);
         }
@@ -204,10 +173,26 @@ public final class VBVUi {
         }
     }
 
-    /** Dark themed panel with a thin accent line along the top edge. */
+    private static boolean inWorld() {
+        return Minecraft.getInstance().level != null;
+    }
+
+    /** Tiled vanilla list background, used for cards and other flat panels. */
+    public static void panelBackground(GuiGraphicsExtractor graphics, int x, int y, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+        Identifier texture = inWorld() ? INWORLD_LIST_BACKGROUND : MENU_LIST_BACKGROUND;
+        graphics.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0, 0, w, h, 32, 32);
+    }
+
+    /** Vanilla list panel: tiled list background framed by the vanilla header and footer separators. */
     public static void panel(GuiGraphicsExtractor graphics, int x, int y, int w, int h) {
-        graphics.fill(x, y, x + w, y + h, VBVTheme.panel(0xC0));
-        graphics.fill(x, y, x + w, y + 1, VBVTheme.accentAlpha(0xB0));
+        if (w <= 0 || h <= 0) return;
+        boolean inWorld = inWorld();
+        panelBackground(graphics, x, y, w, h);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, inWorld ? INWORLD_HEADER_SEPARATOR : HEADER_SEPARATOR,
+                x, y - 2, 0, 0, w, 2, 32, 2);
+        graphics.blit(RenderPipelines.GUI_TEXTURED, inWorld ? INWORLD_FOOTER_SEPARATOR : FOOTER_SEPARATOR,
+                x, y + h, 0, 0, w, 2, 32, 2);
     }
 
     /** Horizontal progress bar; percent is clamped to 0-100. */
@@ -215,7 +200,7 @@ public final class VBVUi {
         int p = Math.max(0, Math.min(100, percent));
         graphics.fill(x, y, x + w, y + h, 0xFF0A0A0C);
         graphics.fill(x, y, x + (w * p) / 100, y + h, VBVTheme.accent());
-        graphics.outline(x, y, w, h, VBVTheme.accentDark());
+        graphics.outline(x, y, w, h, 0xFF373737);
     }
 
     /** Draws the face and hat layer of a player skin as a size x size square. */

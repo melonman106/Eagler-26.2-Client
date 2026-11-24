@@ -108,10 +108,8 @@ public final class VBVFeatureConfigScreen extends Screen {
     }
     private static String onOff(boolean value) { return value ? "ON" : "OFF"; }
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF151515);
         String heading = title.getString();
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 12, VBVTheme.accentLight(), true);
-        graphics.fill(width / 2 - 20, 24, width / 2 + 20, 25, VBVTheme.accent());
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 12, 0xFFFFFFFF, true);
         String note = "Changes apply immediately. Client hotkeys: Options > Modded Settings > Keybinds.";
         if (height >= 200) graphics.text(font, note, width / 2 - font.width(note) / 2, height - 44, 0xFFAAAAAA, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);

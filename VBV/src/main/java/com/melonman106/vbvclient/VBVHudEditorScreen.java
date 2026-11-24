@@ -149,7 +149,7 @@ public final class VBVHudEditorScreen extends Screen {
     }
 
     @Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xE0101010);
+        graphics.fillGradient(0, 0, width, height, -1072689136, -804253680);
         String heading = "HUD Position Editor";
         graphics.text(font, heading, width / 2 - font.width(heading) / 2, height - 46, 0xFFAAAAAA, true);
         graphics.text(font, "Drag the outlined box. The top-left button switches overlay.", 8, 32, 0xFFCCCCCC, true);

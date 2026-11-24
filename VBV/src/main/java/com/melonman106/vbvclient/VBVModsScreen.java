@@ -25,6 +25,8 @@ public final class VBVModsScreen extends Screen {
     private static final int ROW_HEIGHT = 40;
     private static final int ICON = 32;
     private static final int DESC_TOP = RIGHT_PANE_Y + ICON + 10;
+    private static final Identifier SCROLLER = Identifier.withDefaultNamespace("widget/scroller");
+    private static final Identifier SCROLLER_BACKGROUND = Identifier.withDefaultNamespace("widget/scroller_background");
 
     private final Screen parent;
     private final List<VBVModInfo> all = new ArrayList<>();
@@ -294,8 +296,7 @@ public final class VBVModsScreen extends Screen {
         graphics.text(font, text, searchBoxX, 52, 0xFFFFFFFF, true);
     }
     private void drawPanel(GuiGraphicsExtractor graphics, int x1, int x2, int top, int bottom) {
-        graphics.fill(x1, top, x2, bottom, 0x80000000); graphics.fill(x1, top - 2, x2, top - 1, 0xFF000000);
-        graphics.fill(x1, top - 1, x2, top, 0xFF373737); graphics.fill(x1, bottom, x2, bottom + 1, 0xFF373737); graphics.fill(x1, bottom + 1, x2, bottom + 2, 0xFF000000);
+        VBVUi.panel(graphics, x1, top, x2 - x1, bottom - top);
     }
     private void drawList(GuiGraphicsExtractor graphics) {
         int rowLeft = 6, rowWidth = rowWidth();
@@ -335,7 +336,8 @@ public final class VBVModsScreen extends Screen {
     }
     private void drawScrollbar(GuiGraphicsExtractor graphics, int x, int top, int bottom, int total, int visible, int scroll) {
         if (total <= visible) return; int track = bottom - top, thumb = Math.max(32, track * visible / total), range = total - visible, thumbY = top + (track - thumb) * scroll / range;
-        graphics.fill(x, top, x + 6, bottom, 0xFF000000); graphics.fill(x, thumbY, x + 6, thumbY + thumb, 0xFF808080); graphics.fill(x, thumbY, x + 5, thumbY + thumb - 1, 0xFFC0C0C0);
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLER_BACKGROUND, x, top, 6, track);
+        graphics.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLER, x, thumbY, 6, thumb);
     }
 
     /**

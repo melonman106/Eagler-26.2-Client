@@ -17,7 +17,7 @@ public final class VBVSettingsScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Back"),b->VBVNav.open(parent)).bounds(width/2-100,height-38,200,22).build());
     }
     @Override public void extractRenderState(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float partialTick){
-        graphics.fill(0,0,width,height,0xFF101010);super.extractRenderState(graphics,mouseX,mouseY,partialTick);
+        super.extractRenderState(graphics,mouseX,mouseY,partialTick);
         graphics.text(font,"OPTIONS",28,28,0xFFFFFFFF,true);
         graphics.text(font,"Video, controls, audio, accessibility, language and other settings",28,48,0xFFAAAAAA,false);
         graphics.text(font,"are managed by Minecraft's native settings screen.",28,62,0xFF888888,false);

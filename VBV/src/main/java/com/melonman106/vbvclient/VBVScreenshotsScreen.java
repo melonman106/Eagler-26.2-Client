@@ -155,7 +155,6 @@ public final class VBVScreenshotsScreen extends Screen {
         if (graphics.guiWidth() != width || graphics.guiHeight() != height) {
             resize(graphics.guiWidth(), graphics.guiHeight());
         }
-        graphics.fill(0, 0, width, height, 0xFF101010);
         String heading = "SCREENSHOTS";
         graphics.text(font, heading, width / 2 - font.width(heading) / 2, 14, 0xFFFFFFFF, true);
         String storage = VBVScreenshots.connected()

@@ -105,7 +105,7 @@ public final class VBVKeybindConfigScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         String heading = title.getString();
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 16, VBVTheme.accentLight(), true);
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 16, 0xFFFFFFFF, true);
         String hint = listening >= 0
             ? "Press the key you want, or Escape to cancel."
             : "Click a key, then press the new one. Escape closes this menu.";

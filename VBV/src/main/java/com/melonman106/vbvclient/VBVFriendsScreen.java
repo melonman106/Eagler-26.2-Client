@@ -253,9 +253,8 @@ public final class VBVFriendsScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF101010);
         String heading = "FRIENDS";
-        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 16, VBVTheme.accentLight(), true);
+        graphics.text(font, heading, width / 2 - font.width(heading) / 2, 16, 0xFFFFFFFF, true);
 
         if (VBVFriends.signedIn()) {
             String who = "Signed in as " + VBVFriends.name();
@@ -287,7 +286,7 @@ public final class VBVFriendsScreen extends Screen {
             int y = listTop + i * ROW_H;
             int textY = y + (ROW_H - font.lineHeight) / 2;
             switch (entry.kind()) {
-                case HEADER -> graphics.text(font, entry.name(), listLeft + 8, textY, VBVTheme.accentLight(), true);
+                case HEADER -> graphics.text(font, entry.name(), listLeft + 8, textY, 0xFFFFFFFF, true);
                 case FRIEND -> {
                     graphics.fill(listLeft + 8, textY + 1, listLeft + 14, textY + 7, entry.online() ? GREEN : GREY);
                     int nameW = font.width(entry.name());

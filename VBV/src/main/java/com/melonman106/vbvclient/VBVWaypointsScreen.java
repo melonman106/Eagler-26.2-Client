@@ -60,7 +60,6 @@ public final class VBVWaypointsScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF151515);
         graphics.text(font, title.getString(), width / 2 - font.width(title.getString()) / 2, 14, 0xFFFFFFFF, true);
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }

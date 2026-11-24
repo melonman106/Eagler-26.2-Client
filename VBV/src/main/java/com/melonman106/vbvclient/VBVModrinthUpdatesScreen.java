@@ -132,7 +132,6 @@ public final class VBVModrinthUpdatesScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF101010);
         String heading = "MODRINTH UPDATES";
         graphics.text(font, heading, width / 2 - font.width(heading) / 2, 14, 0xFFFFFFFF, true);
         String status = updatesBusy() ? "Checking Modrinth..." : VBVModrinth.updatesStatus();

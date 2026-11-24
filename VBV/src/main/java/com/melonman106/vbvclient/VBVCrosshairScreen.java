@@ -174,8 +174,6 @@ public final class VBVCrosshairScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF0D0D10);
-        graphics.fill(0, 0, width, 2, VBVTheme.accentAlpha(0x90));
 
         String title = "CUSTOM CROSSHAIR";
         graphics.text(font, title, width / 2 - font.width(title) / 2, 11, 0xFFFFFFFF, true);
@@ -200,7 +198,7 @@ public final class VBVCrosshairScreen extends Screen {
                     graphics.fill(px, py, px + cell - 1, py + 1, 0x40FFFFFF);
                 }
                 if (index == hover) {
-                    graphics.outline(px - 1, py - 1, cell + 1, cell + 1, VBVTheme.accentLight());
+                    graphics.outline(px - 1, py - 1, cell + 1, cell + 1, 0xFFFFFFFF);
                 }
             }
         }

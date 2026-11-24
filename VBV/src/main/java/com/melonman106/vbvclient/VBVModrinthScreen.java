@@ -143,7 +143,7 @@ public final class VBVModrinthScreen extends Screen {
         for (int i = 0; i < hits.length && i < rows; i++) {
             VBVModrinth.Hit hit = hits[i];
             int y = cardsTop + i * (cardH + 3);
-            graphics.fill(left, y, left + contentW, y + cardH, VBVTheme.panel(0xC8));
+            VBVUi.panelBackground(graphics, left, y, contentW, cardH);
             graphics.fill(left, y, left + 2, y + cardH, VBVTheme.accentAlpha(0xA0));
 
             int tx = left + 8;
@@ -152,7 +152,7 @@ public final class VBVModrinthScreen extends Screen {
             graphics.outline(tx, ty, tile, tile, VBVTheme.accentAlpha(0xA0));
             String letter = hit.title.isEmpty() ? "?" : hit.title.substring(0, 1).toUpperCase();
             graphics.text(font, letter, tx + (tile - font.width(letter)) / 2,
-                ty + (tile - font.lineHeight) / 2 + 1, VBVTheme.accentLight(), true);
+                ty + (tile - font.lineHeight) / 2 + 1, 0xFFFFFFFF, true);
 
             int textX = tx + tile + 7;
             int textW = left + contentW - 70 - textX;
@@ -222,7 +222,7 @@ public final class VBVModrinthScreen extends Screen {
             resize(graphics.guiWidth(), graphics.guiHeight());
         }
         VBVUi.panel(graphics, left - 10, 6, contentW + 20, height - 12);
-        graphics.text(font, "VBV", left, 12, VBVTheme.accentLight(), true);
+        graphics.text(font, "VBV", left, 12, 0xFFFFFFFF, true);
         graphics.text(font, "MODRINTH", left + font.width("VBV "), 12, VBVUi.TEXT, true);
         graphics.text(font, "Resource packs", left, 22, VBVUi.TEXT_DIM, false);
 

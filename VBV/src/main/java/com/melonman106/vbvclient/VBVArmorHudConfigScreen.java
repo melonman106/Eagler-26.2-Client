@@ -117,7 +117,6 @@ public final class VBVArmorHudConfigScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, 0xFF151515);
         String title = this.title.getString();
         graphics.text(font, title, width / 2 - font.width(title) / 2, 8, 0xFFFFFFFF, true);
         graphics.text(font, "X offset", left(), rowY(7) + 6, 0xFFCCCCCC, true);

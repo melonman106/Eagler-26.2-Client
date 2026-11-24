@@ -437,7 +437,7 @@ public final class VBVWorldMapScreen extends Screen {
         graphics.fill(0, height - BOTTOM_BAR, width, height, 0xF00C0C10);
         graphics.fill(0, height - BOTTOM_BAR, width, height - BOTTOM_BAR + 1, VBVTheme.accentAlpha(0xB0));
 
-        graphics.text(font, "WORLD MAP", 8, 8, VBVTheme.accentLight(), true);
+        graphics.text(font, "WORLD MAP", 8, 8, 0xFFFFFFFF, true);
         if (width >= 470) {
             String label = VBVUi.fit(font, worldLabel(world), 130);
             int labelX = width - 8 - 42 - 8 - font.width(label);
