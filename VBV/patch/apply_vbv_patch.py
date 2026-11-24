@@ -39,6 +39,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "patch_lod_hooks.py",
     "patch_entity_culling_hooks.py",
     "patch_cem_hooks.py",
+    "patch_chat_heads_skin_layers.py",
     "patch_boot_hooks.py",
     "patch_loading_theme.py",
     "patch_perf_hooks.py",
@@ -78,6 +79,7 @@ required_order_tokens = (
     "subprocess.run([sys.executable, str(lod_hooks)",
     "subprocess.run([sys.executable, str(entity_culling_hooks)",
     "subprocess.run([sys.executable, str(cem_hooks)",
+    "subprocess.run([sys.executable, str(chat_skin_layers)",
     "subprocess.run([sys.executable, str(loading_theme)",
     "subprocess.run([sys.executable, str(boot_hooks)",
     "subprocess.run([sys.executable, str(screenshot_storage)",
@@ -494,6 +496,13 @@ if entity_culling_hooks.is_file():
 cem_hooks = PATCH_DIR / "patch_cem_hooks.py"
 if cem_hooks.is_file():
     subprocess.run([sys.executable, str(cem_hooks), *sys.argv[1:]], check=True)
+
+# Chat Heads: the sender profile from ChatListener is attached to the message and ChatComponent
+# reserves a gutter for the face. 3D Skin Layers: the player model builds its outer layers with
+# the configured thickness instead of vanilla's 0.25 px shell.
+chat_skin_layers = PATCH_DIR / "patch_chat_heads_skin_layers.py"
+if chat_skin_layers.is_file():
+    subprocess.run([sys.executable, str(chat_skin_layers), *sys.argv[1:]], check=True)
 
 # Boot pages: the launch countdown and the early-load splash that prints "Unpacking assets..." are
 # rebuilt in the same dark VBV style as the in-game loading screen. Markup and CSS only.

@@ -163,6 +163,8 @@ public final class VBVConfigStore {
         VBVPotionHud.offsetX = integer("potionHud.x", 0, -2000, 2000);
         VBVPotionHud.offsetY = integer("potionHud.y", 0, -2000, 2000);
         VBVInventorySorter.enabled = bool("sorter.enabled", true);
+        VBVChatHeads.enabled = bool("chatHeads.enabled", true);
+        VBV3DSkinLayers.loadSettings(bool("skinLayers.enabled", true), integer("skinLayers.thickness", 0, 0, 2));
         VBVNotifications.seenTag = read("notifications.seen", "");
         VBVModrinth.loadInstalled(read("modrinth.installed", ""));
 
@@ -310,6 +312,9 @@ public final class VBVConfigStore {
         write("cem.enabled", VBVCem.isEnabled());
         write("cem.animations", VBVCem.isAnimationsEnabled());
         write("cem.animRange", VBVCem.animationRange());
+        write("chatHeads.enabled", VBVChatHeads.enabled);
+        write("skinLayers.enabled", VBV3DSkinLayers.enabled);
+        write("skinLayers.thickness", VBV3DSkinLayers.thickness);
         write("panorama.selected", VBVPanoramaOverlay.selectedId());
         write("panorama.motion", VBVPanoramaOverlay.isMotion());
         write("worldmap.terrain", VBVWorldMap.isTerrainCaptureEnabled());

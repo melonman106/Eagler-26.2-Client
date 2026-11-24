@@ -95,7 +95,7 @@ public final class VBVModsScreen extends Screen {
             else if ("vbv-first-person-animations".equals(selected.id())) VBVNav.open(new VBVFirstPersonAnimationsConfigScreen(this));
             else if ("custom-crosshair".equals(selected.id())) VBVNav.open(new VBVCrosshairScreen(this));
             else if ("vbv-screenshot-manager".equals(selected.id())) VBVNav.open(new VBVScreenshotsScreen(this));
-            else if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "jade", "custom-crosshair", "shulkerboxtooltip", "vbv-potion-hud", "vbv-inventory-sorter").contains(selected.id()))
+            else if (java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "jade", "custom-crosshair", "shulkerboxtooltip", "vbv-potion-hud", "vbv-inventory-sorter", "chatheads", "3d-skin-layers").contains(selected.id()))
                 VBVNav.open(new VBVFeatureConfigScreen(this, selected.id(), selected.name()));
         }).bounds(width - 54, RIGHT_PANE_Y, 50, 20).build();
         addRenderableWidget(configButton);
@@ -159,7 +159,7 @@ public final class VBVModsScreen extends Screen {
             || "vbv-first-person-animations".equals(info.id())
             || "vbv-screenshot-manager".equals(info.id())
             || "custom-crosshair".equals(info.id())
-            || java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "jade", "vbv-potion-hud", "vbv-inventory-sorter").contains(info.id()));
+            || java.util.Arrays.asList("gamma-utils", "zoomify", "betterf3", "mouse-tweaks", "jade", "vbv-potion-hud", "vbv-inventory-sorter", "chatheads", "3d-skin-layers").contains(info.id()));
         if (info != null) {
             rememberedId = info.id();
             VBVConfigStore.setModsSelected(info.id());
