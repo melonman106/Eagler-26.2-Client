@@ -13,6 +13,8 @@ public final class VBVExtraFeatures {
         new KeyMapping("key.vbv.gamma", InputConstants.Type.KEYSYM, 71, KeyMapping.Category.MISC));
     private static final KeyMapping ZOOM_KEY = KeyBindingHelper.registerKeyBinding(
         new KeyMapping("key.vbv.zoom", InputConstants.Type.KEYSYM, 67, KeyMapping.Category.MISC));
+    private static final KeyMapping VOICE_KEY = KeyBindingHelper.registerKeyBinding(
+        new KeyMapping("key.vbv.voice", InputConstants.Type.KEYSYM, 66, KeyMapping.Category.MISC));
     private static boolean gammaEnabled;
     private static long gammaStatusUntil;
     private static double previousGamma = 0.5D;
@@ -43,6 +45,7 @@ public final class VBVExtraFeatures {
     public static void applyConfiguredBindings() {
         ZOOM_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.ZOOM)));
         GAMMA_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.GAMMA)));
+        VOICE_KEY.setKey(InputConstants.Type.KEYSYM.getOrCreate(VBVKeybinds.code(VBVKeybinds.VOICE)));
         KeyMapping.resetMapping();
     }
 
@@ -53,6 +56,7 @@ public final class VBVExtraFeatures {
         ZOOM_KEY.setDown(false);
         while (ZOOM_KEY.consumeClick()) { }
         while (GAMMA_KEY.consumeClick()) { }
+        while (VOICE_KEY.consumeClick()) { }
     }
 
     /** Poll registered mappings from the shared Fabric client-tick event. */
@@ -61,9 +65,13 @@ public final class VBVExtraFeatures {
         if (minecraft.gui.screen() != null) {
             while (GAMMA_KEY.consumeClick()) { }
             while (ZOOM_KEY.consumeClick()) { }
+            while (VOICE_KEY.consumeClick()) { }
             if (zooming) stopZoom(minecraft);
             return;
         }
+
+        // Mute or unmute the voice-chat microphone (does nothing outside a call).
+        while (VOICE_KEY.consumeClick()) VBVVoice.toggleMute();
 
         if (GAMMA_KEY.consumeClick() && gammaFeatureEnabled) toggleGamma(minecraft);
 

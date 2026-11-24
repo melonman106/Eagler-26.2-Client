@@ -173,7 +173,8 @@ public final class VBVConfigStore {
             integer("keys.map", VBVKeybinds.DEFAULT_MAP, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.zoom", VBVKeybinds.DEFAULT_ZOOM, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
             integer("keys.gamma", VBVKeybinds.DEFAULT_GAMMA, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
-            integer("keys.sort", VBVKeybinds.DEFAULT_SORT, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
+            integer("keys.sort", VBVKeybinds.DEFAULT_SORT, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE),
+            integer("keys.voice", VBVKeybinds.DEFAULT_VOICE, VBVKeybinds.MIN_CODE, VBVKeybinds.MAX_CODE));
 
         // The stored format is versioned so a later build can migrate a key whose
         // meaning changed instead of guessing from its value. Version 2 added the
@@ -347,6 +348,7 @@ public final class VBVConfigStore {
         write("keys.zoom", VBVKeybinds.code(VBVKeybinds.ZOOM));
         write("keys.gamma", VBVKeybinds.code(VBVKeybinds.GAMMA));
         write("keys.sort", VBVKeybinds.code(VBVKeybinds.SORT));
+        write("keys.voice", VBVKeybinds.code(VBVKeybinds.VOICE));
         flush();
     }
 }

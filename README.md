@@ -334,6 +334,39 @@ shown in the workflow summary into the service address box on the Friends screen
 To run the tests locally: `cd cloudflare/vbv-friends && npm test` (Node 22; they use the real schema and also run the
 browser bridge from `VBVFriends.java` against the Worker).
 
+### Voice chat (Cloudflare Realtime)
+
+The top of the Friends screen is a voice chat for friends: **START** opens a room, a friend who is in one gets a
+**JOIN** button, and everyone in the room is listed with a dot that lights up while they talk. **MUTE** and
+**LEAVE** are beside the room's title. In game, a small panel on the right edge shows whether you are muted, the
+mute key (default **B**, rebindable in Options > Modded Settings > Keybinds) and who is speaking.
+
+- **Who can join:** only friends of someone in the room, up to 8 people. Starting or joining needs a Friends
+  account and microphone permission, and the page has to be served over `https://` (browsers refuse the
+  microphone otherwise).
+- **How it works:** the browser sends your microphone to the Cloudflare Realtime SFU and plays everyone else's
+  from it; the audio does not pass through the Worker. The Worker only creates the sessions (it holds the Realtime
+  app secret, so the secret is never in the game) and keeps the room list in D1. A call ends when you leave, close
+  the page (the browser tells the service right away), or the service stops answering for about 15 seconds; if a
+  browser simply vanishes, the room drops it after about 45 seconds.
+- **Not included:** positional (in-world) audio, push-to-talk, per-person volume.
+- **School and other restricted networks** often block direct WebRTC. Without a TURN key the call may fail with a
+  message saying so; adding one (below) is the fix. Voice also needs the microphone to be allowed for the site,
+  which a managed device can block.
+
+Setup (once, after the Friends service is deployed), in the Cloudflare dashboard:
+
+1. Realtime > SFU > **Create application**. Copy its App ID and App Secret.
+2. Optional but recommended: Realtime > TURN > **Create key**. Copy its Key ID and API Token.
+3. Add repository secrets `CF_REALTIME_APP_ID` and `CF_REALTIME_APP_SECRET` (and `TURN_KEY_ID` and
+   `TURN_KEY_API_TOKEN`), then run **06 - Deploy VBV Friends** again. The workflow summary says whether voice and
+   TURN are ready; until then the voice buttons report that the service is not set up.
+
+The Worker's voice routes and the browser bridge in `VBVVoice.java` are tested together
+(`cloudflare/vbv-friends/test/voice.test.mjs`, `voice-bridge.test.mjs`) with a simulated Cloudflare SFU and a
+simulated browser (WebRTC, microphone and audio output are fakes). Real audio over a real network has not been
+tried yet.
+
 ## HUD, diagnostics and performance controls
 
 - **HUD Editor** (Mods screen) cycles through the overlays that can be dragged: the Jade target

@@ -83,12 +83,14 @@ public final class VBVClient {
             VBVPotionHud.render(graphics);
             VBVCrosshair.render(graphics);
             VBVPerf.render(graphics);
+            VBVVoice.render(graphics);
         });
 
         // The explored map records the local player's current chunk at end tick.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             VBVExtraFeatures.tick(client);
             VBVFriends.tick(client);
+            VBVVoice.tick(client);
             VBVInventorySorter.tick(client);
             VBVWorldMap.tick();
         });
