@@ -35,7 +35,7 @@ public final class ModItems {
     private static final Pattern ITEM_ID = Pattern.compile("[a-z0-9_]{1,64}");
     private static final Pattern LOCATION = Pattern.compile("(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+");
     private static final Set<String> KNOWN = Set.of("id", "name", "texture", "model", "stack_size", "durability", "attack_damage",
-        "attack_speed", "rarity", "repair_with", "enchantability", "fire_resistant", "glint", "food", "creative_tab", "tags");
+        "attack_speed", "rarity", "repair_with", "enchantability", "fire_resistant", "glint", "food", "potion", "creative_tab", "tags");
 
     /** Food values, as in Fabric's food settings. */
     public record Food(int nutrition, float saturation, boolean alwaysEdible) {}
@@ -46,7 +46,7 @@ public final class ModItems {
      */
     public record ItemDef(String id, String name, String texture, String model, int stackSize, int durability,
                           Double attackDamage, Double attackSpeed, String rarity, String repairWith, int enchantability,
-                          boolean fireResistant, boolean glint, Food food, List<String> creativeTabs, List<String> tags) {
+                          boolean fireResistant, boolean glint, Food food, String potion, List<String> creativeTabs, List<String> tags) {
         public String descriptionKey(String modId) { return "item." + modId + "." + id; }
     }
 
@@ -127,8 +127,10 @@ public final class ModItems {
             else if (!MODELS.contains(model)) problems.add(where + ": model must be one of " + String.join(", ", MODELS) + ".");
 
             int durability = integer(object, "durability", where, 0, 0, MAX_DURABILITY, problems);
-            int stack = integer(object, "stack_size", where, durability > 0 ? 1 : 64, 1, MAX_STACK, problems);
+            String potion = location(object, "potion", where, modId, problems);
+            int stack = integer(object, "stack_size", where, durability > 0 || potion != null ? 1 : 64, 1, MAX_STACK, problems);
             if (durability > 0 && stack != 1) problems.add(where + ": an item with durability cannot stack; remove stack_size or set it to 1.");
+            if (potion != null && stack != 1) problems.add(where + ": a potion item cannot stack; set stack_size to 1.");
 
             String rarity = text(object, "rarity", where, problems);
             if (rarity == null) rarity = "common";
@@ -153,6 +155,7 @@ public final class ModItems {
                     Double saturation = number(f, "saturation", where + " food", 0, 20, problems);
                     food = new Food(nutrition, saturation == null ? 0.6f : saturation.floatValue(), flag(f, "always_edible", where + " food", problems));
                     if (durability > 0) problems.add(where + ": an item cannot be food and have durability.");
+                    if (potion != null) problems.add(where + ": an item cannot be both food and a potion.");
                 }
             }
 
@@ -176,7 +179,7 @@ public final class ModItems {
 
             if (problems.size() == before) {
                 items.add(new ItemDef(id, name, texture, model, stack, durability, attackDamage, attackSpeed, rarity, repairWith,
-                    enchantability, fire, glint, food, tabs, tags));
+                    enchantability, fire, glint, food, potion, tabs, tags));
             }
         }
         return new Result(items, problems, warnings);

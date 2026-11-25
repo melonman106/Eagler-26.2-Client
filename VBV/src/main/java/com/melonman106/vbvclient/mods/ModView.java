@@ -93,7 +93,9 @@ public final class ModView {
 
         out.add(new Line("Adds", Tone.HEADING));
         if (pkg.items.isEmpty()) {
-            out.add(new Line("No items. Its textures and language files are still applied.", Tone.NORMAL));
+            out.add(new Line(pkg.content != null && pkg.content.hasContent()
+                ? "No ordinary items; the mod adds " + String.join(", ", pkg.content.kinds()) + "."
+                : "No items. Its textures and language files are still applied.", Tone.NORMAL));
         } else {
             StringBuilder names = new StringBuilder();
             for (int i = 0; i < pkg.items.size() && i < 12; i++) {
@@ -102,6 +104,9 @@ public final class ModView {
             }
             if (pkg.items.size() > 12) names.append(", and ").append(pkg.items.size() - 12).append(" more");
             out.add(new Line(pkg.items.size() + (pkg.items.size() == 1 ? " item: " : " items: ") + names, Tone.NORMAL));
+        }
+        if (pkg.content != null && pkg.content.hasContent()) {
+            out.add(new Line("Also adds: " + String.join(", ", pkg.content.kinds()) + ".", Tone.NORMAL));
         }
         if (!pkg.ignoredLists.isEmpty()) {
             out.add(new Line("Not supported yet, so left out: " + String.join(", ", pkg.ignoredLists), Tone.WARN));

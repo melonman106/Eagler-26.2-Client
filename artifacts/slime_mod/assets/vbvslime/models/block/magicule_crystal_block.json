@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "vbvslime:block/magicule_crystal_block"
+  }
+}

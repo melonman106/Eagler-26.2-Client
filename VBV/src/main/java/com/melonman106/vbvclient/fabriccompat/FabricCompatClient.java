@@ -108,7 +108,12 @@ public final class FabricCompatClient {
     private static void invokeInitializer(net.fabricmc.api.ModInitializer initializer) {
         if (INVOKED_INITIALIZERS.contains(initializer)) return;
         INVOKED_INITIALIZERS.add(initializer);
-        initializer.onInitialize();
+        try {
+            initializer.onInitialize();
+        } catch (Throwable t) {
+            // A broken port must not stop the compatibility layer or every other port from starting.
+            System.err.println("[VBV fabric] a mod initializer failed: " + t);
+        }
     }
 
     public static Collection<ModContainer> getMods() {

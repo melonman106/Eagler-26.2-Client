@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "id": "vbvslime",
+  "name": "Slime Mod",
+  "version": "1.0.0",
+  "description": "Tensei Slime-themed test content: the Slime Body effect and potion, Magicule Crystal and its block, a Slime Herb crop with seeds and drops, Slime Jelly food, a Slime Body HUD and six crafting recipes.",
+  "authors": ["Buffy"],
+  "provides": ["item", "block", "effect", "potion", "crop", "hud", "recipe"],
+  "survival": true,
+  "multiplayer": false,
+  "requires": {
+    "vbvclient": ">=2.0.0",
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*"
+  }
+}

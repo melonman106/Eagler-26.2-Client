@@ -154,7 +154,7 @@ public final class VBVImportedModsScreen extends Screen {
                 for (String failure : report.failures) lines.add(new ModView.Line(failure, ModView.Tone.ERROR));
             }
         } else if (notice.isEmpty()) {
-            lines.add(new ModView.Line("Choose Import .zip to add a mod. Each mod is one .zip with an info.json (or a fabric.mod.json), an items.json and an assets folder.", ModView.Tone.NORMAL));
+            lines.add(new ModView.Line("Choose Import .zip to add a mod. Each mod is one .zip with an info.json (or a fabric.mod.json), items.json and/or content.json, and an assets folder.", ModView.Tone.NORMAL));
         }
         List<String> startup = ModBootstrap.messages();
         if (!startup.isEmpty()) {

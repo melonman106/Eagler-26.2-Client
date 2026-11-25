@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Wire VBV's importable-mods system into the generated Eagler 26.2 sources.
 
-Three hooks, each with its own exact marker so a re-run never applies one twice:
+Four hooks, each with its own exact marker so a re-run never applies one twice:
 
 * BuiltInRegistries.bootStrap(): register the imported mods' items after the game's own registries are filled and
   before they freeze (the same moment Fabric lets a mod register content). This runs on the page and in the
   integrated-server worker, which is how both sides end up with the same item ids.
 * Minecraft constructor: offer every registered mod as a required resource pack (textures, models, language files).
 * CreativeModeTab.buildContents(): append a mod's items to the creative tabs it asked for.
+* RecipeManager.apply(): merge recipes declared by imported mods into the map the game just loaded.
 
 Fail closed: every anchor must match exactly once, and nothing is written unless all of them do.
 """
@@ -54,6 +55,16 @@ EDITS = [
         "      this.displayItemsGenerator.accept(parameters, displayList);\n"
         "      // VBV_MODS_HOOK: creative-tabs\n"
         "      com.melonman106.vbvclient.mods.ModItemGroups.append(this, stack -> displayList.accept(stack));\n",
+    ),
+    (
+        "net/minecraft/world/item/crafting/RecipeManager.java",
+        "imported-recipes",
+        "// VBV_MODS_HOOK: imported-recipes",
+        "   protected void apply(final RecipeMap recipes, final ResourceManager manager, final ProfilerFiller profiler) {\n"
+        "      this.recipes = recipes;\n",
+        "   protected void apply(final RecipeMap recipes, final ResourceManager manager, final ProfilerFiller profiler) {\n"
+        "      // VBV_MODS_HOOK: imported-recipes\n"
+        "      this.recipes = com.melonman106.vbvclient.mods.ModRecipes.augment(recipes, this.registries);\n",
     ),
 ]
 

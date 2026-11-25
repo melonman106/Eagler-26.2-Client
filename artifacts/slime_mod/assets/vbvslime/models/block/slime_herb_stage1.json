@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/crop",
+  "textures": {
+    "crop": "vbvslime:block/slime_herb_stage1"
+  }
+}

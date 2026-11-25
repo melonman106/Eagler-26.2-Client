@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,12 +18,15 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.component.Consumables;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.component.Weapon;
 
 /**
- * Registers the items of imported mods. It is called from {@code BuiltInRegistries.bootStrap()} after the game's own
+ * Registers the content of imported mods. It is called from {@code BuiltInRegistries.bootStrap()} after the game's own
  * registries are filled and before they freeze, which is the same moment Fabric lets a mod register content.
  *
  * <p>The page decides which mods load (and publishes that), the integrated-server worker loads exactly the same
@@ -127,6 +131,8 @@ public final class ModBootstrap {
             }
         }
 
+        // Effects, potions, blocks and crops first: an item's potion component and a crop's drops need them.
+        ModContentBootstrap.registerAll(applied.mods());
         for (ModPackage pkg : applied.mods()) {
             Report report = new Report(pkg.manifest.id);
             REPORTS.put(pkg.manifest.id, report);
@@ -139,6 +145,8 @@ public final class ModBootstrap {
                     System.err.println("[VBV mods] " + pkg.manifest.id + ":" + def.id() + " could not be registered: " + t);
                 }
             }
+            // Block items and crop seeds are generated from content.json, not items.json.
+            ModContentBootstrap.registerBlockItems(pkg, report);
             LOADED.add(pkg);
         }
         if (realm == ModPlatform.Realm.PAGE && sessionSafeReason == null) store.endRegistration();
@@ -153,6 +161,17 @@ public final class ModBootstrap {
         if (def.fireResistant()) properties.fireResistant();
         if (def.enchantability() > 0) properties.enchantable(def.enchantability());
         if (def.glint()) properties.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, Boolean.TRUE);
+        if (def.potion() != null) {
+            Holder<Potion> potion = ModContentBootstrap.potion(def.potion());
+            if (potion == null) throw new IllegalArgumentException("potion \"" + def.potion() + "\" is not registered by this mod");
+            properties.stacksTo(1)
+                .component(DataComponents.CONSUMABLE, Consumables.DEFAULT_DRINK)
+                .usingConvertsTo(Items.GLASS_BOTTLE);
+            Item item = new ModPotionItem(properties.setId(key), potion);
+            Registry.register(BuiltInRegistries.ITEM, key, item);
+            ModItemGroups.add(def.creativeTabs(), item);
+            return;
+        }
         if (def.food() != null) {
             properties.food(new FoodProperties(def.food().nutrition(), def.food().saturation(), def.food().alwaysEdible()));
         }

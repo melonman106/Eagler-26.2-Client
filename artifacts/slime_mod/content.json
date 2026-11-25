@@ -1,0 +1,134 @@
+{
+  "effects": [
+    {
+      "id": "slime_body",
+      "name": "Slime Body",
+      "color": "#66D9FF",
+      "category": "beneficial",
+      "heal_interval": 40,
+      "heal_amount": 1
+    }
+  ],
+  "potions": [
+    {
+      "id": "slime_body",
+      "name": "Slime Body",
+      "effects": [
+        {
+          "effect": "vbvslime:slime_body",
+          "duration": 900,
+          "amplifier": 0
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "id": "magicule_crystal_block",
+      "name": "Magicule Crystal Block",
+      "texture": "block/magicule_crystal_block",
+      "hardness": 0.6,
+      "resistance": 1.5,
+      "light": 9,
+      "sound": "amethyst",
+      "creative_tab": ["natural_blocks", "building_blocks"]
+    }
+  ],
+  "crops": [
+    {
+      "id": "slime_herb",
+      "name": "Slime Herb",
+      "block": "slime_herb_crop",
+      "seed": "slime_herb_seeds",
+      "drop": "slime_herb",
+      "texture": "block/slime_herb",
+      "seed_texture": "item/slime_herb_seeds",
+      "stages": 4,
+      "creative_tab": "natural_blocks"
+    }
+  ],
+  "hud": {
+    "id": "slime_body",
+    "title": "SLIME BODY",
+    "effect": "vbvslime:slime_body",
+    "show_timer": true,
+    "nearby_entity": "minecraft:slime",
+    "always_show": false
+  },
+  "recipes": [
+    {
+      "type": "minecraft:crafting_shapeless",
+      "ingredients": [
+        "minecraft:amethyst_shard",
+        "minecraft:glowstone_dust",
+        "minecraft:slime_ball"
+      ],
+      "result": {
+        "id": "vbvslime:magicule_crystal"
+      }
+    },
+    {
+      "type": "minecraft:crafting_shaped",
+      "pattern": [
+        "###",
+        "###",
+        "###"
+      ],
+      "key": {
+        "#": "vbvslime:magicule_crystal"
+      },
+      "result": {
+        "id": "vbvslime:magicule_crystal_block"
+      }
+    },
+    {
+      "type": "minecraft:crafting_shapeless",
+      "ingredients": [
+        "vbvslime:magicule_crystal_block"
+      ],
+      "result": {
+        "id": "vbvslime:magicule_crystal",
+        "count": 9
+      }
+    },
+    {
+      "type": "minecraft:crafting_shapeless",
+      "ingredients": [
+        "minecraft:slime_ball",
+        "minecraft:wheat_seeds"
+      ],
+      "result": {
+        "id": "vbvslime:slime_herb_seeds",
+        "count": 2
+      }
+    },
+    {
+      "type": "minecraft:crafting_shapeless",
+      "ingredients": [
+        "minecraft:slime_ball",
+        "minecraft:sugar",
+        "vbvslime:slime_herb"
+      ],
+      "result": {
+        "id": "vbvslime:slime_jelly",
+        "count": 2
+      }
+    },
+    {
+      "type": "minecraft:crafting_shapeless",
+      "ingredients": [
+        "minecraft:glass_bottle",
+        "vbvslime:slime_jelly",
+        "vbvslime:magicule_crystal"
+      ],
+      "result": {
+        "id": "vbvslime:slime_elixir",
+        "components": {
+          "minecraft:potion_contents": {
+            "potion": "vbvslime:slime_body"
+          }
+        }
+      }
+    }
+  ]
+}

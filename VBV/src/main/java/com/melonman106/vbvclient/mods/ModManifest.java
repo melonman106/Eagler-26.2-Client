@@ -22,8 +22,8 @@ import java.util.regex.Pattern;
 public final class ModManifest {
     public static final int SCHEMA = 1;
     public static final Pattern ID = Pattern.compile("[a-z][a-z0-9_-]{1,63}");
-    /** Kinds of content a mod can declare. Only "item" does something in this version. */
-    public static final List<String> KINDS = List.of("item", "block", "entity", "effect", "hud");
+    /** Kinds of content a mod can declare. Items, blocks, effects, potions, crops, HUDs and recipes are loaded. */
+    public static final List<String> KINDS = List.of("item", "block", "entity", "effect", "potion", "crop", "hud", "recipe");
 
     public enum Format { VBV, FABRIC }
 

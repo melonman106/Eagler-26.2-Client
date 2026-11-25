@@ -71,7 +71,7 @@ public final class FabricFaker {
         // What importable (zip) mods can really use.
         add("fabric-api-base", "Fabric API Base", API_VERSION, Backing.REAL, "Nothing for a data mod to call, always satisfied.");
         add("fabric-object-builder-api-v1", "Object Builder API", API_VERSION, Backing.PARTIAL,
-            "Items: stack size, durability, rarity, attack damage and speed, repair item, enchantability, fire resistance. Blocks and entities come later.");
+            "Items, blocks and crops: stack size, durability, rarity, attack damage and speed, repair item, enchantability, fire resistance, block hardness, light, sound and crop stages. Entities come later.");
         add("fabric-item-api-v1", "Item API", API_VERSION, Backing.PARTIAL,
             "Item settings from items.json. Custom item behaviour (use/attack callbacks) needs Java and is not available.");
         add("fabric-item-group-api-v1", "Item Group API", API_VERSION, Backing.PARTIAL,
@@ -79,7 +79,7 @@ public final class FabricFaker {
         add("fabric-resource-loader-v0", "Resource Loader", API_VERSION, Backing.REAL,
             "The assets/ folder of an imported mod is served to the game as a resource pack (textures, models, languages, sounds).");
         add("fabric-registry-sync-v0", "Registry Sync", API_VERSION, Backing.PARTIAL,
-            "Items are registered in the game registry before it freezes. There is no id sync with servers, so a multiplayer server needs the same mod.");
+            "Items, blocks, crops, effects and potions are registered in the game registry before it freezes. There is no id sync with servers, so a multiplayer server needs the same mod.");
 
         // Present as Java classes in this client for ported mods, but not drivable from a zip mod yet.
         add("fabric-lifecycle-events-v1", "Lifecycle Events", API_VERSION, Backing.PARTIAL,
@@ -87,7 +87,7 @@ public final class FabricFaker {
         add("fabric-key-binding-api-v1", "Key Binding API", API_VERSION, Backing.PARTIAL,
             "Real for mods ported to Java into this client; a zip mod cannot add key bindings yet.");
         add("fabric-rendering-v1", "Rendering API", API_VERSION, Backing.PARTIAL,
-            "HUD rendering is real for mods ported to Java into this client; zip mod HUD elements come in a later phase.");
+            "Content-defined HUD panels from content.json are real. Custom render callbacks are real for mods ported to Java into this client, but a zip mod cannot add arbitrary drawing code.");
         add("fabric-screen-api-v1", "Screen API", API_VERSION, Backing.PARTIAL,
             "Real for mods ported to Java into this client; a zip mod cannot open or change screens.");
 

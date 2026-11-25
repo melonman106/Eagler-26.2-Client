@@ -1,0 +1,13 @@
+{
+  "item.vbvslime.magicule_crystal": "Magicule Crystal",
+  "item.vbvslime.magicule_crystal_block": "Magicule Crystal Block",
+  "block.vbvslime.magicule_crystal_block": "Magicule Crystal Block",
+  "item.vbvslime.slime_herb": "Slime Herb",
+  "item.vbvslime.slime_herb_seeds": "Slime Herb Seeds",
+  "block.vbvslime.slime_herb_crop": "Slime Herb Crop",
+  "item.vbvslime.slime_jelly": "Slime Jelly",
+  "item.vbvslime.slime_elixir": "Slime Elixir",
+  "effect.vbvslime.slime_body": "Slime Body",
+  "item.minecraft.potion.effect.slime_body": "Potion of Slime Body",
+  "item.vbvslime.slime_elixir.effect.slime_body": "Slime Elixir of Slime Body"
+}

@@ -58,7 +58,6 @@ public final class VBVClient {
             "Draws each player's skin head beside their chat messages in a reserved gutter, with the chat text shifted right so heads never cover a message.", "vbvclient:textures/mods/chatheads.png");
         reg("3d-skin-layers", "3D Skin Layers", "1.5.3", "tr7zw",
             "Gives the jacket, sleeves, pants and hat real thickness instead of the flat vanilla shell; the layer depth is configurable and applies on the next resource reload.", "vbvclient:textures/mods/3d-skin-layers.png");
-
         registerFabricCallbacks();
         VBVGeneratedPackMods.register();
     }
@@ -81,6 +80,7 @@ public final class VBVClient {
             VBVAppleSkin.render(graphics);
             VBVJadeHud.render(graphics);
             VBVPotionHud.render(graphics);
+            com.melonman106.vbvclient.mods.ModHud.render(graphics);
             VBVCrosshair.render(graphics);
             VBVPerf.render(graphics);
             VBVVoice.render(graphics);

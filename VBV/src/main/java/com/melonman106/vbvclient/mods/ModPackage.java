@@ -43,6 +43,8 @@ public final class ModPackage {
 
     public final ModManifest manifest;
     public final List<ModItems.ItemDef> items;
+    /** The optional effect/potion/block/crop/HUD/recipe content, or null when the mod has none. */
+    public final ModContent content;
     /** Every kept file by its cleaned path inside the zip (for example {@code assets/ruby/textures/item/ruby.png}). */
     public final Map<String, byte[]> files;
     public final byte[] icon;
@@ -57,10 +59,11 @@ public final class ModPackage {
     public final byte[] source;
     public final long crc;
 
-    private ModPackage(ModManifest manifest, List<ModItems.ItemDef> items, Map<String, byte[]> files, byte[] icon,
+    private ModPackage(ModManifest manifest, List<ModItems.ItemDef> items, ModContent content, Map<String, byte[]> files, byte[] icon,
                        List<String> problems, List<String> warnings, List<String> kinds, List<String> ignoredLists, int totalBytes, byte[] source) {
         this.manifest = manifest;
         this.items = Collections.unmodifiableList(items);
+        this.content = content;
         this.files = Collections.unmodifiableMap(files);
         this.icon = icon;
         this.problems = Collections.unmodifiableList(problems);
@@ -84,7 +87,7 @@ public final class ModPackage {
     }
 
     private static ModPackage failed(List<String> problems, List<String> warnings, int total, byte[] source) {
-        return new ModPackage(null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), new ArrayList<>(), total, source);
+        return new ModPackage(null, new ArrayList<>(), null, new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), new ArrayList<>(), total, source);
     }
 
     /** CRC-32 of a byte array (0 for null). */
@@ -212,6 +215,16 @@ public final class ModPackage {
             checkTextures(manifest.id, items, files, problems);
         }
 
+        // Non-item content.
+        ModContent content = null;
+        if (files.containsKey("content.json")) {
+            ModContent.Result parsed = ModContent.parse(manifest.id, text(files.get("content.json")));
+            content = parsed.content();
+            problems.addAll(parsed.problems());
+            warnings.addAll(parsed.warnings());
+            checkContentTextures(manifest.id, content, files, problems);
+        }
+
         // Language files must be valid, or they are dropped rather than breaking the game's language loading.
         List<String> badLang = new ArrayList<>();
         for (Map.Entry<String, byte[]> entry : files.entrySet()) {
@@ -225,6 +238,9 @@ public final class ModPackage {
         // Content kinds.
         List<String> kinds = new ArrayList<>();
         if (!items.isEmpty()) kinds.add("item");
+        if (content != null) {
+            for (String kind : content.kinds()) if (!kinds.contains(kind)) kinds.add(kind);
+        }
         List<String> ignored = new ArrayList<>();
         for (String list : FUTURE_LISTS) {
             if (files.containsKey(list)) {
@@ -241,16 +257,75 @@ public final class ModPackage {
             }
             for (String kind : manifest.declaredKinds) {
                 if (kind.equals("item")) continue;
+                if (content != null && content.kinds().contains(kind)) continue;
                 String list = listFor(kind);
-                if (!ignored.contains(list)) warnings.add("info.json lists \"" + kind + "\" but " + list + " was not found.");
+                if (list.equals("content.json")) {
+                    if (content == null) warnings.add("info.json lists \"" + kind + "\" but content.json was not found.");
+                } else if (!ignored.contains(list)) {
+                    warnings.add("info.json lists \"" + kind + "\" but " + list + " was not found.");
+                }
             }
         }
 
-        if (!problems.isEmpty()) return new ModPackage(null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), ignored, total, zip);
-        return new ModPackage(manifest, items, files, icon, problems, warnings, kinds, ignored, total, zip);
+        if (!problems.isEmpty()) return new ModPackage(null, new ArrayList<>(), null, new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), ignored, total, zip);
+        return new ModPackage(manifest, items, content, files, icon, problems, warnings, kinds, ignored, total, zip);
     }
 
     // ---- textures ----
+
+    private static void checkContentTextures(String modId, ModContent content, Map<String, byte[]> files, List<String> problems) {
+        if (content == null) return;
+        for (ModContent.EffectDef effect : content.effects) {
+            checkPng(files, "assets/" + modId + "/textures/mob_effect/" + effect.id() + ".png",
+                "effect \"" + effect.id() + "\"", problems);
+        }
+        for (ModContent.BlockDef block : content.blocks) {
+            if (block.texture().startsWith("minecraft:")) continue;
+            checkPng(files, textureFile(block.texture()), "block \"" + block.id() + "\"", problems);
+        }
+        for (ModContent.CropDef crop : content.crops) {
+            // A vanilla crop texture is not staged by the mod, so only a mod-owned texture is checked here.
+            String base = crop.texture().startsWith("minecraft:") ? null : textureFile(crop.texture());
+            if (base == null) {
+                problems.add("crop \"" + crop.id() + "\": texture must be a normal namespace:path id.");
+            } else {
+                String stem = base.substring(0, base.length() - ".png".length());
+                for (int stage = 0; stage < crop.stages(); stage++) {
+                    checkPng(files, stem + "_stage" + stage + ".png", "crop \"" + crop.id() + "\" stage " + stage, problems);
+                }
+            }
+            if (!crop.seedTexture().startsWith("minecraft:")) {
+                checkPng(files, textureFile(crop.seedTexture()), "crop \"" + crop.id() + "\" seed", problems);
+            }
+        }
+    }
+
+    private static String textureFile(String texture) {
+        if (texture == null) return null;
+        int colon = texture.indexOf(':');
+        if (colon < 0) return null;
+        String namespace = texture.substring(0, colon);
+        String path = texture.substring(colon + 1);
+        return "assets/" + namespace + "/textures/" + path + ".png";
+    }
+
+    private static void checkPng(Map<String, byte[]> files, String file, String where, List<String> problems) {
+        if (file == null) {
+            problems.add(where + ": the texture id is not valid.");
+            return;
+        }
+        byte[] png = files.get(file);
+        if (png == null) {
+            problems.add(where + ": the texture file " + file + " is missing from the zip.");
+        } else if (!isPng(png)) {
+            problems.add(where + ": " + file + " is not a PNG image.");
+        } else {
+            int[] size = pngSize(png);
+            if (size == null || size[0] <= 0 || size[1] <= 0 || size[0] > MAX_TEXTURE_SIZE || size[1] > MAX_TEXTURE_SIZE) {
+                problems.add(where + ": " + file + " must be a PNG up to " + MAX_TEXTURE_SIZE + " x " + MAX_TEXTURE_SIZE + " pixels.");
+            }
+        }
+    }
 
     private static void checkTextures(String modId, List<ModItems.ItemDef> items, Map<String, byte[]> files, List<String> problems) {
         for (ModItems.ItemDef item : items) {
@@ -303,6 +378,9 @@ public final class ModPackage {
             case "entity": return "entities.json";
             case "effect": return "effects.json";
             case "hud": return "hud.json";
+            case "potion": return "content.json";
+            case "crop": return "content.json";
+            case "recipe": return "content.json";
             default: return "items.json";
         }
     }
@@ -313,8 +391,8 @@ public final class ModPackage {
 
     private static boolean keep(String path) {
         if (path.startsWith("assets/")) return true;
-        return path.equals("info.json") || path.equals("fabric.mod.json") || path.equals("items.json") || FUTURE_LISTS.contains(path)
-            || (!path.contains("/") && path.endsWith(".png"));
+        return path.equals("info.json") || path.equals("fabric.mod.json") || path.equals("items.json") || path.equals("content.json")
+            || FUTURE_LISTS.contains(path) || (!path.contains("/") && path.endsWith(".png"));
     }
 
     /** "my_mod/" when every file sits inside one folder that holds the manifest, else "". */
