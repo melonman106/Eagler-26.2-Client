@@ -9,20 +9,26 @@ Chat Heads - three small edits:
   3. ChatComponent reserves an 11 px gutter in front of the chat text and draws the
      sender's face in it. Messages without a sender leave the gutter empty.
 
-3D Skin Layers - two replacements:
-
   4. PlayerModel.createMesh builds the jacket, both sleeves and both pants legs with a
      vanilla 0.25 px shell, while HumanoidModel builds the hat with a fixed 0.5 px
-     shell. The script hands the growth value to VBV3DSkinLayers and replaces the
-     player's hat cube, so every outer layer gets a real, configurable thickness.
+     shell. Each of those boxes is rebuilt through VBV3DSkinLayers as six thin slabs,
+     so every outer layer becomes a real box with walls instead of a stretched cube.
+
+Tab list - one replacement:
+
+  5. PlayerTabOverlay only draws a player's face when the connection is online. Eagler
+     is always offline, so the tab list never showed one; the gate now also opens while
+     the Chat Heads mod is enabled.
 
 Every anchor must match exactly or the script aborts before writing anything, and a
 second run is a no-op (each file is checked for its marker first).
 """
 from pathlib import Path
+import re
 import sys
 
 MARKER = "VBV_CHAT_HEADS"
+TAB_MARKER = "VBV_TAB_HEADS"
 SKIN_MARKER = "VBV3DSkinLayers"
 if len(sys.argv) < 2:
     raise SystemExit("::error::Generated U2 workspace path was not supplied")
@@ -215,36 +221,88 @@ else:
     listener_path.write_text(listener, encoding="utf-8")
     print("[VBV Chat Heads] ChatListener sender hook installed")
 
+# ---------------------------------------------------------------- TAB list --
+tab_path, tab = read_source("net/minecraft/client/gui/components/PlayerTabOverlay.java")
+if TAB_MARKER in tab:
+    print("[VBV Chat Heads] tab list already patched")
+else:
+    head_gate = re.search(
+        r"(?m)^([ \t]*)(?:final )?boolean showHead = this\.minecraft\.getConnection\(\)\.onlineMode\(\);[ \t]*$",
+        tab,
+    )
+    if head_gate is None:
+        print(
+            "::warning::[VBV Chat Heads] PlayerTabOverlay has no onlineMode face gate; "
+            "the tab list keeps vanilla behaviour"
+        )
+    else:
+        indent = head_gate.group(1)
+        folded = (
+            indent + "// VBV_TAB_HEADS: Eagler connections are never online, so vanilla's onlineMode\n"
+            + indent + "// gate hid every tab-list face. Draw the faces while Chat Heads is enabled.\n"
+            + indent + "boolean showHead = this.minecraft.getConnection().onlineMode()\n"
+            + indent + "   || com.melonman106.vbvclient.VBVChatHeads.enabled;"
+        )
+        tab = tab[:head_gate.start()] + folded + tab[head_gate.end():]
+        tab_path.write_text(tab, encoding="utf-8")
+        print("[VBV Chat Heads] tab-list faces enabled for offline (Eagler) connections")
+
 # ------------------------------------------------------------ 3D Skin Layers --
 model_path, model = read_source("net/minecraft/client/model/player/PlayerModel.java")
 if SKIN_MARKER in model:
     print("[VBV 3D Skin Layers] player model already patched")
 else:
-    shell = "scale.extend(0.25F)"
-    count = model.count(shell)
-    if count != 7:
-        raise SystemExit(
-            "::error::PlayerModel.java: expected seven outer-layer 0.25F shells (wide and slim sleeves, pants, jacket), found " + str(count)
+    # Every outer layer is one box built with ``scale.extend(0.25F)``. Hand those boxes to
+    # VBV3DSkinLayers, which splits them into six slabs so the skin texture keeps its drawn
+    # size and the layer gets real walls instead of being inflated into a bigger cube.
+    outer_layer = re.compile(
+        r"CubeListBuilder\.create\(\)\.texOffs\((\d+), (\d+)\)\.addBox\("
+        r"([^()]*?)\s*,\s*scale\.extend\(0\.25F\)\)"
+    )
+
+    def rebuild(match):
+        return (
+            "com.melonman106.vbvclient.VBV3DSkinLayers.layer("
+            "CubeListBuilder.create(), " + match.group(3).strip() + ", "
+            + match.group(1) + ", " + match.group(2) + ", scale, 0.25F)"
         )
-    model = model.replace(
-        shell,
-        "scale.extend(com.melonman106.vbvclient.VBV3DSkinLayers.overlayThickness())",
+
+    model, rebuilt = outer_layer.subn(rebuild, model)
+    if rebuilt != 7:
+        raise SystemExit(
+            "::error::PlayerModel.java: expected seven outer-layer boxes (wide and slim sleeves, "
+            "pants, jacket), found " + str(rebuilt)
+        )
+
+    # HumanoidModel builds the hat separately with a fixed 0.5 px shell, so the seven boxes
+    # above never touched it. Rebuild the player's hat the same way; other humanoids keep
+    # their vanilla hat. The anchor is only needed for its position, so a missing one must not
+    # stop the build: the rest of the feature has already been written above.
+    hat_block = (
+        "      // VBV3DSkinLayers: rebuild the hat with the same real thickness.\n"
+        "      root.getChild(\"head\").addOrReplaceChild(\"hat\",\n"
+        "         com.melonman106.vbvclient.VBV3DSkinLayers.layer(CubeListBuilder.create(),\n"
+        "            -4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F, 32, 0, scale, 0.5F), PartPose.ZERO);\n"
     )
-    # HumanoidModel builds the hat separately with a fixed 0.5 px shell, so the seven
-    # replacements above never touched it. Replace the player's hat cube with the same
-    # configurable thickness; other humanoids keep their vanilla hat.
-    model = replace_once(
-        model,
-        "      float overlayScale = 0.25F;\n",
-        "      // VBV3DSkinLayers: replace the fixed 0.5 px hat shell from HumanoidModel.\n"
-        "      PartDefinition head = root.getChild(\"head\");\n"
-        "      head.addOrReplaceChild(\"hat\", CubeListBuilder.create().texOffs(32, 0)\n"
-        "         .addBox(-4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F,\n"
-        "            scale.extend(com.melonman106.vbvclient.VBV3DSkinLayers.hatThickness())), PartPose.ZERO);\n",
-        "PlayerModel.java",
-        "unused overlay scale",
+    anchor = re.search(
+        r"(?m)^[ \t]*(?:final )?float overlayScale = 0\.25F;[ \t]*\n", model
     )
+    if anchor is not None:
+        # Inserted after the declaration rather than over it: on some versions that local is
+        # still referenced further down, and removing it would break the build.
+        model = model[:anchor.end()] + hat_block + model[anchor.end():]
+        print("[VBV 3D Skin Layers] hat rebuilt with the same thickness")
+    else:
+        root_anchor = re.search(
+            r"(?m)^[ \t]*PartDefinition root = mesh\.getRoot\(\);[ \t]*\n", model
+        )
+        if root_anchor is None:
+            print("::warning::[VBV 3D Skin Layers] no hat anchor found; the hat keeps its vanilla shell")
+        else:
+            model = model[:root_anchor.end()] + hat_block.lstrip(" ") + model[root_anchor.end():]
+            print("[VBV 3D Skin Layers] hat rebuilt with the same thickness")
+
     model_path.write_text(model, encoding="utf-8")
-    print("[VBV 3D Skin Layers] hat, jacket, sleeves and pants now use the configurable thickness")
+    print("[VBV 3D Skin Layers] jacket, sleeves, pants and hat are real boxes now")
 
 print("[VBV Chat Heads / 3D Skin Layers] hooks complete")

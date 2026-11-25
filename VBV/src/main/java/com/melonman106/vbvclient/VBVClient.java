@@ -55,9 +55,9 @@ public final class VBVClient {
         reg("vbv-screenshot-manager", "Screenshot Manager", "1.5.3", "melonman106",
             "Saves every screenshot as a PNG in the managed storage folder and lists, opens, downloads or deletes them.", "vbvclient:textures/mods/vbv-screenshot-manager.png");
         reg("chatheads", "Chat Heads", "1.5.3", "dzwdz",
-            "Draws each player's skin head beside their chat messages in a reserved gutter, with the chat text shifted right so heads never cover a message.", "vbvclient:textures/mods/chatheads.png");
+            "Draws each player's skin head beside their chat messages in a reserved gutter, with the chat text shifted right so heads never cover a message. The Tab player list shows the same faces; vanilla only fills it on online-mode connections.", "vbvclient:textures/mods/chatheads.png");
         reg("3d-skin-layers", "3D Skin Layers", "1.5.3", "tr7zw",
-            "Gives the jacket, sleeves, pants and hat real thickness instead of the flat vanilla shell; the layer depth is configurable and applies on the next resource reload.", "vbvclient:textures/mods/3d-skin-layers.png");
+            "Rebuilds the jacket, sleeves, pants and hat as boxes with 1-3 px walls instead of the flat vanilla shell, so the skin texture keeps its drawn size; the depth is configurable and applies on the next resource reload.", "vbvclient:textures/mods/3d-skin-layers.png");
         registerFabricCallbacks();
         VBVGeneratedPackMods.register();
     }
