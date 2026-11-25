@@ -452,8 +452,10 @@ public final class ModContent {
         return value.contains(":") ? value : defaultNamespace + ":" + value;
     }
 
+    /** A texture is optional (the default is block/<id> or item/<id>); one that is given must be a valid id. */
     private static String texture(JsonObject object, String key, String fallback, String where, String modId, List<String> problems) {
-        String value = location(object, key, where, modId, problems);
+        JsonElement given = object.get(key);
+        String value = given == null || given.isJsonNull() ? null : location(object, key, where, modId, problems);
         if (value == null) value = modId + ":" + fallback;
         int colon = value.indexOf(':');
         String path = colon >= 0 ? value.substring(colon + 1) : value;

@@ -22,6 +22,7 @@ import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
 
 /**
@@ -139,6 +140,7 @@ public final class ModContentBootstrap {
             ModBlock block = new ModBlock(properties);
             block.withDrop(() -> item(modId, def.id()));
             Registry.register(BuiltInRegistries.BLOCK, key, block);
+            registerStates(block);
             BLOCKS.put(full(modId, def.id()), block);
         } catch (Throwable t) {
             System.err.println("[VBV mods] " + modId + ":" + def.id() + " block could not be registered: " + t);
@@ -159,9 +161,24 @@ public final class ModContentBootstrap {
             ModCropBlock crop = new ModCropBlock(properties);
             crop.withDrops(() -> item(modId, def.seed()), () -> item(modId, def.drop()));
             Registry.register(BuiltInRegistries.BLOCK, key, crop);
+            registerStates(crop);
             CROPS.put(full(modId, def.block()), crop);
         } catch (Throwable t) {
             System.err.println("[VBV mods] " + modId + ":" + def.block() + " crop could not be registered: " + t);
+        }
+    }
+
+    /**
+     * Gives a block's states their global ids and builds their caches. Vanilla does this once, for its own blocks,
+     * in the static initializer of {@code Blocks}, which has already run by the time mod content is registered, so a
+     * block registered here would otherwise have no state id (chunks, packets and the world could not store it) and
+     * an empty cache (shape, fluid and ticking queries would fail). A mod loader has to do the same for any block it
+     * registers late; the ids are handed out in registration order, which the page and the integrated server share.
+     */
+    private static void registerStates(Block block) {
+        for (BlockState state : block.getStateDefinition().getPossibleStates()) {
+            if (Block.BLOCK_STATE_REGISTRY.getId(state) == -1) Block.BLOCK_STATE_REGISTRY.add(state);
+            state.initCache();
         }
     }
 

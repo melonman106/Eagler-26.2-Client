@@ -28,4 +28,4 @@ if command -v python3 >/dev/null 2>&1; then
   examples="$out/examples"
   python3 "$here/../examples/build_example_mods.py" "$examples" >/dev/null
 fi
-java -Xmx512m -Dvbv.examples="$examples" -cp "$out:$gson" com.melonman106.vbvclient.mods.ModsCoreSelfTest
+java -Xmx512m -Dvbv.examples="$examples" -Dvbv.slime="$here/../../artifacts" -cp "$out:$gson" com.melonman106.vbvclient.mods.ModsCoreSelfTest
