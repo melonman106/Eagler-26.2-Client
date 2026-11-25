@@ -18,6 +18,7 @@ public final class ModsCoreSelfTest {
         ManifestAndItemTests.run();
         PackageAndStoreTests.run();
         ViewTests.run();
+        ContentTests.run();
         ExampleTests.run();
         System.out.println(TestKit.checks + " checks, " + TestKit.failures + " failed");
         if (TestKit.failures > 0) System.exit(1);
