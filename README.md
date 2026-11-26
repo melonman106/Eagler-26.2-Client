@@ -121,9 +121,9 @@ Mods can also be imported at runtime from **Mods → Imported Mods... → Import
 `info.json` (or a Fabric-style `fabric.mod.json`), an `items.json`, a `pack.png` and an `assets/` folder; it contains no code.
 Mods that depend on Fabric Loader or Fabric API load because the client reports those as present (faked), while the
 parts of Fabric API a data mod can really use — item settings, vanilla creative tabs, resource loading and item
-registration — are backed by real code. This first version adds **items only**. See
+registration — are backed by real code. A mod can add items, blocks, crops, effects, potions, HUD panels and crafting recipes (entities and tags are accepted but ignored). See
 [`docs/importable-mods.md`](docs/importable-mods.md) for the format, the Fabric table, safe mode (`?nomods=1`, `?safe`) and the
-limits, and `VBV/examples/` for two example mods. It has not been run in the game yet.
+limits, and `VBV/examples/` for two example mods (items only). It has not been run in the game yet.
 
 ---
 
@@ -709,23 +709,21 @@ Build caching is enabled where supported, and Java compilation is kept separate 
 ```text
 Eagler-26.2-Client/
 │
-├── .github/
-│   └── workflows/
-│       └── 02-compile-eagler-vbv.yml
+├── .github/workflows/        02 compile, 03 signed web bundle (.swbn), 06 deploy Friends, 07 plain-JVM checks
 │
 ├── VBV/
-│   ├── src/
-│   │   └── main/
-│   │       └── java/
-│   │
-│   ├── patch/
-│   │   ├── apply_vbv_patch.py
-│   │   ├── storage_manager.js
-│   │   └── ...
-│   │
-│   └── panorama/
+│   ├── src/main/java/        native client code (com.melonman106.vbvclient)
+│   ├── patch/                build-time patch scripts (apply_vbv_patch.py runs the others)
+│   ├── test/                 plain-JVM checks (importable mods, Punchy)
+│   ├── examples/             example importable mods
+│   ├── webmods/              browser-side mods
+│   ├── panorama/             menu panorama videos
+│   └── LoadingScreen/        loading-screen art
 │
-├── ModsPack/
+├── cloudflare/vbv-friends/   Friends and voice-chat Worker (D1, Realtime) and its tests
+├── docs/                     importable-mods.md, punchy.md
+├── ModsPack/                 resource packs imported during compilation
+├── mods/                     Litematica / MaLiLib sources (experimental)
 │
 └── README.md
 ```
@@ -735,9 +733,12 @@ Eagler-26.2-Client/
 - `VBV/` — Native client modifications, compatibility code, and patching scripts.
 - `VBV/src/` — Java source files for the native client modifications.
 - `VBV/patch/` — Build injection scripts and browser-side storage integration.
+- `VBV/test/` — Plain-JVM checks for the parts that use no game classes.
 - `VBV/panorama/` — Optional panorama assets.
+- `cloudflare/vbv-friends/` — The Friends / voice Cloudflare Worker.
+- `docs/` — Longer write-ups for importable mods and Punchy packs.
 - `ModsPack/` — Resource-pack client modifications imported during compilation.
-- `.github/workflows/` — Automated compilation and preparation workflows.
+- `.github/workflows/` — Automated compilation, deployment and test workflows.
 
 ---
 

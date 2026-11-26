@@ -11,9 +11,9 @@ import java.nio.file.Paths;
 import java.util.List;
 
 /**
- * content.json (effects, potions, blocks, crops, HUD panel, recipes): the parser's rules, and the Slime Mod that ships in
- * artifacts/ so that the example cannot drift away from what the importer accepts. These files come from untrusted zips,
- * so most checks here are about what is refused.
+ * content.json (effects, potions, blocks, crops, HUD panel, recipes): the parser's rules, and, when the repository has an
+ * artifacts/ folder with the Slime Mod, that example too so it cannot drift away from what the importer accepts. These
+ * files come from untrusted zips, so most checks here are about what is refused.
  */
 final class ContentTests {
     private ContentTests() {}

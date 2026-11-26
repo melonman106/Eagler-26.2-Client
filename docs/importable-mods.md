@@ -14,11 +14,11 @@ real code in this client.
 
 ## Quick start
 
-1. Build the two example mods: `python3 VBV/examples/build_example_mods.py` (writes `VBV/examples/dist/*.zip`). For the
-   Slime test mod, run `python3 artifacts/build_slime_mod.py` (writes `artifacts/slime_mod.zip`).
-2. In the game open **Mods → Imported Mods... → Import .zip** and choose `ruby_tools.zip` or `slime_mod.zip`.
+1. Build the two example mods: `python3 VBV/examples/build_example_mods.py` (writes `VBV/examples/dist/*.zip`).
+2. In the game open **Mods → Imported Mods... → Import .zip** and choose `ruby_tools.zip` or `fabric_style_demo.zip`.
 3. Press **Reload page** when asked. The mod's items are in the creative inventory (Ingredients, Combat, Tools & Utilities).
-   The Slime mod also adds a block, a crop, an effect, a potion, a HUD panel and recipes.
+   The example mods only add items. Blocks, crops, effects, potions, HUD panels and recipes (the `content.json` file,
+   described below) have no ready-made example zip in the repository.
 
 Mods are stored in the browser (the same storage the worlds use), under `vbv/mods/`.
 
@@ -148,7 +148,7 @@ At most 256 items per mod.
   item with `"potion": "<mod>:<potion>"`.
 * **blocks:** `id`, `name`, optional `texture` (default `block/<id>`), `hardness`, `resistance`, `light` (0–15), `sound`,
   and `creative_tab`. The block item uses the block id. Supply `assets/<mod>/blockstates/<id>.json`, a block model and an
-  item definition/model, or use the generated layout from `artifacts/slime_mod` as a template.
+  item definition/model for each.
 * **crops:** `id`, `name`, `block` (default `<id>_crop`), `seed` (default `<id>_seeds`), `drop` (default `<id>`), and
   `stages` (1–7; the generated assets use `_stage0`, `_stage1`, …). Breaking a mature crop drops the crop item and seeds;
   breaking an immature one drops a seed.
