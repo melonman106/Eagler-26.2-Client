@@ -127,6 +127,11 @@ public final class VBVConfigStore {
             integer("firstPerson.x", VBVFirstPersonAnimations.DEFAULT_X, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),
             integer("firstPerson.y", VBVFirstPersonAnimations.DEFAULT_Y, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX),
             integer("firstPerson.z", VBVFirstPersonAnimations.DEFAULT_Z, VBVFirstPersonAnimations.OFFSET_MIN, VBVFirstPersonAnimations.OFFSET_MAX));
+        VBVPunchy.setEnabled(bool("punchy.enabled", false));
+        VBVPunchy.setOffsets(
+            integer("punchy.x", 0, VBVPunchy.OFFSET_MIN, VBVPunchy.OFFSET_MAX),
+            integer("punchy.y", 0, VBVPunchy.OFFSET_MIN, VBVPunchy.OFFSET_MAX),
+            integer("punchy.z", 0, VBVPunchy.OFFSET_MIN, VBVPunchy.OFFSET_MAX));
         VBVShulkerViewer.enabled = bool("shulker.enabled", true);
         VBVAppleSkin.setFoodPreview(bool("appleskin.preview", true));
         VBVTheme.load(integer("theme.preset", 0, 0, VBVTheme.CUSTOM_INDEX),
@@ -299,6 +304,10 @@ public final class VBVConfigStore {
         write("firstPerson.x", VBVFirstPersonAnimations.getOffsetX());
         write("firstPerson.y", VBVFirstPersonAnimations.getOffsetY());
         write("firstPerson.z", VBVFirstPersonAnimations.getOffsetZ());
+        write("punchy.enabled", VBVPunchy.isEnabled());
+        write("punchy.x", VBVPunchy.getOffsetX());
+        write("punchy.y", VBVPunchy.getOffsetY());
+        write("punchy.z", VBVPunchy.getOffsetZ());
         write("shulker.enabled", VBVShulkerViewer.enabled);
         write("appleskin.preview", VBVAppleSkin.isFoodPreview());
         write("theme.preset", VBVTheme.getPreset());
