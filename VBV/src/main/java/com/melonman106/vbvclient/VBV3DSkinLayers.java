@@ -1,7 +1,11 @@
 package com.melonman106.vbvclient;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.core.Direction;
 
 /**
  * 3D Skin Layers: turns the player's second skin layer into a box with real thickness.
@@ -24,10 +28,30 @@ public final class VBV3DSkinLayers {
     /** Whole skin pixels, so the slab edges land on texture pixel boundaries. */
     private static final float[] THICKNESS = {1.0F, 2.0F, 3.0F};
 
+    /**
+     * The player model is drawn with culling off, so a slab's wall that faces the body would be drawn too. It lies
+     * exactly on the body surface and samples a different part of the skin than the face in front of it, so wherever
+     * the outer pixel is transparent it would paint the wrong texel (or flicker against the body). Each slab is
+     * therefore built without its inner wall. Model-space names: NORTH is -Z, SOUTH +Z, WEST -X, EAST +X, DOWN -Y
+     * (the top of the body, since model Y points down) and UP +Y.
+     */
+    private static final Set<Direction> NO_SOUTH = allBut(Direction.SOUTH);
+    private static final Set<Direction> NO_NORTH = allBut(Direction.NORTH);
+    private static final Set<Direction> NO_EAST = allBut(Direction.EAST);
+    private static final Set<Direction> NO_WEST = allBut(Direction.WEST);
+    private static final Set<Direction> NO_UP = allBut(Direction.UP);
+    private static final Set<Direction> NO_DOWN = allBut(Direction.DOWN);
+
     public static boolean enabled = true;
     public static int thickness;
 
     private VBV3DSkinLayers() {}
+
+    private static Set<Direction> allBut(Direction hidden) {
+        Set<Direction> sides = EnumSet.allOf(Direction.class);
+        sides.remove(hidden);
+        return Collections.unmodifiableSet(sides);
+    }
 
     /** Outer-layer growth in model pixels, exposed for the config screen. */
     public static float overlayThickness() {
@@ -89,16 +113,17 @@ public final class VBV3DSkinLayers {
 
         // Each slab's texOffs is chosen so that its outward face maps onto that exact region; the
         // neighbouring pixels it samples on its narrow walls are the layer's own side texture.
+        // Each slab leaves out the wall that faces the body (see NO_SOUTH and friends).
         // -Z (front)
-        builder.texOffs(frontU - ti, frontV - ti).addBox(x, y, z - t, w, h, t);
+        builder.texOffs(frontU - ti, frontV - ti).addBox(x, y, z - t, w, h, t, NO_SOUTH);
         // +Z (back)
-        builder.texOffs(backU - iw - 2 * ti, frontV - ti).addBox(x, y, z + d, w, h, t);
+        builder.texOffs(backU - iw - 2 * ti, frontV - ti).addBox(x, y, z + d, w, h, t, NO_NORTH);
         // -X and +X (sides)
-        builder.texOffs(sideU, sideV - id).addBox(x - t, y, z, t, h, d);
-        builder.texOffs(rightU - id - ti, sideV - id).addBox(x + w, y, z, t, h, d);
+        builder.texOffs(sideU, sideV - id).addBox(x - t, y, z, t, h, d, NO_EAST);
+        builder.texOffs(rightU - id - ti, sideV - id).addBox(x + w, y, z, t, h, d, NO_WEST);
         // -Y and +Y (top and bottom in the model's down-is-positive space)
-        builder.texOffs(frontU - id, v).addBox(x, y - t, z, w, t, d);
-        builder.texOffs(u, v).addBox(x, y + h, z, w, t, d);
+        builder.texOffs(frontU - id, v).addBox(x, y - t, z, w, t, d, NO_UP);
+        builder.texOffs(u, v).addBox(x, y + h, z, w, t, d, NO_DOWN);
         return builder;
     }
 }
