@@ -1,13 +1,15 @@
-name: "07 - Test importable mods (plain JVM)"
+name: "07 - Plain-JVM checks (importable mods, Punchy)"
 
-run-name: "07 - Importable mods checks"
+run-name: "07 - Importable mods and Punchy checks"
 
 # Runs the checks for the parts of the importable-mods system that use no game classes: the manifest/Fabric-faking
-# rules, the zip reader, the store and the example mods. It does not build or start the game.
+# rules, the zip reader, the store and the example mods; and the game-free core of the Punchy resource-pack
+# animations (clip sampling, compat rules, rig maths, controller). It does not build or start the game.
 on:
   pull_request:
     paths:
       - "VBV/src/main/java/com/melonman106/vbvclient/mods/**"
+      - "VBV/src/main/java/com/melonman106/vbvclient/punchy/**"
       - "VBV/test/**"
       - "VBV/examples/**"
       - ".github/workflows/07-test-importable-mods.yml"
@@ -15,6 +17,7 @@ on:
     branches: [main]
     paths:
       - "VBV/src/main/java/com/melonman106/vbvclient/mods/**"
+      - "VBV/src/main/java/com/melonman106/vbvclient/punchy/**"
       - "VBV/test/**"
       - "VBV/examples/**"
   workflow_dispatch:
@@ -44,6 +47,10 @@ jobs:
           echo "94855942d4992f112946d3de1c334e709237b8126d8130bf07807c018a4a2120  $RUNNER_TEMP/gson.jar" | sha256sum -c -
           echo "GSON_JAR=$RUNNER_TEMP/gson.jar" >> "$GITHUB_ENV"
 
-      - name: Run the checks
+      - name: Run the importable-mods checks
         shell: bash
         run: bash VBV/test/run-mods-core-tests.sh
+
+      - name: Run the Punchy checks
+        shell: bash
+        run: bash VBV/test/run-punchy-core-tests.sh

@@ -46,6 +46,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "pack_json_merge.py",
     "patch_keybind_dispatch.py",
     "patch_mods_hooks.py",
+    "patch_punchy_hooks.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
 if missing_scripts:
@@ -560,6 +561,13 @@ if inventory_sorter.is_file():
 mods_hooks = PATCH_DIR / "patch_mods_hooks.py"
 if mods_hooks.is_file():
     subprocess.run([sys.executable, str(mods_hooks), *sys.argv[1:]], check=True)
+
+# Punchy resource packs: the pack's first-person animation files are read on every resource reload, and the
+# first-person arm/item draw is offered to VBVPunchy first. Needs patch_cem_hooks.py (its reload line is an anchor).
+# Inert while Punchy is switched off or no pack is loaded.
+punchy_hooks = PATCH_DIR / "patch_punchy_hooks.py"
+if punchy_hooks.is_file():
+    subprocess.run([sys.executable, str(punchy_hooks), *sys.argv[1:]], check=True)
 
 # Scan both VBV sources and the fully patched generated workspace. This runs
 # after every source-injection stage and before Gradle/TeaVM compilation.
