@@ -14,6 +14,8 @@ import net.minecraft.client.model.geom.builders.CubeDeformation;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.core.Direction;
 import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.PlayerModelType;
@@ -205,6 +207,21 @@ public final class VBV3DSkinLayers {
         String key = texture.toString();
         MASKS.put(key, alpha);
         SKINS.keySet().removeIf(entry -> entry.startsWith(key + '|'));
+    }
+
+    /**
+     * Remembers the mask of an Eaglercraft skin as it is registered. Eaglercraft's multiplayer skins
+     * ({@code eagler:multiplayer/skin_N}) and custom skins ({@code eagler:skins/custom/tex_N}) are plain
+     * DynamicTextures, so they never pass through {@link #capture} via ReloadableTexture or the skin downloader,
+     * and without this hook only the built-in Steve and Alex skins would ever get the voxel layer. The pixels are
+     * already filled in when the texture is registered. Capes, favicons, map and lightmap textures are ignored.
+     */
+    public static void captureDynamic(final Identifier location, final AbstractTexture texture) {
+        if (location == null || !(texture instanceof DynamicTexture)) return;
+        if (!"eagler".equals(location.getNamespace())) return;
+        String path = location.getPath();
+        if (!path.startsWith("multiplayer/skin_") && !path.startsWith("skins/")) return;
+        capture(location, ((DynamicTexture)texture).getPixels());
     }
 
     // ---------------------------------------------------------------- voxel mesh --
@@ -433,8 +450,9 @@ public final class VBV3DSkinLayers {
         // -Z (front of the body)
         face(out, alpha, u + d, v + d, 1, 0, 0, 1, w, h,
             x, y, z - t, 1, 0, 0, 0, 1, 0, 0, 0, -1, t);
-        // +Z (back)
-        face(out, alpha, u + 2 * d + w, v + d, 1, 0, 0, 1, w, h,
+        // +Z (back); like the -X side, its texture's u axis runs against the tangent axis (+X), so the first
+        // texel in model order is the last one of the strip. Vanilla's SOUTH polygon maps minX to the high u.
+        face(out, alpha, u + 2 * d + 2 * w - 1, v + d, -1, 0, 0, 1, w, h,
             x, y, z + d + t, 1, 0, 0, 0, 1, 0, 0, 0, 1, t);
         // -X (left side); the side texture's u axis runs against +Z
         face(out, alpha, u + d - 1, v + d, -1, 0, 0, 1, d, h,

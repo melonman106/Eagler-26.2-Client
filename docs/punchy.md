@@ -23,7 +23,8 @@ The setting is **off by default**, is saved with the other VBV settings (`punchy
 every time resources reload.
 
 If the pack has no Punchy files, or drawing ever throws, Punchy stays out of the way and the normal hands are drawn;
-after an error it switches itself off until the page is reloaded (the status line says so).
+after an error it switches itself off (the status line says so). The off state is saved with your other settings the
+next time they are saved, so switch it on again from **Hand Position...** once you have a pack that works.
 
 ## What it reads from the pack
 

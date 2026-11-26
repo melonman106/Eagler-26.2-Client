@@ -1,25 +1,27 @@
-name: "07 - Plain-JVM checks (importable mods, Punchy)"
+name: "07 - Plain checks (importable mods, Punchy, JavaScript)"
 
-run-name: "07 - Importable mods and Punchy checks"
+run-name: "07 - Mods, Punchy and JavaScript checks"
 
 # Runs the checks for the parts of the importable-mods system that use no game classes: the manifest/Fabric-faking
 # rules, the zip reader, the store and the example mods; and the game-free core of the Punchy resource-pack
-# animations (clip sampling, compat rules, rig maths, controller). It does not build or start the game.
+# animations (clip sampling, compat rules, rig maths, controller); and a Node syntax check of every @JSBody script in
+# the Java sources (a wrong escape in a Java string breaks the JavaScript, and the compiler cannot see it). It does not
+# build or start the game.
 on:
   pull_request:
     paths:
-      - "VBV/src/main/java/com/melonman106/vbvclient/mods/**"
-      - "VBV/src/main/java/com/melonman106/vbvclient/punchy/**"
+      - "VBV/src/main/java/**"
       - "VBV/test/**"
       - "VBV/examples/**"
+      - "VBV/patch/check_jsbody_syntax.py"
       - ".github/workflows/07-test-importable-mods.yml"
   push:
     branches: [main]
     paths:
-      - "VBV/src/main/java/com/melonman106/vbvclient/mods/**"
-      - "VBV/src/main/java/com/melonman106/vbvclient/punchy/**"
+      - "VBV/src/main/java/**"
       - "VBV/test/**"
       - "VBV/examples/**"
+      - "VBV/patch/check_jsbody_syntax.py"
   workflow_dispatch:
 
 permissions:
@@ -54,3 +56,11 @@ jobs:
       - name: Run the Punchy checks
         shell: bash
         run: bash VBV/test/run-punchy-core-tests.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax-check the JavaScript inside @JSBody scripts
+        shell: bash
+        run: python3 VBV/patch/check_jsbody_syntax.py VBV/src/main/java

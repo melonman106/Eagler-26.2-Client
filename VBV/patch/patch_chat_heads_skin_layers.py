@@ -11,7 +11,7 @@ Chat Heads - three small edits:
      scrollbar and the queue line all stay exactly where vanilla draws them;
      system output and command feedback are never moved.
 
-3D Skin Layers - five edits:
+3D Skin Layers - six edits:
 
   4. PlayerModel.createMesh builds the jacket, both sleeves and both pants legs with a
      vanilla 0.25 px shell, while HumanoidModel builds the hat with a fixed 0.5 px
@@ -20,13 +20,15 @@ Chat Heads - three small edits:
   5. ReloadableTexture.apply hands the skin image to VBV3DSkinLayers before it is
      closed, so every pixel's alpha is remembered.
   6. SkinTextureDownloader.registerTextureInManager does the same for downloads.
-  7. ModelFeatureRenderer.prepareModel tells VBV3DSkinLayers which player is being
+  7. TextureManager.register does the same for Eaglercraft's own skins: multiplayer and custom
+     skins are plain DynamicTextures that never reach ReloadableTexture.apply or the downloader.
+  8. ModelFeatureRenderer.prepareModel tells VBV3DSkinLayers which player is being
      drawn, so its voxel mesh replaces the fallback shell for that player only.
-  8. ModelPart.compile draws that voxel mesh instead of the baked cubes.
+  9. ModelPart.compile draws that voxel mesh instead of the baked cubes.
 
 Tab list - one replacement:
 
-  9. PlayerTabOverlay only draws a player's face when the connection is online. Eagler
+  10. PlayerTabOverlay only draws a player's face when the connection is online. Eagler
      is always offline, so the tab list never showed one; the gate now also opens while
      the Chat Heads mod is enabled.
 
@@ -299,6 +301,14 @@ VOXEL_EDITS = [
         "         // VBV_SKIN_VOXELS: remember the downloaded skin's alpha mask\n"
         "         com.melonman106.vbvclient.VBV3DSkinLayers.capture(textureId.texturePath(), contents);\n"
         "         DynamicTexture texture = new DynamicTexture(textureId.texturePath()::toString, contents);\n",
+    ),
+    (
+        "net/minecraft/client/renderer/texture/TextureManager.java",
+        "register",
+        "   public void register(final Identifier location, final AbstractTexture texture) {\n",
+        "   public void register(final Identifier location, final AbstractTexture texture) {\n"
+        "      // VBV_SKIN_VOXELS: Eaglercraft registers its skins as plain DynamicTextures; remember their alpha mask\n"
+        "      com.melonman106.vbvclient.VBV3DSkinLayers.captureDynamic(location, texture);\n",
     ),
     (
         "net/minecraft/client/renderer/feature/ModelFeatureRenderer.java",
