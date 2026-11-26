@@ -33,9 +33,15 @@ The client includes custom compatibility support for OptiFine-style Custom Entit
 - `sin` / `cos` in animation expressions use Minecraft's own lookup-table sine, because packs such as Fresh Animations detect a vanilla attack swing by comparing against it exactly; with a different sine the player's arms never moved when attacking.
 - `is_swinging_right_arm` / `is_swinging_left_arm` follow EMF's meaning (swinging **or** using an item with that arm), which Fresh Animations needs to pose a blocking shield arm and item-use arms.
 
-What is still not supported: first-person hand animations, `.properties` variant rules (random entities), emissive `_e` textures, CIT, CTM, colormaps and the other non-model OptiFine features. `nbt()` only answers the paths packs are known to use.
+What is still not supported: first-person hand animations from OptiFine-style packs (Punchy packs are handled separately, below), `.properties` variant rules (random entities), emissive `_e` textures, CIT, CTM, colormaps and the other non-model OptiFine features. `nbt()` only answers the paths packs are known to use.
 
 Note: This is a custom Eaglercraft implementation, not the original OptiFine mod. Compatibility depends on the entity model formats and features supported by the implementation.
+
+### Punchy resource packs
+The client can play the first-person hand animations of **Punchy** resource packs such as HyperPunchy. Switch it on under **Options > Modded Settings > Hand Position...**; while it is on and a pack is loaded it replaces the client's own hand animations.
+- Reads the pack's `punchy/animations`, `punchy/compat` and (optionally) `punchy/geo/player.geo.json`, and plays the right clip for attacking, mining, eating, drawing a bow, blocking and equipping items.
+- It has not been run in the game yet: the maths and rules are covered by plain-JVM tests, but how the arm and held item sit still needs checking in the game (the Hand Position rows nudge the item). Mining is detected approximately, and the `interaction` / `inspect` rules and the pack's camera shake are not used yet.
+- See [`docs/punchy.md`](docs/punchy.md) for the files it reads, what triggers what and the known limits.
 
 ### Main Features
 
