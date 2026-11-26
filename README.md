@@ -58,8 +58,8 @@ The client can play the first-person hand animations of **Punchy** resource pack
 - Potion HUD with effect icons, amplifiers and remaining time; while it is enabled it replaces the vanilla effect icons.
 - Inventory Sorter for the 27 backpack slots, or the open chest, barrel, ender chest or shulker box; partial stacks of the same item are merged into full stacks (normal pick-up clicks, hotbar untouched).
 - Screenshot Manager: F2 captures are written into the storage folder's `Screenshots/` directory.
-- Chat Heads: each player message shows the sender's head in a small gutter; the chat text shifts right so the head never covers it. The same faces are listed in the Tab player list, which vanilla only fills while an online-mode server is connected.
-- 3D Skin Layers: the jacket, sleeves, pants and hat are rebuilt as real boxes (1–3 px, configurable) instead of vanilla's flat 0.25 px shell, so the skin texture keeps its drawn size and the layer shows walls at its edges.
+- Chat Heads: each player message shows the sender's head in the panel's left margin. Only the messages that get a face move right, and only by their own lines; the chat panel, its background, the scrollbar and messages without a sender stay exactly where vanilla draws them. The same faces are listed in the Tab player list, which vanilla only fills while an online-mode server is connected.
+- 3D Skin Layers: every drawn pixel of the jacket, sleeves, pants and hat is extruded into a real 1–3 px voxel cube, instead of only inflating the whole layer outward. Cut-outs, seams and sleeve ends get their own side walls, and transparent pixels have no cube at all. A skin that has not been read yet falls back to a plain shell.
 - BetterF3-style debug information.
 - Mouse Tweaks.
 - Minimap and explored-chunk world map.
@@ -94,8 +94,8 @@ The client uses Java source injection to integrate the modifications directly in
 | Potion HUD | Active effect icons, amplifier and remaining time (replaces the vanilla icons while enabled) |
 | Inventory Sorter | Orders the 27 backpack slots or the open storage block and merges partial stacks (R by default) |
 | Screenshot Manager | Saves screenshots into the storage folder and lists them |
-| Chat Heads | Draws the sender's skin head beside each player chat line and in the Tab player list |
-| 3D Skin Layers | Rebuilds the jacket, sleeves, pants and hat as boxes with real, configurable thickness |
+| Chat Heads | Draws the sender's skin head beside each player chat line (only that message is indented) and in the Tab player list |
+| 3D Skin Layers | Extrudes every drawn pixel of the jacket, sleeves, pants and hat into a voxel cube |
 
 Additional resource-pack-based client modifications are imported from the `ModsPack/` directory.
 

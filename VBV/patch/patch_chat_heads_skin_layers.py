@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
-"""Chat Heads and 3D Skin Layers hooks.
+"""Chat Heads, TAB faces and 3D Skin Layers hooks.
 
 Chat Heads - three small edits:
 
   1. ChatListener hands the sender GameProfile to VBVChatHeads just before a player
      message is shown, because ChatComponent only receives the decorated text.
   2. ChatComponent tags the GuiMessage it creates, so the renderer can look the skin up.
-  3. ChatComponent reserves an 11 px gutter in front of the chat text and draws the
-     sender's face in it. Messages without a sender leave the gutter empty.
+  3. ChatComponent indents only the messages that have a sender, and draws that
+     sender's face in the space it makes. The chat panel, its background, the
+     scrollbar and the queue line all stay exactly where vanilla draws them;
+     system output and command feedback are never moved.
+
+3D Skin Layers - five edits:
 
   4. PlayerModel.createMesh builds the jacket, both sleeves and both pants legs with a
      vanilla 0.25 px shell, while HumanoidModel builds the hat with a fixed 0.5 px
-     shell. Each of those boxes is rebuilt through VBV3DSkinLayers as six thin slabs,
-     so every outer layer becomes a real box with walls instead of a stretched cube.
+     shell. Each of those boxes is rebuilt through VBV3DSkinLayers as a six-slab
+     shell, which is the fallback used until a skin's pixel mask is known.
+  5. ReloadableTexture.apply hands the skin image to VBV3DSkinLayers before it is
+     closed, so every pixel's alpha is remembered.
+  6. SkinTextureDownloader.registerTextureInManager does the same for downloads.
+  7. ModelFeatureRenderer.prepareModel tells VBV3DSkinLayers which player is being
+     drawn, so its voxel mesh replaces the fallback shell for that player only.
+  8. ModelPart.compile draws that voxel mesh instead of the baked cubes.
 
 Tab list - one replacement:
 
-  5. PlayerTabOverlay only draws a player's face when the connection is online. Eagler
+  9. PlayerTabOverlay only draws a player's face when the connection is online. Eagler
      is always offline, so the tab list never showed one; the gate now also opens while
      the Chat Heads mod is enabled.
 
@@ -30,6 +40,7 @@ import sys
 MARKER = "VBV_CHAT_HEADS"
 TAB_MARKER = "VBV_TAB_HEADS"
 SKIN_MARKER = "VBV3DSkinLayers"
+VOXEL_MARKER = "VBV_SKIN_VOXELS"
 if len(sys.argv) < 2:
     raise SystemExit("::error::Generated U2 workspace path was not supplied")
 
@@ -66,87 +77,53 @@ else:
         "GuiMessage creation",
     )
 
-    chat = replace_once(
-        chat,
-        "         graphics.updatePose(pose -> {\n"
-        "            pose.scale(scale, scale);\n"
-        "            pose.translate(4.0F, 0.0F);\n"
-        "         });\n",
-        "         graphics.updatePose(pose -> {\n"
-        "            pose.scale(scale, scale);\n"
-        "            pose.translate(4.0F + (com.melonman106.vbvclient.VBVChatHeads.enabled\n"
-        "               ? com.melonman106.vbvclient.VBVChatHeads.GUTTER : 0), 0.0F);\n"
-        "         });\n",
-        "ChatComponent.java",
-        "chat text transform",
-    )
-
-    # Keep the chat panel anchored where vanilla draws it. The pose below is shifted by the
-    # gutter so the text starts after the head; move every panel/scrollbar coordinate back by
-    # the same amount, and wrap messages at the narrower text width.
-    chat = replace_once(
-        chat,
-        "         int count = this.forEachLine(alphaCalculator, (var5x, lineIndex, alphax) -> {\n",
-        "         final int chatGutter = com.melonman106.vbvclient.VBVChatHeads.enabled\n"
-        "            ? com.melonman106.vbvclient.VBVChatHeads.GUTTER : 0;\n"
-        "         int count = this.forEachLine(alphaCalculator, (var5x, lineIndex, alphax) -> {\n",
-        "ChatComponent.java",
-        "chat background loop",
-    )
-
-    chat = replace_once(
-        chat,
-        "            graphics.fill(-4, entryTop, maxWidth + 4 + 4, entryBottom, ARGB.black(alphax * backgroundOpacity));\n",
-        "            graphics.fill(-4 - chatGutter, entryTop, maxWidth + 4 + 4 - chatGutter, entryBottom, ARGB.black(alphax * backgroundOpacity));\n",
-        "ChatComponent.java",
-        "chat background fill",
-    )
-
-    chat = replace_once(
-        chat,
-        "            graphics.fill(-2, chatBottom, maxWidth + 4, chatBottom + messageHeight, ARGB.black(backgroundOpacity));\n",
-        "            graphics.fill(-2 - chatGutter, chatBottom, maxWidth + 4 - chatGutter, chatBottom + messageHeight, ARGB.black(backgroundOpacity));\n",
-        "ChatComponent.java",
-        "chat queue background",
-    )
-
-    chat = replace_once(
-        chat,
-        "            graphics.fill(-2, lineAboveMessagesY, maxWidth + 4 + 4, lineAboveMessagesY + entryHeight, ARGB.black(backgroundOpacity));\n",
-        "            graphics.fill(-2 - chatGutter, lineAboveMessagesY, maxWidth + 4 + 4 - chatGutter, lineAboveMessagesY + entryHeight, ARGB.black(backgroundOpacity));\n",
-        "ChatComponent.java",
-        "restricted chat background",
-    )
-
-    chat = replace_once(
-        chat,
-        "               int scrollBarStartX = maxWidth + 4;\n",
-        "               int scrollBarStartX = maxWidth + 4 - chatGutter;\n",
-        "ChatComponent.java",
-        "chat scrollbar",
-    )
-
-    chat = replace_once(
-        chat,
-        "               ? ComponentRenderUtils.clipText(RESTRICTED_CHAT_MESSAGE_WITH_HOVER, this.minecraft.font, maxWidth)\n",
-        "               ? ComponentRenderUtils.clipText(RESTRICTED_CHAT_MESSAGE_WITH_HOVER, this.minecraft.font, maxWidth - chatGutter)\n",
-        "ChatComponent.java",
-        "restricted chat clip",
-    )
-
+    # Only a message that gets a face is wrapped narrower; every other message keeps the
+    # vanilla width, because nothing else is indented.
     chat = replace_once(
         chat,
         "   private void addMessageToDisplayQueue(final GuiMessage message) {\n"
-        "      int maxWidth = Mth.floor(this.getWidth() / this.getScale());\n"
-        "      List<FormattedCharSequence> lines = message.splitLines(this.minecraft.font, maxWidth);\n",
+        "      int maxWidth = Mth.floor(this.getWidth() / this.getScale());\n",
         "   private void addMessageToDisplayQueue(final GuiMessage message) {\n"
         "      int maxWidth = Mth.floor(this.getWidth() / this.getScale());\n"
-        "      if (com.melonman106.vbvclient.VBVChatHeads.enabled) {\n"
+        "      if (com.melonman106.vbvclient.VBVChatHeads.enabled\n"
+        "         && com.melonman106.vbvclient.VBVChatHeads.hasSender(message)) {\n"
         "         maxWidth -= com.melonman106.vbvclient.VBVChatHeads.GUTTER;\n"
-        "      }\n"
-        "      List<FormattedCharSequence> lines = message.splitLines(this.minecraft.font, maxWidth);\n",
+        "      }\n",
         "ChatComponent.java",
         "chat message wrap width",
+    )
+
+    # The chat itself keeps vanilla's position. A message that has a sender is shifted right
+    # just for its own lines, which leaves room for the face in the panel's left margin.
+    chat = replace_once(
+        chat,
+        "               int textTop = entryBottom - entryBottomToMessageY;\n",
+        "               int textTop = entryBottom - entryBottomToMessageY;\n"
+        "               // VBV_CHAT_HEADS: only this message moves, and only because it has a face.\n"
+        "               boolean vbvHead = com.melonman106.vbvclient.VBVChatHeads.enabled\n"
+        "                  && com.melonman106.vbvclient.VBVChatHeads.hasSender(line.parent());\n"
+        "               if (vbvHead) {\n"
+        "                  graphics.updatePose(pose -> pose.translate(com.melonman106.vbvclient.VBVChatHeads.GUTTER, 0.0F));\n"
+        "               }\n",
+        "ChatComponent.java",
+        "chat line text position",
+    )
+
+    chat = replace_once(
+        chat,
+        "                     graphics.handleTagIcon(iconLeft, textBottom, forceIconRendering, tag, tag.icon());\n"
+        "                  }\n"
+        "               }\n"
+        "            }\n",
+        "                     graphics.handleTagIcon(iconLeft, textBottom, forceIconRendering, tag, tag.icon());\n"
+        "                  }\n"
+        "               }\n"
+        "               if (vbvHead) {\n"
+        "                  graphics.updatePose(pose -> pose.translate(-com.melonman106.vbvclient.VBVChatHeads.GUTTER, 0.0F));\n"
+        "               }\n"
+        "            }\n",
+        "ChatComponent.java",
+        "chat line end",
     )
 
     chat = replace_once(
@@ -163,9 +140,9 @@ else:
     )
 
     heads_method = (
-        "   // VBV_CHAT_HEADS: draws each sender's face in the gutter reserved beside the chat text.\n"
-        "   // The caller already applied the chat scale and gutter translation, so this method must\n"
-        "   // not apply either one again; doing that put the head over the first text column.\n"
+        "   // VBV_CHAT_HEADS: draws each sender's face in the margin the message indented for it.\n"
+        "   // The caller already applied the chat scale and the panel translation, so this method\n"
+        "   // must not apply either one again.\n"
         "   private void vbvRenderChatHeads(final GuiGraphicsExtractor graphics, final int ticks, final ChatComponent.DisplayMode displayMode) {\n"
         "      if (!com.melonman106.vbvclient.VBVChatHeads.enabled || this.trimmedMessages.isEmpty()) return;\n"
         "      float scale = (float)this.getScale();\n"
@@ -187,8 +164,7 @@ else:
         "         if (!topLine || !com.melonman106.vbvclient.VBVChatHeads.hasSender(parent)) return;\n"
         "         int color = ((int)(alpha * textOpacity * 255.0F) << 24) | 0xFFFFFF;\n"
         "         com.melonman106.vbvclient.VBVChatHeads.render(\n"
-        "            graphics, parent, -com.melonman106.vbvclient.VBVChatHeads.GUTTER + 1,\n"
-        "            textTop - 1, com.melonman106.vbvclient.VBVChatHeads.HEAD, color);\n"
+        "            graphics, parent, -1, textTop - 1, com.melonman106.vbvclient.VBVChatHeads.HEAD, color);\n"
         "      });\n"
         "   }\n"
         "\n"
@@ -201,7 +177,7 @@ else:
         "clearMessages method",
     )
     chat_path.write_text(chat, encoding="utf-8")
-    print("[VBV Chat Heads] ChatComponent gutter and face renderer installed")
+    print("[VBV Chat Heads] per-message face gutter installed")
 
 if "VBVChatHeads.setPendingSender" in listener:
     print("[VBV Chat Heads] ChatListener sender hook already present")
@@ -253,8 +229,8 @@ if SKIN_MARKER in model:
     print("[VBV 3D Skin Layers] player model already patched")
 else:
     # Every outer layer is one box built with ``scale.extend(0.25F)``. Hand those boxes to
-    # VBV3DSkinLayers, which splits them into six slabs so the skin texture keeps its drawn
-    # size and the layer gets real walls instead of being inflated into a bigger cube.
+    # VBV3DSkinLayers, which splits them into six slabs as the fallback shell. A skin whose
+    # pixels are known uses the voxel mesh instead, so this only shows for unknown skins.
     outer_layer = re.compile(
         r"CubeListBuilder\.create\(\)\.texOffs\((\d+), (\d+)\)\.addBox\("
         r"([^()]*?)\s*,\s*scale\.extend\(0\.25F\)\)"
@@ -303,6 +279,68 @@ else:
             print("[VBV 3D Skin Layers] hat rebuilt with the same thickness")
 
     model_path.write_text(model, encoding="utf-8")
-    print("[VBV 3D Skin Layers] jacket, sleeves, pants and hat are real boxes now")
+    print("[VBV 3D Skin Layers] jacket, sleeves, pants and hat have a fallback shell")
+
+# The voxel layer needs the alpha mask of every skin, the player that is being drawn, and a
+# place to draw the per-skin quads. Four hooks in engine files, each inert without a skin.
+VOXEL_EDITS = [
+    (
+        "net/minecraft/client/renderer/texture/ReloadableTexture.java",
+        "apply",
+        "      boolean clamp = contents.clamp();\n",
+        "      // VBV_SKIN_VOXELS: remember a skin's alpha mask before its image is closed\n"
+        "      com.melonman106.vbvclient.VBV3DSkinLayers.capture(this.resourceId, contents.image());\n"
+        "      boolean clamp = contents.clamp();\n",
+    ),
+    (
+        "net/minecraft/client/renderer/texture/SkinTextureDownloader.java",
+        "registerTextureInManager",
+        "         DynamicTexture texture = new DynamicTexture(textureId.texturePath()::toString, contents);\n",
+        "         // VBV_SKIN_VOXELS: remember the downloaded skin's alpha mask\n"
+        "         com.melonman106.vbvclient.VBV3DSkinLayers.capture(textureId.texturePath(), contents);\n"
+        "         DynamicTexture texture = new DynamicTexture(textureId.texturePath()::toString, contents);\n",
+    ),
+    (
+        "net/minecraft/client/renderer/feature/ModelFeatureRenderer.java",
+        "prepareModel",
+        "      model.renderToBuffer(this.poseStack, buffer, submit.lightCoords(), submit.overlayCoords(), submit.tintedColor());\n",
+        "      // VBV_SKIN_VOXELS: pick this player's voxel layer for the duration of the draw\n"
+        "      com.melonman106.vbvclient.VBV3DSkinLayers.beginModel(model, submit.state());\n"
+        "      model.renderToBuffer(this.poseStack, buffer, submit.lightCoords(), submit.overlayCoords(), submit.tintedColor());\n"
+        "      com.melonman106.vbvclient.VBV3DSkinLayers.endModel();\n",
+    ),
+    (
+        "net/minecraft/client/model/geom/ModelPart.java",
+        "compile",
+        "   private void compile(final PoseStack.Pose pose, final VertexConsumer builder, final int lightCoords, final int overlayCoords, final int color) {\n",
+        "   private void compile(final PoseStack.Pose pose, final VertexConsumer builder, final int lightCoords, final int overlayCoords, final int color) {\n"
+        "      // VBV_SKIN_VOXELS: a known skin draws its voxels instead of the baked fallback shell\n"
+        "      if (com.melonman106.vbvclient.VBV3DSkinLayers.renderVoxelLayer(this, pose, builder, lightCoords, overlayCoords, color)) {\n"
+        "         return;\n"
+        "      }\n",
+    ),
+]
+
+pending_voxel = []
+for relative, label, anchor, replacement in VOXEL_EDITS:
+    path, text = read_source(relative)
+    if VOXEL_MARKER in text:
+        pending_voxel.append(None)
+        continue
+    count = text.count(anchor)
+    if count != 1:
+        raise SystemExit(
+            f"::error::3D Skin Layers hook '{label}' anchor matched {count} time(s) in {relative}; expected exactly 1"
+        )
+    pending_voxel.append((path, text.replace(anchor, replacement, 1)))
+
+if all(item is None for item in pending_voxel):
+    print("[VBV 3D Skin Layers] voxel hooks already present")
+elif any(item is None for item in pending_voxel):
+    raise SystemExit("::error::3D Skin Layers voxel hooks are only partly installed; refusing to patch")
+else:
+    for path, text in pending_voxel:
+        path.write_text(text, encoding="utf-8")
+    print("[VBV 3D Skin Layers] {} voxel hooks installed".format(len(VOXEL_EDITS)))
 
 print("[VBV Chat Heads / 3D Skin Layers] hooks complete")

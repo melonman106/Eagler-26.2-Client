@@ -15,14 +15,16 @@ import net.minecraft.world.entity.player.PlayerSkin;
  * Chat Heads: draws the sender's face beside each player chat line.
  *
  * <p>ChatListener hands over the sender profile just before a player message is shown,
- * and ChatComponent tags the GuiMessage it creates. The render hook reserves an 11 px
- * gutter in front of the chat text, so a head never covers a message. System output and
- * command feedback have no sender and simply leave the gutter empty.</p>
+ * and ChatComponent tags the GuiMessage it creates. The render hook then shifts only that
+ * message's own lines right by {@link #GUTTER} and draws the face in the space it makes, so
+ * the chat panel, its background, the scrollbar and every other message stay exactly where
+ * vanilla draws them. System output and command feedback have no sender and are never
+ * moved.</p>
  */
 public final class VBVChatHeads {
     /** Face size in GUI pixels. */
     public static final int HEAD = 8;
-    /** Space reserved in front of the chat text: one pixel margin, the head, two pixels gap. */
+    /** Space a message with a face is indented by: three pixels margin, the head, four pixels gap. */
     public static final int GUTTER = 11;
 
     public static boolean enabled = true;
