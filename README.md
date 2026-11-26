@@ -321,6 +321,9 @@ and which server they are on. It is backed by a small Cloudflare Worker with a D
   restored in another browser with **Sign in with name + key**.
 - **Presence** is a heartbeat every 30 seconds with the server address (or "Singleplayer"). **Appear: offline**
   hides you and your server from friends. Nothing else about you, and no IP address, is stored.
+- **The screen** keeps the current call in a strip above the list so it stays reachable while scrolling, filters
+  friends with ALL / ONLINE / IN CALL, and gives each friend two lines (name, then server or call). Removing a
+  friend and signing out ask for a second click first; starting, muting and leaving a call are one click.
 - Limits: 100 friends, 50 waiting requests, and rate limits on registering and sending requests.
 
 ### Deploying the Friends service (one time)
