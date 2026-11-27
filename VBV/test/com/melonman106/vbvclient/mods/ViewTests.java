@@ -81,7 +81,7 @@ final class ViewTests {
         TestKit.MemoryFiles files = new TestKit.MemoryFiles();
         ModStore store = store(files);
         Map<String, byte[]> fabric = goodMod("ruby_tools");
-        fabric.put("info.json", bytes("{\"id\":\"ruby_tools\",\"name\":\"Ruby Tools\",\"version\":\"1.0.0\",\"description\":\"A sword.\",\"authors\":[\"Alexander\"],"
+        fabric.put("info.json", bytes("{\"id\":\"ruby_tools\",\"name\":\"Ruby Tools\",\"version\":\"1.0.0\",\"description\":\"A sword.\",\"authors\":[\"Example Author\"],"
             + "\"requires\":{\"fabricloader\":\">=0.15.0\",\"fabric-api\":\"*\",\"minecraft\":\"~26.2\"},\"survival\":true,\"multiplayer\":false}"));
         fabric.put("blocks.json", bytes("{\"blocks\":[]}"));
         check(store.install(zip(fabric)).ok(), "installs a mod with Fabric needs");
@@ -92,7 +92,7 @@ final class ViewTests {
 
         check(any(text, "Will load the next time"), "status sentence: " + text);
         check(any(text, "A sword."), "description shown");
-        check(any(text, "By Alexander"), "author shown");
+        check(any(text, "By Example Author"), "author shown");
         check(any(text, "1 item: Ruby Sword"), "item count and names: " + text);
         check(any(text, "Survival: yes") && any(text, "Multiplayer: no"), "environment flags");
         check(any(text, "faked (reported as present, does nothing)") && any(text, "reports " + FabricFaker.LOADER_VERSION), "Fabric Loader is shown as faked with the version it reports: " + text);
