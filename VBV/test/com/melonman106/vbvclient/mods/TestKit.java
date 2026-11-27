@@ -93,7 +93,7 @@ final class TestKit {
     static Map<String, byte[]> goodMod(String id) {
         Map<String, byte[]> files = new LinkedHashMap<>();
         files.put("info.json", bytes("{\"schema\":1,\"id\":\"" + id + "\",\"name\":\"Ruby Tools\",\"version\":\"1.0.0\",\"description\":\"A sword.\","
-            + "\"authors\":[\"Alexander\"],\"provides\":[\"item\"],\"survival\":true,\"multiplayer\":false}"));
+            + "\"authors\":[\"Example Author\"],\"provides\":[\"item\"],\"survival\":true,\"multiplayer\":false}"));
         files.put("pack.png", png(64, 64));
         files.put("items.json", bytes("{\"items\":[{\"id\":\"ruby_sword\",\"name\":\"Ruby Sword\",\"attack_damage\":8,\"attack_speed\":1.6,"
             + "\"durability\":1800,\"rarity\":\"rare\",\"repair_with\":\"minecraft:diamond\"}]}"));

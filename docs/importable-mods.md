@@ -51,7 +51,7 @@ A folder wrapping everything inside the zip is unwrapped. `.class` and `.jar` fi
   "name": "Ruby Tools",
   "version": "1.0.0",
   "description": "A ruby, a ruby sword and a ruby apple.",
-  "authors": ["Alexander"],
+  "authors": ["Example Author"],
   "provides": ["item"],
   "survival": true,
   "multiplayer": false,
