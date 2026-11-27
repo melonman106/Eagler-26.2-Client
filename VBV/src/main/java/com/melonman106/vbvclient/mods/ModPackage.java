@@ -23,8 +23,8 @@ import java.util.zip.ZipInputStream;
  * A mod {@code .zip}, read and checked in memory. Nothing in a zip is ever executed or written outside the mod's
  * own store: paths are cleaned, sizes are capped, and only known kinds of file are kept.
  *
- * <p>Kept files: {@code info.json} / {@code fabric.mod.json}, the icon, {@code items.json} (and the other content
- * lists so they can be reported), and everything under {@code assets/} whose path is a valid resource path. A zip
+ * <p>Kept files: {@code info.json} / {@code fabric.mod.json}, the icon, {@code items.json}, {@code content.json},
+ * {@code events.json} (and the other content lists so they can be reported), and everything under {@code assets/} whose path is a valid resource path. A zip
  * made by zipping a folder (so everything sits inside one top-level folder) is accepted too.</p>
  */
 public final class ModPackage {
@@ -45,6 +45,8 @@ public final class ModPackage {
     public final List<ModItems.ItemDef> items;
     /** The optional effect/potion/block/crop/HUD/recipe content, or null when the mod has none. */
     public final ModContent content;
+    /** The mod's event bindings from events.json (empty when it has none). */
+    public final List<ModEvents.Binding> events;
     /** Every kept file by its cleaned path inside the zip (for example {@code assets/ruby/textures/item/ruby.png}). */
     public final Map<String, byte[]> files;
     public final byte[] icon;
@@ -59,11 +61,12 @@ public final class ModPackage {
     public final byte[] source;
     public final long crc;
 
-    private ModPackage(ModManifest manifest, List<ModItems.ItemDef> items, ModContent content, Map<String, byte[]> files, byte[] icon,
-                       List<String> problems, List<String> warnings, List<String> kinds, List<String> ignoredLists, int totalBytes, byte[] source) {
+    private ModPackage(ModManifest manifest, List<ModItems.ItemDef> items, ModContent content, List<ModEvents.Binding> events,
+                       Map<String, byte[]> files, byte[] icon, List<String> problems, List<String> warnings, List<String> kinds, List<String> ignoredLists, int totalBytes, byte[] source) {
         this.manifest = manifest;
         this.items = Collections.unmodifiableList(items);
         this.content = content;
+        this.events = Collections.unmodifiableList(events);
         this.files = Collections.unmodifiableMap(files);
         this.icon = icon;
         this.problems = Collections.unmodifiableList(problems);
@@ -87,7 +90,7 @@ public final class ModPackage {
     }
 
     private static ModPackage failed(List<String> problems, List<String> warnings, int total, byte[] source) {
-        return new ModPackage(null, new ArrayList<>(), null, new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), new ArrayList<>(), total, source);
+        return new ModPackage(null, new ArrayList<>(), null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), new ArrayList<>(), total, source);
     }
 
     /** CRC-32 of a byte array (0 for null). */
@@ -225,6 +228,15 @@ public final class ModPackage {
             checkContentTextures(manifest.id, content, files, problems);
         }
 
+        // Event bindings.
+        List<ModEvents.Binding> events = new ArrayList<>();
+        if (files.containsKey("events.json")) {
+            ModEvents.Result parsed = ModEvents.parse(manifest.id, text(files.get("events.json")));
+            events.addAll(parsed.bindings());
+            problems.addAll(parsed.problems());
+            warnings.addAll(parsed.warnings());
+        }
+
         // Language files must be valid, or they are dropped rather than breaking the game's language loading.
         List<String> badLang = new ArrayList<>();
         for (Map.Entry<String, byte[]> entry : files.entrySet()) {
@@ -241,6 +253,7 @@ public final class ModPackage {
         if (content != null) {
             for (String kind : content.kinds()) if (!kinds.contains(kind)) kinds.add(kind);
         }
+        if (!events.isEmpty()) kinds.add("event");
         List<String> ignored = new ArrayList<>();
         for (String list : FUTURE_LISTS) {
             if (files.containsKey(list)) {
@@ -257,6 +270,12 @@ public final class ModPackage {
             }
             for (String kind : manifest.declaredKinds) {
                 if (kind.equals("item")) continue;
+                if (kind.equals("event")) {
+                    if (events.isEmpty()) warnings.add(files.containsKey("events.json")
+                        ? "info.json lists \"event\" but events.json has no usable events."
+                        : "info.json lists \"event\" but events.json was not found.");
+                    continue;
+                }
                 if (content != null && content.kinds().contains(kind)) continue;
                 String list = listFor(kind);
                 if (list.equals("content.json")) {
@@ -267,8 +286,8 @@ public final class ModPackage {
             }
         }
 
-        if (!problems.isEmpty()) return new ModPackage(null, new ArrayList<>(), null, new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), ignored, total, zip);
-        return new ModPackage(manifest, items, content, files, icon, problems, warnings, kinds, ignored, total, zip);
+        if (!problems.isEmpty()) return new ModPackage(null, new ArrayList<>(), null, new ArrayList<>(), new LinkedHashMap<>(), null, problems, warnings, new ArrayList<>(), ignored, total, zip);
+        return new ModPackage(manifest, items, content, events, files, icon, problems, warnings, kinds, ignored, total, zip);
     }
 
     // ---- textures ----
@@ -377,6 +396,7 @@ public final class ModPackage {
             case "block": return "blocks.json";
             case "entity": return "entities.json";
             case "effect": return "effects.json";
+            case "event": return "events.json";
             case "hud": return "hud.json";
             case "potion": return "content.json";
             case "crop": return "content.json";
@@ -392,7 +412,7 @@ public final class ModPackage {
     private static boolean keep(String path) {
         if (path.startsWith("assets/")) return true;
         return path.equals("info.json") || path.equals("fabric.mod.json") || path.equals("items.json") || path.equals("content.json")
-            || FUTURE_LISTS.contains(path) || (!path.contains("/") && path.endsWith(".png"));
+            || path.equals("events.json") || FUTURE_LISTS.contains(path) || (!path.contains("/") && path.endsWith(".png"));
     }
 
     /** "my_mod/" when every file sits inside one folder that holds the manifest, else "". */

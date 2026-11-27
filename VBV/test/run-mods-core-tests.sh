@@ -18,7 +18,7 @@ if [ -z "$gson" ] || [ ! -f "$gson" ]; then
   exit 2
 fi
 
-PURE=(ModVersion FabricFaker ModManifest ModContent ModItems ModPackage ModAssets ModFiles ModStore ModView)
+PURE=(ModVersion FabricFaker CommandGuard ModEvents EventDispatcher ModManifest ModContent ModItems ModPackage ModAssets ModFiles ModStore ModView)
 files=()
 for name in "${PURE[@]}"; do files+=("$src/$name.java"); done
 for extra in "$here"/com/melonman106/vbvclient/mods/*.java; do files+=("$extra"); done
