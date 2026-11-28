@@ -2,6 +2,7 @@ package com.melonman106.vbvclient;
 
 import com.melonman106.vbvclient.mods.ModAssets;
 import com.melonman106.vbvclient.mods.ModBootstrap;
+import com.melonman106.vbvclient.mods.ModEvents;
 import com.melonman106.vbvclient.mods.ModPackage;
 import com.melonman106.vbvclient.mods.ModPlatform;
 import com.melonman106.vbvclient.mods.ModStore;
@@ -54,6 +55,7 @@ public final class VBVImportedModsScreen extends Screen {
     private boolean waitingForFile;
     private boolean readingNoticeShown;
     private String confirmRemoveId;
+    private String confirmAllowId;
     private boolean confirmReload;
     private int leftWidth;
     private int rightX;
@@ -61,6 +63,7 @@ public final class VBVImportedModsScreen extends Screen {
     private Button importButton;
     private Button toggleButton;
     private Button removeButton;
+    private Button commandsButton;
     private Button safeButton;
     private Button reloadButton;
 
@@ -147,7 +150,8 @@ public final class VBVImportedModsScreen extends Screen {
         if (store == null) {
             lines.add(new ModView.Line("Mod storage is not available in this browser session, so mods cannot be imported or loaded.", ModView.Tone.ERROR));
         } else if (mod != null && plan != null) {
-            lines.addAll(ModView.details(mod, plan, loaded));
+            lines.addAll(ModView.details(mod, plan, loaded,
+                mod.pkg() != null && store.commandsAllowed(mod.pkg()), ModBootstrap.commandsApplied(mod.id())));
             ModBootstrap.Report report = ModBootstrap.reports().get(mod.id());
             if (report != null && !report.failures.isEmpty()) {
                 lines.add(new ModView.Line("Problems while loading", ModView.Tone.HEADING));
@@ -220,9 +224,9 @@ public final class VBVImportedModsScreen extends Screen {
         rightX = leftWidth + 8;
 
         int gap = 4;
-        // Five buttons must share the width; without the old 60 px floor the row never runs off a narrow GUI.
-        int buttonWidth = Math.max(42, Math.min(112, (width - 8 - gap * 4) / 5));
-        int x = Math.max(4, (width - (buttonWidth * 5 + gap * 4)) / 2);
+        // Six buttons must share the width; without a fixed floor the row never runs off a narrow GUI.
+        int buttonWidth = Math.max(42, Math.min(112, (width - 8 - gap * 5) / 6));
+        int x = Math.max(4, (width - (buttonWidth * 6 + gap * 5)) / 2);
         int y = height - 28;
         importButton = addRenderableWidget(Button.builder(Component.literal("Import .zip"), button -> startImport())
             .bounds(x, y, buttonWidth, 20).build());
@@ -230,10 +234,12 @@ public final class VBVImportedModsScreen extends Screen {
             .bounds(x + (buttonWidth + gap), y, buttonWidth, 20).build());
         removeButton = addRenderableWidget(Button.builder(Component.literal("Remove"), button -> removeSelected())
             .bounds(x + (buttonWidth + gap) * 2, y, buttonWidth, 20).build());
-        safeButton = addRenderableWidget(Button.builder(Component.literal("Safe mode"), button -> toggleSafeMode())
+        commandsButton = addRenderableWidget(Button.builder(Component.literal("Allow cmds"), button -> toggleCommands())
             .bounds(x + (buttonWidth + gap) * 3, y, buttonWidth, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Back"), button -> VBVNav.open(parent))
+        safeButton = addRenderableWidget(Button.builder(Component.literal("Safe mode"), button -> toggleSafeMode())
             .bounds(x + (buttonWidth + gap) * 4, y, buttonWidth, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Back"), button -> VBVNav.open(parent))
+            .bounds(x + (buttonWidth + gap) * 5, y, buttonWidth, 20).build());
         reloadButton = addRenderableWidget(Button.builder(Component.literal("Reload page"), button -> reload())
             .bounds(width - 112, 4, 106, 20).build());
         refresh();
@@ -247,6 +253,10 @@ public final class VBVImportedModsScreen extends Screen {
         toggleButton.setMessage(Component.literal(mod != null && !ModView.canTurnOff(mod) && mod.pkg() != null ? "Turn on" : "Turn off"));
         removeButton.active = store != null && mod != null;
         removeButton.setMessage(Component.literal(mod != null && mod.id().equals(confirmRemoveId) ? "Confirm?" : "Remove"));
+        boolean hasCommands = store != null && mod != null && mod.pkg() != null && ModEvents.commandCount(mod.pkg().events) > 0;
+        commandsButton.active = hasCommands;
+        commandsButton.setMessage(Component.literal(!hasCommands ? "Allow cmds"
+            : store.commandsAllowed(mod.pkg()) ? "Block cmds" : mod.id().equals(confirmAllowId) ? "Confirm?" : "Allow cmds"));
         boolean safe = store != null && store.safeMode();
         safeButton.active = store != null;
         safeButton.setMessage(Component.literal(safe ? "Safe: ON" : "Safe: OFF"));
@@ -260,6 +270,7 @@ public final class VBVImportedModsScreen extends Screen {
 
     private void startImport() {
         confirmRemoveId = null;
+        confirmAllowId = null;
         confirmReload = false;
         waitingForFile = true;
         readingNoticeShown = false;
@@ -301,6 +312,7 @@ public final class VBVImportedModsScreen extends Screen {
         ModStore.Installed mod = selected();
         if (store == null || mod == null || mod.pkg() == null) return;
         confirmRemoveId = null;
+        confirmAllowId = null;
         if (!store.setEnabled(mod.id(), !mod.enabled())) {
             setNotice("The change could not be saved (browser storage may be full or blocked).", ModView.Tone.ERROR);
             return;
@@ -320,15 +332,47 @@ public final class VBVImportedModsScreen extends Screen {
             return;
         }
         confirmRemoveId = null;
+        confirmAllowId = null;
         store.remove(mod.id());
         selectedId = null;
         refresh();
         setNotice("Removed " + mod.id() + ".", ModView.Tone.GOOD);
     }
 
+    /** Allow needs two clicks: the first lists exactly which commands would be allowed, the second confirms. Blocking is one click. */
+    private void toggleCommands() {
+        ModStore.Installed mod = selected();
+        if (store == null || mod == null || mod.pkg() == null || ModEvents.commandCount(mod.pkg().events) == 0) return;
+        confirmRemoveId = null;
+        if (store.commandsAllowed(mod.pkg())) {
+            confirmAllowId = null;
+            if (!store.revokeCommands(mod.id())) {
+                setNotice("The change could not be saved (browser storage may be full or blocked).", ModView.Tone.ERROR);
+                return;
+            }
+            refresh();
+            setNotice("Commands are blocked for " + mod.id() + " from the next time the game starts.", ModView.Tone.NORMAL);
+            return;
+        }
+        if (!mod.id().equals(confirmAllowId)) {
+            confirmAllowId = mod.id();
+            setNotice(ModView.allowPrompt(mod.pkg()));
+            updateButtons();
+            return;
+        }
+        confirmAllowId = null;
+        if (!store.allowCommands(mod.pkg())) {
+            setNotice("The change could not be saved (browser storage may be full or blocked).", ModView.Tone.ERROR);
+            return;
+        }
+        refresh();
+        setNotice("Commands are allowed for " + mod.id() + " from the next time the game starts.", ModView.Tone.GOOD);
+    }
+
     private void toggleSafeMode() {
         if (store == null) return;
         confirmRemoveId = null;
+        confirmAllowId = null;
         boolean now = store.safeMode();
         store.setSafeMode(!now);
         refresh();
@@ -367,6 +411,7 @@ public final class VBVImportedModsScreen extends Screen {
         if (id.equals(selectedId)) return;
         selectedId = id;
         confirmRemoveId = null;
+        confirmAllowId = null;
         notice.clear();
         detailScroll = 0;
         rebuildDetails();

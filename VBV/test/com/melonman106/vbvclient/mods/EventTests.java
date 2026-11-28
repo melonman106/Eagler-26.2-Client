@@ -20,6 +20,7 @@ final class EventTests {
         dispatching();
         limits();
         inPackage();
+        approvals();
     }
 
     // ---- the command guard ----
@@ -427,6 +428,129 @@ final class EventTests {
         d = new EventDispatcher(List.of(new EventDispatcher.ModRules("m", true, 2, List.of(bad))));
         d.fire(ModEvents.Event.ITEM_USE, "m:wand", "p1", 0, 0, 0, 0, env, sink);
         check(sink.log.isEmpty() && sink.warnings.size() == 1 && sink.warnings.get(0).contains("refused"), "run-time check refuses a denied command: " + sink.warnings);
+    }
+
+    // ---- the Allow-commands switch ----
+
+    private static byte[] modWithCommands(String... commands) {
+        Map<String, byte[]> files = TestKit.goodMod("ruby_tools");
+        StringBuilder actions = new StringBuilder("[");
+        for (int i = 0; i < commands.length; i++) actions.append(i == 0 ? "" : ",").append("{\"command\":\"").append(commands[i]).append("\"}");
+        actions.append(",{\"message\":\"hi\"}]");
+        files.put("events.json", bytes(one("item_use", "ruby_sword", "", actions.toString())));
+        return TestKit.zip(files);
+    }
+
+    static void approvals() {
+        TestKit.MemoryFiles memory = new TestKit.MemoryFiles();
+        ModStore store = new ModStore(memory, id -> null);
+        check(store.install(modWithCommands("say a", "say b")).ok(), "a mod with commands installs");
+        ModPackage pkg = store.installed().get(0).pkg();
+        check(!store.commandsAllowed(pkg) && store.approvedCommands("ruby_tools").isEmpty(), "nothing is allowed by default");
+
+        // Allowing stores exactly what the mod has.
+        check(store.allowCommands(pkg), "allowing is saved");
+        check(store.commandsAllowed(pkg) && store.approvedCommands("ruby_tools").equals(java.util.Set.of("say a", "say b")), "allowed, with the exact texts");
+
+        // The applied list carries the switch to the worker.
+        ModStore.Applied applied = store.apply(store.plan());
+        check(applied.commandsAllowed().equals(java.util.Set.of("ruby_tools")), "apply records the allowed mod");
+        check(new String(memory.map.get(ModStore.APPLIED_JSON), java.nio.charset.StandardCharsets.UTF_8).contains("\"commands\":true"), "applied.json says commands:true");
+        check(store.readApplied().commandsAllowed().equals(java.util.Set.of("ruby_tools")), "the worker reads the same switch");
+        check(!store.restartNeeded(store.plan()), "nothing changed since start-up: no restart needed");
+
+        // Changing the switch after start-up needs a restart; the running session keeps what it started with.
+        check(store.revokeCommands("ruby_tools") && !store.commandsAllowed(pkg), "revoked");
+        check(store.restartNeeded(store.plan()), "revoking after start-up needs a restart");
+        check(store.readApplied().commandsAllowed().equals(java.util.Set.of("ruby_tools")), "the applied list still says what the game started with");
+        store.apply(store.plan());
+        check(store.readApplied().commandsAllowed().isEmpty() && !store.restartNeeded(store.plan()), "after the next start it is off");
+        check(store.allowCommands(pkg) && store.restartNeeded(store.plan()), "allowing after start-up needs a restart");
+        store.apply(store.plan());
+
+        // A replaced mod: dropping a command keeps the approval, adding one needs a new approval.
+        check(store.install(modWithCommands("say a")).ok(), "a replacement with fewer commands installs");
+        ModPackage fewer = store.installed().get(0).pkg();
+        check(store.commandsAllowed(fewer), "fewer commands stay approved");
+        check(store.install(modWithCommands("say a", "say new")).ok(), "a replacement with a new command installs");
+        ModPackage more = store.installed().get(0).pkg();
+        check(!store.commandsAllowed(more), "a command that was never approved switches the mod back to not allowed");
+        check(store.install(modWithCommands("say a", "say b")).ok() && store.commandsAllowed(store.installed().get(0).pkg()), "the original commands are approved again");
+
+        // A mod with no commands has nothing to allow, whatever the flag says.
+        Map<String, byte[]> plain = TestKit.goodMod("ruby_tools");
+        plain.put("events.json", bytes(one("item_use", "ruby_sword", "", "[{\"message\":\"hi\"}]")));
+        check(store.install(TestKit.zip(plain)).ok(), "a mod with events but no commands installs");
+        ModPackage none = store.installed().get(0).pkg();
+        check(!store.commandsAllowed(none), "no commands: not 'allowed'");
+        store.apply(store.plan());
+        String tampered = new String(memory.map.get(ModStore.APPLIED_JSON), java.nio.charset.StandardCharsets.UTF_8).replace("\"crc\"", "\"commands\":true,\"crc\"");
+        memory.map.put(ModStore.APPLIED_JSON, bytes(tampered));
+        check(store.readApplied().commandsAllowed().isEmpty(), "a flag on a mod that has no commands is ignored");
+
+        // Removing a mod forgets its approval.
+        check(store.install(modWithCommands("say a", "say b")).ok(), "back to the mod with commands");
+        check(store.allowCommands(store.installed().get(0).pkg()) && store.remove("ruby_tools") && store.approvedCommands("ruby_tools").isEmpty(),
+            "removing the mod removes its approval");
+
+        // The 3-argument Applied still works for old callers.
+        check(new ModStore.Applied(List.of(), List.of(), false).commandsAllowed().isEmpty(), "Applied without the switch set is empty");
+
+        // What the details page says.
+        ModPackage withCommands = TestKit.read(unzipped(modWithCommands("say a", "say b")));
+        check(ModView.commandState(withCommands, false, null) == ModView.CommandState.NOT_ALLOWED, "not approved, not loaded: not allowed");
+        check(ModView.commandState(withCommands, true, null) == ModView.CommandState.ALLOWED, "approved, not loaded: allowed");
+        check(ModView.commandState(withCommands, true, false) == ModView.CommandState.ALLOWED_AFTER_RESTART, "approved after start-up: after restart");
+        check(ModView.commandState(withCommands, false, true) == ModView.CommandState.NOT_ALLOWED_AFTER_RESTART, "revoked after start-up: after restart");
+        check(ModView.commandState(withCommands, true, true) == ModView.CommandState.ALLOWED, "approved at start-up: allowed");
+        check(ModView.commandState(none, true, true) == ModView.CommandState.NONE && ModView.commandState(null, true, true) == ModView.CommandState.NONE,
+            "no commands: no state");
+
+        TestKit.MemoryFiles viewFiles = new TestKit.MemoryFiles();
+        ModStore viewStore = new ModStore(viewFiles, id -> null);
+        viewStore.install(modWithCommands("say a", "say b"));
+        ModStore.Installed installed = viewStore.installed().get(0);
+        List<String> lines = new ArrayList<>();
+        for (ModView.Line line : ModView.details(installed, viewStore.plan(), Map.of(), false, null)) lines.add(line.text());
+        check(any(lines, "1 rule reacts to: item_use"), "details name the events: " + lines);
+        check(any(lines, "Runs commands: 2 command actions at permission level 2"), "details count the commands and the level: " + lines);
+        check(any(lines, "Commands are not allowed"), "details say commands are off");
+        lines.clear();
+        for (ModView.Line line : ModView.details(installed, viewStore.plan(), Map.of(), true, null)) lines.add(line.text());
+        check(any(lines, "Commands are allowed."), "details say commands are on");
+        lines.clear();
+        for (ModView.Line line : ModView.details(installed, viewStore.plan(), Map.of())) lines.add(line.text());
+        check(any(lines, "Commands are not allowed"), "the old three-argument details means not allowed");
+
+        List<String> prompt = new ArrayList<>();
+        for (ModView.Line line : ModView.allowPrompt(installed.pkg())) prompt.add(line.text());
+        check(any(prompt, "Allow ruby_tools to run commands?") && any(prompt, "/say a") && any(prompt, "/say b"), "the prompt lists every command: " + prompt);
+        check(any(prompt, "Only allow mods you trust") && any(prompt, "Click Allow cmds again to confirm"), "the prompt warns and says how to confirm");
+        String[] many = new String[13];
+        for (int i = 0; i < many.length; i++) many[i] = "say " + i;
+        // Eight actions fit in one binding, so a long list is spread over several.
+        Map<String, byte[]> lotsFiles = TestKit.goodMod("ruby_tools");
+        StringBuilder bindings = new StringBuilder("{\"events\":[");
+        for (int i = 0; i < many.length; i++) {
+            bindings.append(i == 0 ? "" : ",").append("{\"on\":\"item_use\",\"target\":\"ruby_sword\",\"do\":[{\"command\":\"").append(many[i]).append("\"}]}");
+        }
+        lotsFiles.put("events.json", bytes(bindings + "]}"));
+        ModPackage lots = TestKit.read(lotsFiles);
+        prompt.clear();
+        for (ModView.Line line : ModView.allowPrompt(lots)) prompt.add(line.text());
+        check(any(prompt, "13 different commands") && any(prompt, "... and 3 more."), "a long list is cut with a count: " + prompt);
+    }
+
+    /** The files of a zip, for helpers that take a file map. */
+    private static Map<String, byte[]> unzipped(byte[] zip) {
+        Map<String, byte[]> out = new java.util.LinkedHashMap<>();
+        try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = in.getNextEntry()) != null) out.put(entry.getName(), in.readAllBytes());
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException(ex);
+        }
+        return out;
     }
 
     // ---- inside a mod zip ----
