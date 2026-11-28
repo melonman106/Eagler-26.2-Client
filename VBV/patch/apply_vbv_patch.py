@@ -502,8 +502,7 @@ if cem_hooks.is_file():
     subprocess.run([sys.executable, str(cem_hooks), *sys.argv[1:]], check=True)
 
 # Chat Heads: the sender profile from ChatListener is attached to the message and ChatComponent
-# indents only that message's own lines to make room for the face. 3D Skin Layers: every drawn
-# pixel of the outer layer is extruded into a voxel cube, with a plain shell as the fallback.
+# indents only that message's own lines to make room for the face.
 chat_skin_layers = PATCH_DIR / "patch_chat_heads_skin_layers.py"
 if chat_skin_layers.is_file():
     subprocess.run([sys.executable, str(chat_skin_layers), *sys.argv[1:]], check=True)

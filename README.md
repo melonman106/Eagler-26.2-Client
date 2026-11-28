@@ -59,7 +59,6 @@ The client can play the first-person hand animations of **Punchy** resource pack
 - Inventory Sorter for the 27 backpack slots, or the open chest, barrel, ender chest or shulker box; partial stacks of the same item are merged into full stacks (normal pick-up clicks, hotbar untouched).
 - Screenshot Manager: F2 captures are written into the storage folder's `Screenshots/` directory.
 - Chat Heads: each player message shows the sender's head in the panel's left margin. Only the messages that get a face move right, and only by their own lines; the chat panel, its background, the scrollbar and messages without a sender stay exactly where vanilla draws them. The same faces are listed in the Tab player list, which vanilla only fills while an online-mode server is connected.
-- 3D Skin Layers: every drawn pixel of the jacket, sleeves, pants and hat is extruded into a real 1–3 px voxel cube, instead of only inflating the whole layer outward. Cut-outs, seams and sleeve ends get their own side walls, and transparent pixels have no cube at all. A skin that has not been read yet falls back to a plain shell.
 - BetterF3-style debug information.
 - Mouse Tweaks.
 - Minimap and explored-chunk world map.
@@ -95,9 +94,8 @@ The client uses Java source injection to integrate the modifications directly in
 | Inventory Sorter | Orders the 27 backpack slots or the open storage block and merges partial stacks (R by default) |
 | Screenshot Manager | Saves screenshots into the storage folder and lists them |
 | Chat Heads | Draws the sender's skin head beside each player chat line (only that message is indented) and in the Tab player list |
-| 3D Skin Layers | Extrudes every drawn pixel of the jacket, sleeves, pants and hat into a voxel cube |
 
-Additional resource-pack-based client modifications are imported from the `ModsPack/` directory.
+Additional resource-pack-based client modifications are imported from the `ModsPack/` directory. The bundled 3D Skin Layers pack is listed in the Mods screen without a config screen; its player models are read through the custom entity model pipeline.
 
 These features are registered through the native `VBVClient` system and displayed through the VBV Mods interface.
 

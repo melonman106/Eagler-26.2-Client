@@ -66,10 +66,6 @@ public final class VBVFeatureConfigScreen extends Screen {
             link("Rebind the sort key", () -> VBVNav.open(new VBVKeybindConfigScreen(this)));
         } else if ("chatheads".equals(modId)) {
             option(() -> "Chat heads: " + onOff(VBVChatHeads.enabled), () -> VBVChatHeads.enabled = !VBVChatHeads.enabled);
-        } else if ("3d-skin-layers".equals(modId)) {
-            option(() -> "3D skin layers: " + onOff(VBV3DSkinLayers.enabled), () -> VBV3DSkinLayers.enabled = !VBV3DSkinLayers.enabled);
-            option(() -> "Layer thickness: " + VBV3DSkinLayers.thicknessLabel(), VBV3DSkinLayers::cycleThickness);
-            link("Apply now (reload resources)", () -> net.minecraft.client.Minecraft.getInstance().reloadResourcePacks());
         }
         layoutEntries();
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> VBVNav.open(parent)).bounds(width / 2 - 50, height - 30, 100, 20).build());
