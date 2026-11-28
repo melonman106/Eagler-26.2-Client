@@ -27,14 +27,14 @@ final class ExampleTests {
         try {
             TestKit.MemoryFiles files = new TestKit.MemoryFiles();
             ModStore store = new ModStore(files, id -> id.equals("vbvclient") ? "2.0.0" : null);
-            for (String name : List.of("ruby_tools", "fabric_style_demo")) {
+            for (String name : List.of("ruby_tools", "fabric_style_demo", "ember_demo")) {
                 Path zip = Paths.get(folder, name + ".zip");
                 check(Files.isRegularFile(zip), "example zip exists: " + zip);
                 ModStore.InstallResult result = store.install(Files.readAllBytes(zip));
                 check(result.ok(), name + " imports: " + result.problems());
             }
             ModStore.Plan plan = store.plan();
-            check(plan.isActive("ruby_tools") && plan.isActive("fabric_style_demo"), "both examples would load: " + plan.blocked());
+            check(plan.isActive("ruby_tools") && plan.isActive("fabric_style_demo") && plan.isActive("ember_demo"), "all three examples would load: " + plan.blocked());
 
             ModPackage ruby = plan.active().stream().filter(p -> p.manifest.id.equals("ruby_tools")).findFirst().orElseThrow();
             check(ruby.items.size() == 3, "ruby_tools has three items");
@@ -60,6 +60,26 @@ final class ExampleTests {
 
             List<ModView.Line> lines = ModView.details(store.installed().stream().filter(m -> m.id().equals("fabric_style_demo")).findFirst().orElseThrow(), plan, Map.of());
             check(lines.stream().anyMatch(l -> l.text().contains("Fabric Loader") && l.text().contains("faked")), "details say the loader is faked");
+
+            ModPackage ember = plan.active().stream().filter(p -> p.manifest.id.equals("ember_demo")).findFirst().orElseThrow();
+            check(ember.ok() && ember.warnings.isEmpty(), "ember_demo is clean: " + ember.problems + ember.warnings);
+            check(ember.kinds.contains("item") && ember.kinds.contains("event"), "ember_demo provides items and events: " + ember.kinds);
+            check(ember.events.size() == 6, "ember_demo has six event rules: " + ember.events.size());
+            check(ModEvents.commandCount(ember.events) == 1 && ember.manifest.effectiveCommandLevel() == 2, "one command, at level 2");
+            check(ember.events.stream().anyMatch(b -> b.event() == ModEvents.Event.ITEM_USE && "ember_demo:ember_wand".equals(b.target())), "the wand rule targets the mod's own item");
+            check(!ModEvents.wantsRandomTicks(ember.events, "ember_demo:anything"), "no block_random_tick rule, so no random ticks");
+
+            // The switch: commands are off until the player allows them, and the applied snapshot carries the choice.
+            check(!store.commandsAllowed(ember), "commands start switched off");
+            check(!store.apply(store.plan()).commandsAllowed().contains("ember_demo"), "an unapproved mod's commands are not in the snapshot");
+            check(store.allowCommands(ember) && store.commandsAllowed(ember), "allowing records the approval");
+            check(store.apply(store.plan()).commandsAllowed().contains("ember_demo"), "the snapshot now carries the approval");
+            check(store.readApplied().commandsAllowed().contains("ember_demo"), "the integrated-server worker reads the approval back");
+            check(ModView.commandState(ember, true, Boolean.TRUE) == ModView.CommandState.ALLOWED, "the screen shows the commands as allowed");
+            check(ModView.allowPrompt(ember).stream().anyMatch(l -> l.text().contains("particle minecraft:lava")), "the prompt shows the command it would allow");
+            List<ModView.Line> emberLines = ModView.details(store.installed().stream().filter(m -> m.id().equals("ember_demo")).findFirst().orElseThrow(), plan, Map.of(), true, Boolean.TRUE);
+            check(emberLines.stream().anyMatch(l -> l.text().contains("6 rules react to")), "details list the rules");
+            check(emberLines.stream().anyMatch(l -> l.text().equals("Commands are allowed.")), "details say the commands are allowed");
         } catch (IOException ex) {
             check(false, "could not read the example zips: " + ex);
         }

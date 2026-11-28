@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "id": "ember_demo",
+  "name": "Ember Demo",
+  "version": "1.0.0",
+  "description": "An ember wand and a handful of event rules: sparks, sounds, a free coal now and then, a welcome message. Shows events.json with no code.",
+  "authors": ["VBV examples"],
+  "provides": ["item", "event"],
+  "survival": true,
+  "multiplayer": false,
+  "command_level": 2,
+  "requires": {
+    "vbvclient": ">=2.0.0"
+  }
+}

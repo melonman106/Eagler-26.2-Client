@@ -1,0 +1,54 @@
+{
+  "events": [
+    {
+      "on": "item_use",
+      "target": "ember_wand",
+      "cooldown": 20,
+      "do": [
+        { "particle": "flame", "count": 25, "spread": 0.6 },
+        { "sound": "item.firecharge.use", "volume": 1.0, "pitch": 1.2 },
+        { "effect": "minecraft:fire_resistance", "duration": 200 },
+        { "damage_item": 1 }
+      ]
+    },
+    {
+      "on": "item_hit_entity",
+      "target": "ember_wand",
+      "do": [
+        { "command": "execute as @e[tag=vbv_other,limit=1] at @s run particle minecraft:lava ~ ~1 ~ 0.3 0.3 0.3 0 12" }
+      ]
+    },
+    {
+      "on": "item_hold_tick",
+      "target": "ember_wand",
+      "interval": 40,
+      "if": { "sneaking": true },
+      "do": [
+        { "particle": "small_flame", "count": 3, "spread": 0.3 }
+      ]
+    },
+    {
+      "on": "block_break",
+      "target": "minecraft:stone",
+      "if": { "holding": "ember_wand", "chance": 0.25 },
+      "do": [
+        { "give": "minecraft:coal", "count": 1 },
+        { "message": "The wand warmed the stone.", "actionbar": true }
+      ]
+    },
+    {
+      "on": "mob_death",
+      "target": "minecraft:zombie",
+      "if": { "dimension": "overworld", "time": "night" },
+      "do": [
+        { "particle": "soul", "count": 10, "spread": 0.4 }
+      ]
+    },
+    {
+      "on": "player_join",
+      "do": [
+        { "message": "Ember Demo is on: the ember wand has a few fiery tricks." }
+      ]
+    }
+  ]
+}

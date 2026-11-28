@@ -105,6 +105,18 @@ public final class ModEvents {
 
     public record Result(List<Binding> bindings, List<String> problems, List<String> warnings) {}
 
+    /**
+     * True when a mod block needs random ticks so its block_random_tick rules can fire. A rule aimed at a #tag counts
+     * for every block of the mod, because tags are not loaded yet when blocks are registered.
+     */
+    public static boolean wantsRandomTicks(List<Binding> bindings, String fullBlockId) {
+        for (Binding binding : bindings) {
+            if (binding.event() != Event.BLOCK_RANDOM_TICK) continue;
+            if (binding.targetIsTag() || fullBlockId.equals(binding.target())) return true;
+        }
+        return false;
+    }
+
     /** How many command actions the bindings hold. */
     public static int commandCount(List<Binding> bindings) {
         int count = 0;

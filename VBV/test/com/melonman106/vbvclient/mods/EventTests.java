@@ -21,6 +21,7 @@ final class EventTests {
         limits();
         inPackage();
         approvals();
+        randomTicks();
     }
 
     // ---- the command guard ----
@@ -62,6 +63,23 @@ final class EventTests {
         + "{\"on\":\"block_use\",\"target\":\"minecraft:dirt\",\"do\":[{\"command\":\"summon minecraft:chicken {x} {y} {z}\"}]},"
         + "{\"on\":\"mob_tick\",\"target\":\"#minecraft:zombies\",\"interval\":30,\"do\":[{\"command\":\"say hi\"}]},"
         + "{\"on\":\"player_join\",\"do\":[{\"message\":\"Welcome\"}]}]}";
+
+    static void randomTicks() {
+        List<ModEvents.Binding> none = ModEvents.parse("m", GOOD).bindings();
+        check(!ModEvents.wantsRandomTicks(none, "m:glow") && !ModEvents.wantsRandomTicks(List.of(), "m:glow"),
+            "no block_random_tick rule: no block asks for random ticks");
+        List<ModEvents.Binding> one = ModEvents.parse("m",
+            "{\"events\":[{\"on\":\"block_random_tick\",\"target\":\"glow\",\"do\":[{\"command\":\"say tick\"}]}]}").bindings();
+        check(ModEvents.wantsRandomTicks(one, "m:glow"), "the targeted block asks for random ticks");
+        check(!ModEvents.wantsRandomTicks(one, "m:stone"), "another block of the mod does not");
+        check(!ModEvents.wantsRandomTicks(one, "minecraft:glow"), "a block of another namespace does not");
+        List<ModEvents.Binding> tag = ModEvents.parse("m",
+            "{\"events\":[{\"on\":\"block_random_tick\",\"target\":\"#minecraft:flowers\",\"do\":[{\"message\":\"hi\"}]}]}").bindings();
+        check(ModEvents.wantsRandomTicks(tag, "m:anything"), "a tag target asks for every block of the mod");
+        List<ModEvents.Binding> other = ModEvents.parse("m",
+            "{\"events\":[{\"on\":\"block_break\",\"target\":\"glow\",\"do\":[{\"message\":\"hi\"}]}]}").bindings();
+        check(!ModEvents.wantsRandomTicks(other, "m:glow"), "only block_random_tick rules count");
+    }
 
     static void parsing() {
         ModEvents.Result result = ModEvents.parse("ruby_tools", GOOD);

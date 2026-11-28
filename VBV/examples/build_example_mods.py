@@ -155,6 +155,10 @@ EXTRA_FILES = {
         "assets/ruby_tools/textures/item/ruby_sword.png": art(SWORD),
         "assets/ruby_tools/textures/item/ruby_apple.png": art(APPLE),
     },
+    "ember_demo": {
+        "pack.png": art(WAND, 4),
+        "assets/ember_demo/textures/item/ember_wand.png": art(WAND),
+    },
     "fabric_style_demo": {
         "assets/fabric_style_demo/icon.png": art(INGOT, 4),
         "assets/fabric_style_demo/textures/item/demo_ingot.png": art(INGOT),

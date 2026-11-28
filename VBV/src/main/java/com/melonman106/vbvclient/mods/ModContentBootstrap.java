@@ -50,7 +50,7 @@ public final class ModContentBootstrap {
         }
         for (ModPackage pkg : mods) {
             if (pkg.content == null) continue;
-            for (ModContent.BlockDef def : pkg.content.blocks) registerBlock(pkg.manifest.id, def);
+            for (ModContent.BlockDef def : pkg.content.blocks) registerBlock(pkg.manifest.id, def, pkg.events);
             for (ModContent.CropDef def : pkg.content.crops) registerCrop(pkg.manifest.id, def);
             if (pkg.content.hud != null) HUDS.add(pkg.content.hud);
         }
@@ -128,7 +128,7 @@ public final class ModContentBootstrap {
         }
     }
 
-    private static void registerBlock(String modId, ModContent.BlockDef def) {
+    private static void registerBlock(String modId, ModContent.BlockDef def, List<ModEvents.Binding> events) {
         try {
             ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, id(modId, def.id()));
             BlockBehaviour.Properties properties = BlockBehaviour.Properties.of()
@@ -137,6 +137,8 @@ public final class ModContentBootstrap {
                 .sound(sound(def.sound()))
                 .lightLevel(state -> def.light())
                 .setId(key);
+            // Only blocks that a block_random_tick rule asks about are put on the random-tick list.
+            if (ModEvents.wantsRandomTicks(events, full(modId, def.id()))) properties.randomTicks();
             ModBlock block = new ModBlock(properties);
             block.withDrop(() -> item(modId, def.id()));
             Registry.register(BuiltInRegistries.BLOCK, key, block);

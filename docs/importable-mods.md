@@ -30,6 +30,7 @@ my_mod.zip
 ├── pack.png             icon, PNG, up to 512 KB  (any size; 64x64 is typical)
 ├── items.json           items, food and potion items
 ├── content.json         optional: effects, potions, blocks, crops, HUD and recipes
+├── events.json          optional: rules that react to things in the world (see below)
 ├── assets/<mod id>/
 │   ├── textures/item/<item>.png     one per item (textures/block/ also works)
 │   ├── textures/block/<block>.png   block and crop textures
@@ -66,6 +67,8 @@ A folder wrapping everything inside the zip is unwrapped. `.class` and `.jar` fi
 * `requires`, `recommends`, `conflicts`, `breaks`: an object of `id: version range`, a list of such objects, or a list of
   strings like `"othermod >=1.2"`. Ranges follow Fabric: `>= <= > < =`, `~1.2`, `^1.2`, `1.x`, spaces for AND, `||` for OR.
 * `survival` / `multiplayer`: the author's own statement, shown on the details page. They do not change behaviour.
+* `command_level` (optional, 0 to 2): the permission level commands in `events.json` run at. Default 2 when the mod has any
+  command, and anything above 2 is lowered to 2.
 
 ### fabric.mod.json
 
@@ -157,6 +160,55 @@ At most 256 items per mod.
 * **recipes:** ordinary Minecraft recipe JSON. Up to 256 per mod. They are merged after the game's own recipes, so they can
   use vanilla and imported ingredients.
 
+### events.json
+
+`events.json` is optional. Each rule says: when this happens (`on`), to this item, block or mob (`target`), and
+(optionally) only if these conditions hold (`if`), do these actions (`do`). Rules run **after** the game has done its own
+thing; they never cancel or change it. A mod needs no code for this.
+
+```json
+{
+  "events": [
+    { "on": "item_use", "target": "ember_wand", "cooldown": 20,
+      "do": [ { "particle": "flame", "count": 25, "spread": 0.6 },
+              { "sound": "item.firecharge.use", "pitch": 1.2 },
+              { "effect": "minecraft:fire_resistance", "duration": 200 },
+              { "damage_item": 1 } ] },
+    { "on": "block_break", "target": "minecraft:stone",
+      "if": { "holding": "ember_wand", "chance": 0.25 },
+      "do": [ { "give": "minecraft:coal", "count": 1 }, { "message": "Warm stone.", "actionbar": true } ] },
+    { "on": "item_hit_entity", "target": "ember_wand",
+      "do": [ { "command": "execute as @e[tag=vbv_other,limit=1] at @s run particle minecraft:lava ~ ~1 ~ 0.3 0.3 0.3 0 12" } ] }
+  ]
+}
+```
+
+* **`on`:** `item_use`, `item_use_on_block`, `item_hit_entity`, `item_finish_using` (eating, drinking), `item_hold_tick`;
+  `block_break`, `block_place`, `block_use`, `block_step_on`, `block_random_tick`; `mob_spawn`, `mob_death`, `mob_hurt`,
+  `mob_attack`, `mob_tick`; `player_join`.
+* **`target`:** an item, block or mob id, or a `#tag`. A bare id (`ember_wand`) means this mod's own; use `minecraft:stone`
+  for the game's. Leave it out for `player_join`.
+* **`cooldown`** (ticks, per player or mob) and **`interval`** (ticks, at least 10, for the `*_tick` events).
+* **`if`** (every entry must hold): `chance` (0 to 1), `sneaking`, `dimension`, `biome` (ids or `#tags`), `time` (`day` or
+  `night`), `weather` (`clear`, `rain`, `thunder`), `y_min`, `y_max`, `holding` (item id or `#tag`), `health_below` (a
+  fraction). Bare dimension, biome, sound and particle ids mean `minecraft:`.
+* **Actions that need no approval** (plain ids, numbers and text only): `effect` (`duration` in ticks, `amplifier`, and
+  `"to": "other"` for the other party), `give` (an item and a `count`), `message` (plain text, `"actionbar": true`), `sound`
+  (`volume`, `pitch`), `particle` (`count`, `spread`), `damage_item`, `consume_item`.
+* **`command`:** any game command, with `{x}`, `{y}`, `{z}` replaced by the block position. It runs **only after the player
+  switches on "Allow cmds"** for the mod on the Mods screen (the button asks twice and lists the commands). Allowing applies
+  the next time the game starts. Commands run at permission level 2 or lower, with chat output off. Commands that could
+  harm the server or the world's settings (`op`, `stop`, `ban`, `whitelist`, `save-*`, `reload`, `kick`, `publish`, `debug`,
+  `transfer` and similar) are always refused, even after `execute ... run`.
+* **Who is `@s`:** the player, or the mob the event is about. The other party (the one hit, the attacker, the killer) carries
+  the tag `vbv_other` while the commands run, so `@e[tag=vbv_other,limit=1]` reaches it. `block_random_tick` has no `@s`:
+  its commands run as the server at the block.
+* **Limits:** 256 rules, 8 actions each, 512 characters per command, and a budget of commands and actions per tick so a rule
+  that triggers itself cannot freeze the game. A rule that goes over is skipped and a warning is logged once.
+* **Good to know:** `block_step_on` fires at most every 10 ticks per creature. `mob_spawn` fires for mobs that just
+  appeared, not for mobs loaded back from a saved chunk. Block events are for players, except `block_step_on` (also mobs).
+  Rules run in the game's own world (single player and the LAN host). On someone else's server they do nothing.
+
 ### Limits
 
 A zip may be up to 24 MB, 4000 entries, 8 MB per file and 48 MB unpacked; textures up to 4096 px. Paths containing `..`,
@@ -208,7 +260,7 @@ at start-up**:
 
 ## Limits worth knowing
 
-* Items, blocks, crops, effects, potions, HUD panels and recipes. Entities, tags and loot tables are not loaded yet.
+* Items, blocks, crops, effects, potions, HUD panels, recipes and event rules. Entities, tags and loot tables are not loaded yet.
 * No Java: entrypoints, mixins and jars are never run.
 * **Multiplayer:** there is no id sync. A server that does not know the items cannot use them; do not expect imported
   items to work on servers.
@@ -228,6 +280,9 @@ VBV/src/main/java/com/melonman106/vbvclient/mods/   core (ModVersion, FabricFake
 VBV/src/main/java/com/melonman106/vbvclient/VBVImportedModsScreen.java
 VBV/patch/patch_mods_hooks.py        four exact-once hooks: BuiltInRegistries.bootStrap(), the Minecraft pack
                                      repository, CreativeModeTab.buildContents(), RecipeManager.apply()
+VBV/patch/patch_mods_events_hooks.py 18 exact-once calls placed after the game's own item use, block, mob and
+                                     player actions (events.json); ModEvents, EventDispatcher and CommandGuard are
+                                     the game-free core, ModEventRuntime and ModEventHooks the game side
 VBV/test/run-mods-core-tests.sh      plain-JVM checks (needs a Gson jar; also builds and imports the examples)
-VBV/examples/                        two example mods and the script that zips them
+VBV/examples/                        three example mods (ruby_tools, fabric_style_demo, ember_demo) and the script that zips them
 ```
