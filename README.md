@@ -121,9 +121,9 @@ Mods can also be imported at runtime from **Mods → Imported Mods... → Import
 `info.json` (or a Fabric-style `fabric.mod.json`), an `items.json`, a `pack.png` and an `assets/` folder; it contains no code.
 Mods that depend on Fabric Loader or Fabric API load because the client reports those as present (faked), while the
 parts of Fabric API a data mod can really use — item settings, vanilla creative tabs, resource loading and item
-registration — are backed by real code. A mod can add items, blocks, crops, effects, potions, HUD panels and crafting recipes (entities and tags are accepted but ignored). See
+registration — are backed by real code. A mod can add items, blocks, crops, effects, potions, HUD panels and crafting recipes, and (in `events.json`) rules that react to item use, block breaking, mob deaths and similar events with effects, items, sounds, particles or — once the player switches on **Allow cmds** — game commands (entities and tags are accepted but ignored). See
 [`docs/importable-mods.md`](docs/importable-mods.md) for the format, the Fabric table, safe mode (`?nomods=1`, `?safe`) and the
-limits, and `VBV/examples/` for two example mods (items only). It has not been run in the game yet.
+limits, and `VBV/examples/` for three example mods (items; Fabric-style; events). It has not been run in the game yet.
 
 ---
 

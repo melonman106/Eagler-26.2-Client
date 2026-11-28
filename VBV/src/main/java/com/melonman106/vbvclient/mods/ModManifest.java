@@ -22,8 +22,8 @@ import java.util.regex.Pattern;
 public final class ModManifest {
     public static final int SCHEMA = 1;
     public static final Pattern ID = Pattern.compile("[a-z][a-z0-9_-]{1,63}");
-    /** Kinds of content a mod can declare. Items, blocks, effects, potions, crops, HUDs and recipes are loaded. */
-    public static final List<String> KINDS = List.of("item", "block", "entity", "effect", "potion", "crop", "hud", "recipe");
+    /** Kinds of content a mod can declare. Items, blocks, effects, potions, crops, HUDs, recipes and events are loaded. */
+    public static final List<String> KINDS = List.of("item", "block", "entity", "effect", "potion", "crop", "hud", "recipe", "event");
 
     public enum Format { VBV, FABRIC }
 
@@ -44,10 +44,13 @@ public final class ModManifest {
     public final String icon;
     /** True when a fabric.mod.json lists Java entrypoints, mixins or jars, none of which can run here. */
     public final boolean hasJavaCode;
+    /** The permission level the mod asks for its commands (0-2, never more), or -1 when info.json does not say. */
+    public final int commandLevel;
 
     private ModManifest(Format format, String id, String name, String version, String description, List<String> authors,
                         boolean survival, boolean multiplayer, String environment, List<FabricFaker.Dependency> dependencies,
-                        List<String> declaredKinds, String icon, boolean hasJavaCode) {
+                        List<String> declaredKinds, String icon, boolean hasJavaCode, int commandLevel) {
+        this.commandLevel = commandLevel;
         this.format = format;
         this.id = id;
         this.name = name;
@@ -121,6 +124,19 @@ public final class ModManifest {
         boolean survival = bool(root, "survival", true, file, problems);
         boolean multiplayer = bool(root, "multiplayer", false, file, problems);
 
+        int commandLevel = -1;
+        if (format == Format.VBV && root.has("command_level")) {
+            Integer level = integer(root.get("command_level"));
+            if (level == null) {
+                problems.add(file + ": \"command_level\" must be a whole number from 0 to " + CommandGuard.MAX_LEVEL + ".");
+            } else {
+                commandLevel = CommandGuard.clampLevel(level);
+                if (commandLevel != level) {
+                    warnings.add(file + ": \"command_level\" " + level + " was changed to " + commandLevel + " (a mod's commands never run above level " + CommandGuard.MAX_LEVEL + ").");
+                }
+            }
+        }
+
         String environment = "*";
         if (root.has("environment")) {
             String value = root.get("environment").isJsonPrimitive() ? root.get("environment").getAsString() : "";
@@ -165,8 +181,13 @@ public final class ModManifest {
 
         if (!problems.isEmpty()) return new Result(null, problems, warnings);
         ModManifest manifest = new ModManifest(format, id, name, version, description, authors, survival, multiplayer,
-            environment, dependencies, kinds, icon, hasJavaCode);
+            environment, dependencies, kinds, icon, hasJavaCode, commandLevel);
         return new Result(manifest, problems, warnings);
+    }
+
+    /** The permission level this mod's commands run at: what info.json asked for, else {@link CommandGuard#MAX_LEVEL}. */
+    public int effectiveCommandLevel() {
+        return commandLevel < 0 ? CommandGuard.MAX_LEVEL : commandLevel;
     }
 
     // ---- helpers ----

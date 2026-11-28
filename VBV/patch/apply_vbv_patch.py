@@ -46,6 +46,7 @@ REQUIRED_PATCH_SCRIPTS = (
     "pack_json_merge.py",
     "patch_keybind_dispatch.py",
     "patch_mods_hooks.py",
+    "patch_mods_events_hooks.py",
     "patch_punchy_hooks.py",
 )
 missing_scripts = [name for name in REQUIRED_PATCH_SCRIPTS if not (PATCH_DIR / name).is_file()]
@@ -561,6 +562,12 @@ if inventory_sorter.is_file():
 mods_hooks = PATCH_DIR / "patch_mods_hooks.py"
 if mods_hooks.is_file():
     subprocess.run([sys.executable, str(mods_hooks), *sys.argv[1:]], check=True)
+
+# Importable mods, events.json: calls placed after the game's own item use, block break/place/use, stepping, random
+# ticks and mob spawn/hurt/death/attack/tick, plus player join. Each call does nothing unless a loaded mod has a rule.
+mods_events_hooks = PATCH_DIR / "patch_mods_events_hooks.py"
+if mods_events_hooks.is_file():
+    subprocess.run([sys.executable, str(mods_events_hooks), *sys.argv[1:]], check=True)
 
 # Punchy resource packs: the pack's first-person animation files are read on every resource reload, and the
 # first-person arm/item draw is offered to VBVPunchy first. Needs patch_cem_hooks.py (its reload line is an anchor).

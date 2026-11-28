@@ -209,11 +209,62 @@ public final class ModStore {
         files.delete(FOLDER + "/" + id + ".zip");
         JsonObject state = state();
         Set<String> off = disabled(state);
-        if (off.remove(id)) {
-            writeDisabled(state, off);
-            saveState(state);
+        boolean changed = off.remove(id);
+        if (changed) writeDisabled(state, off);
+        JsonElement approvals = state.get("commands");
+        if (approvals != null && approvals.isJsonObject() && approvals.getAsJsonObject().has(id)) {
+            approvals.getAsJsonObject().remove(id);
+            changed = true;
         }
+        if (changed) saveState(state);
         return true;
+    }
+
+    // ---- command approval ----
+    //
+    // A mod's commands only run after the player has allowed them for that mod. What was allowed is the exact list of
+    // command texts the mod had at that moment (kept in state.json), not a flag: a replaced mod that adds a command
+    // that was not approved has to be allowed again, while one that only drops commands keeps its approval. Like
+    // every other change, the switch takes effect at the next start (it is copied into the applied list).
+
+    /** The command texts the player approved for a mod. */
+    public Set<String> approvedCommands(String id) {
+        Set<String> out = new HashSet<>();
+        JsonElement all = state().get("commands");
+        if (all != null && all.isJsonObject()) {
+            JsonElement list = all.getAsJsonObject().get(id);
+            if (list != null && list.isJsonArray()) {
+                for (JsonElement entry : list.getAsJsonArray()) {
+                    if (entry.isJsonPrimitive() && entry.getAsJsonPrimitive().isString()) out.add(entry.getAsString());
+                }
+            }
+        }
+        return out;
+    }
+
+    /** True when the mod has commands and every one of them has been approved. A mod without commands has nothing to allow. */
+    public boolean commandsAllowed(ModPackage pkg) {
+        List<String> texts = ModEvents.commandTexts(pkg.events);
+        return !texts.isEmpty() && approvedCommands(pkg.manifest.id).containsAll(texts);
+    }
+
+    /** Approves exactly the commands the mod has now. */
+    public boolean allowCommands(ModPackage pkg) {
+        JsonObject state = state();
+        JsonObject all = state.has("commands") && state.get("commands").isJsonObject() ? state.getAsJsonObject("commands") : new JsonObject();
+        JsonArray array = new JsonArray();
+        for (String text : ModEvents.commandTexts(pkg.events)) array.add(text);
+        all.add(pkg.manifest.id, array);
+        state.add("commands", all);
+        return saveState(state);
+    }
+
+    public boolean revokeCommands(String id) {
+        JsonObject state = state();
+        JsonElement all = state.get("commands");
+        if (all == null || !all.isJsonObject() || !all.getAsJsonObject().has(id)) return true;
+        all.getAsJsonObject().remove(id);
+        return saveState(state);
     }
 
     public boolean setEnabled(String id, boolean enabled) {
@@ -244,8 +295,15 @@ public final class ModStore {
     public static final String APPLIED_JSON = FOLDER + "/applied.json";
     public static final String APPLIED_FOLDER = FOLDER + "/applied";
 
-    /** The mods a realm registers. {@code problems} is not empty when the snapshot could not be reproduced exactly. */
-    public record Applied(List<ModPackage> mods, List<String> problems, boolean safeMode) {}
+    /**
+     * The mods a realm registers. {@code problems} is not empty when the snapshot could not be reproduced exactly.
+     * {@code commandsAllowed} holds the ids of the mods whose commands the player had allowed when the game started.
+     */
+    public record Applied(List<ModPackage> mods, List<String> problems, boolean safeMode, Set<String> commandsAllowed) {
+        public Applied(List<ModPackage> mods, List<String> problems, boolean safeMode) {
+            this(mods, problems, safeMode, Set.of());
+        }
+    }
 
     private static String hex(long crc) { return String.format("%08x", crc & 0xFFFFFFFFL); }
 
@@ -261,6 +319,7 @@ public final class ModStore {
         List<ModPackage> loaded = new ArrayList<>();
         JsonArray list = new JsonArray();
         Set<String> keep = new HashSet<>();
+        Set<String> allowed = new HashSet<>();
         for (ModPackage pkg : plan.active()) {
             String name = appliedName(pkg.manifest.id, pkg.crc);
             byte[] existing = files.read(APPLIED_FOLDER + "/" + name);
@@ -275,6 +334,10 @@ public final class ModStore {
             entry.addProperty("id", pkg.manifest.id);
             entry.addProperty("version", pkg.manifest.version);
             entry.addProperty("crc", hex(pkg.crc));
+            if (commandsAllowed(pkg)) {
+                entry.addProperty("commands", true);
+                allowed.add(pkg.manifest.id);
+            }
             list.add(entry);
             loaded.add(pkg);
         }
@@ -289,7 +352,7 @@ public final class ModStore {
         for (String name : files.list(APPLIED_FOLDER)) {
             if (!keep.contains(name)) files.delete(APPLIED_FOLDER + "/" + name);
         }
-        return new Applied(loaded, problems, plan.safeMode());
+        return new Applied(loaded, problems, plan.safeMode(), allowed);
     }
 
     /** Integrated-server worker start-up: load exactly what the client registered. */
@@ -310,6 +373,7 @@ public final class ModStore {
         boolean safe = root.has("safe") && root.get("safe").isJsonPrimitive() && root.get("safe").getAsJsonPrimitive().isBoolean() && root.get("safe").getAsBoolean();
         JsonElement list = root.get("mods");
         if (list == null || !list.isJsonArray()) return new Applied(mods, problems, safe);
+        Set<String> allowed = new HashSet<>();
         for (JsonElement element : list.getAsJsonArray()) {
             if (!element.isJsonObject()) continue;
             JsonObject entry = element.getAsJsonObject();
@@ -331,14 +395,18 @@ public final class ModStore {
                 continue;
             }
             mods.add(pkg);
+            if (entry.has("commands") && entry.get("commands").isJsonPrimitive() && entry.get("commands").getAsJsonPrimitive().isBoolean()
+                && entry.get("commands").getAsBoolean() && !ModEvents.commandTexts(pkg.events).isEmpty()) {
+                allowed.add(id);
+            }
         }
-        return new Applied(mods, problems, safe);
+        return new Applied(mods, problems, safe, allowed);
     }
 
     /** True when what the plan would load now differs from what the game loaded at start-up (so a restart is needed). */
     public boolean restartNeeded(Plan plan) {
         Set<String> now = new HashSet<>();
-        for (ModPackage pkg : plan.active()) now.add(pkg.manifest.id + ":" + hex(pkg.crc));
+        for (ModPackage pkg : plan.active()) now.add(pkg.manifest.id + ":" + hex(pkg.crc) + ":" + (commandsAllowed(pkg) ? "1" : "0"));
         Set<String> then = new HashSet<>();
         byte[] raw = files.read(APPLIED_JSON);
         if (raw != null) {
@@ -348,7 +416,11 @@ public final class ModStore {
                     for (JsonElement element : parsed.getAsJsonObject().getAsJsonArray("mods")) {
                         if (!element.isJsonObject()) continue;
                         JsonObject entry = element.getAsJsonObject();
-                        if (entry.has("id") && entry.has("crc")) then.add(entry.get("id").getAsString() + ":" + entry.get("crc").getAsString());
+                        if (entry.has("id") && entry.has("crc")) {
+                            boolean commands = entry.has("commands") && entry.get("commands").isJsonPrimitive()
+                                && entry.get("commands").getAsJsonPrimitive().isBoolean() && entry.get("commands").getAsBoolean();
+                            then.add(entry.get("id").getAsString() + ":" + entry.get("crc").getAsString() + ":" + (commands ? "1" : "0"));
+                        }
                     }
                 }
             } catch (JsonParseException | IllegalStateException | UnsupportedOperationException ignored) {

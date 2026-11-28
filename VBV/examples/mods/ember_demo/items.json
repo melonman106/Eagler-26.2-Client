@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "id": "ember_wand",
+      "name": "Ember Wand",
+      "durability": 200,
+      "enchantability": 10,
+      "rarity": "uncommon",
+      "creative_tab": "tools_and_utilities"
+    }
+  ]
+}

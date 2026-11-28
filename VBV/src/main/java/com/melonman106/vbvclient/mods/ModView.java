@@ -69,8 +69,40 @@ public final class ModView {
         }
     }
 
-    /** The lines of the details pane for one installed mod. */
+    /** Whether a mod's commands run: what the game started with compared with what the player has allowed since. */
+    public enum CommandState { NONE, ALLOWED, NOT_ALLOWED, ALLOWED_AFTER_RESTART, NOT_ALLOWED_AFTER_RESTART }
+
+    /**
+     * @param approved       the player's switch as stored now
+     * @param appliedAllowed what the game started with, or null when the mod is not loaded in this session
+     */
+    public static CommandState commandState(ModPackage pkg, boolean approved, Boolean appliedAllowed) {
+        if (pkg == null || ModEvents.commandCount(pkg.events) == 0) return CommandState.NONE;
+        if (appliedAllowed == null || appliedAllowed == approved) return approved ? CommandState.ALLOWED : CommandState.NOT_ALLOWED;
+        return approved ? CommandState.ALLOWED_AFTER_RESTART : CommandState.NOT_ALLOWED_AFTER_RESTART;
+    }
+
+    /** The lines shown when the player asks to allow a mod's commands: exactly what they would be allowing. */
+    public static List<Line> allowPrompt(ModPackage pkg) {
+        List<Line> out = new ArrayList<>();
+        List<String> texts = ModEvents.commandTexts(pkg.events);
+        out.add(new Line("Allow " + pkg.manifest.id + " to run commands?", Tone.HEADING));
+        out.add(new Line("It has " + texts.size() + (texts.size() == 1 ? " command" : " different commands") + " and runs them at permission level "
+            + pkg.manifest.effectiveCommandLevel() + ", as the server does for a data pack. Commands can change or damage your world. Only allow mods you trust.", Tone.WARN));
+        for (int i = 0; i < texts.size() && i < 10; i++) out.add(new Line("/" + texts.get(i), Tone.NORMAL));
+        if (texts.size() > 10) out.add(new Line("... and " + (texts.size() - 10) + " more.", Tone.NORMAL));
+        out.add(new Line("Click Allow cmds again to confirm. The change applies the next time the game starts.", Tone.NORMAL));
+        return out;
+    }
+
+    /** As {@link #details(ModStore.Installed, ModStore.Plan, Map, boolean, Boolean)}, with the commands not allowed. */
     public static List<Line> details(ModStore.Installed mod, ModStore.Plan plan, Map<String, Long> loaded) {
+        return details(mod, plan, loaded, false, null);
+    }
+
+    /** The lines of the details pane for one installed mod. */
+    public static List<Line> details(ModStore.Installed mod, ModStore.Plan plan, Map<String, Long> loaded,
+                                     boolean commandsApproved, Boolean commandsApplied) {
         List<Line> out = new ArrayList<>();
         Status status = status(mod, plan, loaded);
         ModPackage pkg = mod.pkg();
@@ -110,6 +142,25 @@ public final class ModView {
         }
         if (!pkg.ignoredLists.isEmpty()) {
             out.add(new Line("Not supported yet, so left out: " + String.join(", ", pkg.ignoredLists), Tone.WARN));
+        }
+
+        if (!pkg.events.isEmpty()) {
+            out.add(new Line("Events", Tone.HEADING));
+            java.util.Set<String> names = new java.util.TreeSet<>();
+            for (ModEvents.Binding binding : pkg.events) names.add(binding.event().id);
+            out.add(new Line(pkg.events.size() + (pkg.events.size() == 1 ? " rule reacts to: " : " rules react to: ") + String.join(", ", names) + ".", Tone.NORMAL));
+            CommandState commands = commandState(pkg, commandsApproved, commandsApplied);
+            int count = ModEvents.commandCount(pkg.events);
+            if (commands != CommandState.NONE) {
+                out.add(new Line("Runs commands: " + count + (count == 1 ? " command action" : " command actions") + " at permission level "
+                    + m.effectiveCommandLevel() + ".", Tone.WARN));
+                switch (commands) {
+                    case ALLOWED: out.add(new Line("Commands are allowed.", Tone.GOOD)); break;
+                    case NOT_ALLOWED: out.add(new Line("Commands are not allowed, so its command actions are skipped (its other actions still work). Use Allow cmds to turn them on.", Tone.WARN)); break;
+                    case ALLOWED_AFTER_RESTART: out.add(new Line("Commands are allowed from the next time the game starts.", Tone.NORMAL)); break;
+                    default: out.add(new Line("Commands stop being allowed from the next time the game starts.", Tone.NORMAL)); break;
+                }
+            }
         }
 
         List<FabricFaker.Dependency> deps = m.dependencies;

@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -49,6 +51,7 @@ public final class ModBootstrap {
     private static final List<ModPackage> LOADED = new ArrayList<>();
     private static final Map<String, Report> REPORTS = new LinkedHashMap<>();
     private static final List<String> MESSAGES = new ArrayList<>();
+    private static final Set<String> COMMANDS_ALLOWED = new HashSet<>();
     private static boolean guardTripped;
     private static String sessionSafeReason;
 
@@ -74,6 +77,19 @@ public final class ModBootstrap {
     /** Notes for the Mods screen (safe mode, items left out, storage trouble). */
     public static synchronized List<String> messages() {
         return Collections.unmodifiableList(new ArrayList<>(MESSAGES));
+    }
+
+    /** True when the player had allowed this loaded mod's commands when the game started (the switch is read once, at start-up). */
+    public static synchronized boolean commandsAllowed(String modId) {
+        return COMMANDS_ALLOWED.contains(modId);
+    }
+
+    /** What the game started with for a mod's commands, or null when the mod is not loaded in this session. */
+    public static synchronized Boolean commandsApplied(String modId) {
+        for (ModPackage pkg : LOADED) {
+            if (pkg.manifest.id.equals(modId)) return COMMANDS_ALLOWED.contains(modId);
+        }
+        return null;
     }
 
     /** Why this session started without mods because of the page address ({@code ?safe}, {@code ?nomods=1}), or null. */
@@ -131,6 +147,7 @@ public final class ModBootstrap {
             }
         }
 
+        COMMANDS_ALLOWED.addAll(applied.commandsAllowed());
         // Effects, potions, blocks and crops first: an item's potion component and a crop's drops need them.
         ModContentBootstrap.registerAll(applied.mods());
         for (ModPackage pkg : applied.mods()) {
